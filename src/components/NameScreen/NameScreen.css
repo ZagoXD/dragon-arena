@@ -1,0 +1,136 @@
+/* ============================================================
+   NameScreen — Dark themed name-entry screen
+   ============================================================ */
+
+.name-screen {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #0a0a0f;
+}
+
+/* Animated background radial glow */
+.name-screen__bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 40%, rgba(220, 60, 20, 0.18) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(90, 30, 180, 0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Floating card */
+.name-screen__card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 3rem 3.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 0 60px rgba(220, 60, 20, 0.12),
+    0 20px 60px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  min-width: 360px;
+}
+
+/* Title */
+.name-screen__title {
+  margin: 0;
+  font-size: 3rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.name-screen__title-dragon {
+  color: #ff5a20;
+  text-shadow: 0 0 24px rgba(255, 90, 32, 0.7);
+}
+
+.name-screen__title-arena {
+  color: #e8e8f0;
+}
+
+.name-screen__subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Form */
+.name-screen__form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.name-screen__label {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.name-screen__input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8e8f0;
+  font-size: 1.1rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.name-screen__input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.name-screen__input:focus {
+  border-color: rgba(255, 90, 32, 0.6);
+  box-shadow: 0 0 0 3px rgba(255, 90, 32, 0.15);
+}
+
+/* OK button */
+.name-screen__btn {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  border: none;
+  background: linear-gradient(135deg, #ff5a20 0%, #c03010 100%);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(255, 90, 32, 0.4);
+}
+
+.name-screen__btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 28px rgba(255, 90, 32, 0.55);
+}
+
+.name-screen__btn:active {
+  transform: translateY(0);
+  opacity: 1;
+}

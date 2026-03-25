@@ -1,0 +1,16 @@
+/* ============================================================
+   Projectile
+   ============================================================ */
+
+.projectile {
+  position: absolute;
+  image-rendering: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background-repeat: no-repeat;
+  will-change: transform, left, top;
+  z-index: 50; /* Above ground, below HUD */
+  pointer-events: none;
+  /* Add a bit of glow to make it pop */
+  filter: drop-shadow(0 0 8px rgba(255, 100, 0, 0.8));
+}

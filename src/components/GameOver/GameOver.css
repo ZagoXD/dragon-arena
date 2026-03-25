@@ -1,0 +1,99 @@
+/* ============================================================
+   GameOver screen
+   ============================================================ */
+
+.gameover {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #050508;
+}
+
+.gameover__bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 45% at 50% 45%, rgba(180, 10, 10, 0.22) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 30% 80%, rgba(60, 0, 100, 0.1) 0%, transparent 60%);
+  animation: gameover-pulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes gameover-pulse {
+  from { opacity: 0.7; }
+  to   { opacity: 1;   }
+}
+
+.gameover__card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 3rem 4rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 60, 60, 0.2);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 0 60px rgba(200, 10, 10, 0.15),
+    0 20px 60px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px);
+  text-align: center;
+}
+
+.gameover__skull {
+  font-size: 4rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 16px rgba(255, 60, 60, 0.7));
+  animation: skull-bounce 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes skull-bounce {
+  from { transform: translateY(0);    }
+  to   { transform: translateY(-8px); }
+}
+
+.gameover__title {
+  margin: 0;
+  font-size: 2.8rem;
+  font-weight: 900;
+  color: #ff3c3c;
+  text-shadow: 0 0 30px rgba(255, 60, 60, 0.6);
+  letter-spacing: -0.02em;
+}
+
+.gameover__sub {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.gameover__btn {
+  margin-top: 0.5rem;
+  padding: 0.85rem 2.5rem;
+  border-radius: 0.75rem;
+  border: none;
+  background: linear-gradient(135deg, #c01010 0%, #7a0000 100%);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(200, 0, 0, 0.4);
+}
+
+.gameover__btn:hover {
+  opacity: 0.85;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 28px rgba(200, 0, 0, 0.55);
+}
+
+.gameover__btn:active {
+  transform: translateY(0);
+}
