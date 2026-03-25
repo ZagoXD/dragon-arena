@@ -34,7 +34,12 @@ export function Player({ playerName, character, x, y, direction, animRow, hp }: 
   return (
     <div
       className="player"
-      style={{ left: x, top: y, width: renderedWidth, height: renderedHeight }}
+      style={{ 
+        left: x - (renderedWidth - 64) / 2, 
+        top: y - (renderedHeight - 64), 
+        width: renderedWidth, 
+        height: renderedHeight 
+      }}
     >
       {/* Overhead label: name + HP bar */}
       <div className="player__overhead">

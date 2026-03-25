@@ -4,15 +4,38 @@
 
 GameWorld::GameWorld() {
     charConfigs = GameConfig::get_characters();
-    // Iniciar Dummies com deathTime = 0
-    dummies["d1"] = {"d1", 2048.0f / 2 - 200, 1280.0f / 2 - 200, 500, 0};
-    dummies["d2"] = {"d2", 2048.0f / 2 + 200, 1280.0f / 2 - 100, 500, 0};
-    dummies["d3"] = {"d3", 2048.0f / 2,       1280.0f / 2 + 250, 500, 0};
+    
+    mapLoader.loadMap("map-assets/tiled/default_map.tmj");
+    
+    const auto& dSpawns = mapLoader.getDummySpawns();
+    if (!dSpawns.empty()) {
+        for (size_t i = 0; i < dSpawns.size(); ++i) {
+            std::string dId = dSpawns[i].name;
+            if (dId.empty() || dId == "unknown") dId = "d" + std::to_string(i + 1);
+            dummies[dId] = {dId, dSpawns[i].x, dSpawns[i].y, 500, 0};
+        }
+    } else {
+        dummies["d1"] = {"d1", 2048.0f / 2 - 200, 1280.0f / 2 - 200, 500, 0};
+        dummies["d2"] = {"d2", 2048.0f / 2 + 200, 1280.0f / 2 - 100, 500, 0};
+        dummies["d3"] = {"d3", 2048.0f / 2,       1280.0f / 2 + 250, 500, 0};
+    }
 }
 
 void GameWorld::addPlayer(std::string id, std::string name, std::string charId, int maxHp) {
     std::lock_guard<std::mutex> lock(mtx);
-    players[id] = Player(id, name, charId, maxHp);
+    Player p(id, name, charId, maxHp);
+    
+    const auto& pSpawns = mapLoader.getPlayerSpawns();
+    if (!pSpawns.empty()) {
+        int r = rand() % pSpawns.size();
+        p.x = pSpawns[r].x;
+        p.y = pSpawns[r].y;
+    } else {
+        p.x = mapLoader.isLoaded() ? mapLoader.getWidthPixels() / 2.0f : 1024.0f;
+        p.y = mapLoader.isLoaded() ? mapLoader.getHeightPixels() / 2.0f : 640.0f;
+    }
+    
+    players[id] = p;
 }
 
 void GameWorld::removePlayer(std::string id) {
@@ -23,7 +46,7 @@ void GameWorld::removePlayer(std::string id) {
 bool GameWorld::movePlayer(std::string id, float x, float y, std::string dir, int anim) {
     std::lock_guard<std::mutex> lock(mtx);
     if (players.count(id)) {
-        MovementSystem::handleMove(players[id], x, y, dir, anim);
+        MovementSystem::handleMove(players[id], x, y, dir, anim, mapLoader);
         return true;
     }
     return false;
@@ -132,5 +155,15 @@ void GameWorld::respawnPlayer(std::string id) {
     std::lock_guard<std::mutex> lock(mtx);
     if (players.count(id)) {
         CombatSystem::handleRespawn(players[id]);
+        
+        const auto& pSpawns = mapLoader.getPlayerSpawns();
+        if (!pSpawns.empty()) {
+            int r = rand() % pSpawns.size();
+            players[id].x = pSpawns[r].x;
+            players[id].y = pSpawns[r].y;
+        } else if (mapLoader.isLoaded()) {
+            players[id].x = mapLoader.getWidthPixels() / 2.0f - 32.0f;
+            players[id].y = mapLoader.getHeightPixels() / 2.0f - 32.0f;
+        }
     }
 }

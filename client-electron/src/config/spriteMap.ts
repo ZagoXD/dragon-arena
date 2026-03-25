@@ -2,16 +2,15 @@
 // Dragon Arena — Shared Game Configs (World & Physics)
 // ============================================================
 
-/** Base tile size used as the grid unit across the arena (px). */
-export const TILE_SIZE = 64
-
 // ------------------------------------------------------------
 // Map dimensions  (in tiles and pixels)
 // ------------------------------------------------------------
+export const TILE_SIZE = 64
+
 export const MAP_COLS = 32
 export const MAP_ROWS = 20
-export const MAP_WIDTH  = MAP_COLS * TILE_SIZE   // 2048 px
-export const MAP_HEIGHT = MAP_ROWS * TILE_SIZE   // 1280 px
+export const MAP_WIDTH  = 2048
+export const MAP_HEIGHT = 1280
 
 // ------------------------------------------------------------
 // Logical viewport

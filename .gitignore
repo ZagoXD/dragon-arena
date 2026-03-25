@@ -13,6 +13,8 @@ dist/
 dist-electron/
 client-electron/dist/
 client-electron/dist-electron/
+client-electron/release/
+client-electron/out/
 server-cpp/out/
 server-cpp/.vs/
 server-cpp/bin/

@@ -68,6 +68,10 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             // Welcome message to tell user THEIR id
             ws->send(json({{"event", "welcome"}, {"id", id}}).dump(), uWS::OpCode::TEXT);
 
+            if (world.getMapLoader().isLoaded()) {
+                ws->send(json({{"event", "mapData"}, {"map", world.getMapLoader().getRawMapData()}}).dump(), uWS::OpCode::TEXT);
+            }
+
             ws->send(json({{"event", "currentPlayers"}, {"players", world.getPlayersJson()}}).dump(), uWS::OpCode::TEXT);
             ws->send(json({{"event", "currentDummies"}, {"dummies", world.getDummiesJson()}}).dump(), uWS::OpCode::TEXT);
             
@@ -77,9 +81,11 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
         } 
         else if (event == "move") {
             if (world.movePlayer(userData->id, data["x"], data["y"], data["direction"], data["animRow"])) {
+                // Move was processed. Fetch the validated Player state to broadcast real coords
+                json p = world.getPlayerJson(userData->id);
                 ws->publish("arena", json({
                     {"event", "playerMoved"}, {"id", userData->id},
-                    {"x", data["x"]}, {"y", data["y"]},
+                    {"x", p["x"]}, {"y", p["y"]},
                     {"direction", data["direction"]}, {"animRow", data["animRow"]}
                 }).dump(), uWS::OpCode::TEXT);
             }

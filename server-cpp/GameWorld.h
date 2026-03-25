@@ -9,10 +9,12 @@
 #include "GameConfig.h"
 #include "MovementSystem.h"
 #include "CombatSystem.h"
+#include "MapLoader.h"
 class NetworkHandler;
 
 class GameWorld {
 private:
+    MapLoader mapLoader;
     std::map<std::string, Player> players;
     struct Dummy {
         std::string id;
@@ -26,6 +28,7 @@ private:
 
 public:
     GameWorld();
+    const MapLoader& getMapLoader() const { return mapLoader; }
     void addPlayer(std::string id, std::string name, std::string charId, int maxHp);
     void removePlayer(std::string id);
     bool movePlayer(std::string id, float x, float y, std::string dir, int anim);

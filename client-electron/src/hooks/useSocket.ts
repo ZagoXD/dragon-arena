@@ -22,10 +22,12 @@ export function useSocket(
   onCurrentDummies: (dummies: any[]) => void,
   onDummyDamaged: (id: string, hp: number) => void,
   onSelfDamaged: (newHp: number, x?: number, y?: number) => void,
+  onSelfMoved: (x: number, y: number) => void,
   onOtherShot?: (data: { playerId: string, originX: number, originY: number, angle: number }) => void
 ) {
   const socketIdRef = useRef<string | undefined>(undefined)
   const [socketId, setSocketId] = useState<string | undefined>(undefined)
+  const [mapData, setMapData] = useState<any | null>(null)
   const [otherPlayers, setOtherPlayers] = useState<Record<string, NetPlayer>>({})
   const [kills, setKills] = useState(0)
   const [deaths, setDeaths] = useState(0)
@@ -64,6 +66,13 @@ export function useSocket(
           setSocketId(data.id)
           break
 
+        case 'mapData': {
+          const md = typeof data.map === 'string' ? JSON.parse(data.map) : data.map
+          setMapData(md)
+          ;(window as any).currentGameMapData = md
+          break
+        }
+
         case 'currentPlayers': {
           const players = { ...data.players }
           if (socketIdRef.current) delete players[socketIdRef.current]
@@ -78,6 +87,7 @@ export function useSocket(
         case 'playerJoined':
           if (data.player.id === socketIdRef.current) {
             console.log('[WS] Eu joinou com sucesso!')
+            onSelfDamaged(data.player.hp, data.player.x, data.player.y)
           } else {
             console.log(`[WS] Outro player joinou: ${data.player.name} (${data.player.id})`)
             setOtherPlayers(prev => ({ ...prev, [data.player.id]: data.player }))
@@ -85,21 +95,24 @@ export function useSocket(
           break
 
         case 'playerMoved':
-          setOtherPlayers(prev => {
-            if (!prev[data.id]) return prev
-            if (data.id === socketIdRef.current) return prev
+          if (data.id === socketIdRef.current) {
+            onSelfMoved(data.x, data.y)
+          } else {
+            setOtherPlayers(prev => {
+              if (!prev[data.id]) return prev
 
-            return { 
-              ...prev, 
-              [data.id]: { 
-                ...prev[data.id], 
-                x: data.x, 
-                y: data.y, 
-                direction: data.direction, 
-                animRow: data.animRow 
-              } 
-            }
-          })
+              return { 
+                ...prev, 
+                [data.id]: { 
+                  ...prev[data.id], 
+                  x: data.x, 
+                  y: data.y, 
+                  direction: data.direction, 
+                  animRow: data.animRow 
+                } 
+              }
+            })
+          }
           break
         
         case 'playerDamaged':
@@ -207,6 +220,7 @@ export function useSocket(
 
   return {
     socketId,
+    mapData,
     otherPlayers,
     kills,
     deaths,

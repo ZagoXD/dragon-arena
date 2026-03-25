@@ -34,6 +34,35 @@ interface Options {
   hp: number
 }
 
+function isBlocked(mapData: any, nx: number, ny: number, w: number, h: number): boolean {
+  if (!mapData) return false;
+
+  const worldTileSize = 64;
+  const mapWidthPixels = mapData.width * worldTileSize;
+  const mapHeightPixels = mapData.height * worldTileSize;
+
+  if (nx < 0 || ny < 0 || nx + w > mapWidthPixels || ny + h > mapHeightPixels) return true;
+
+  const minCol = Math.floor(nx / worldTileSize);
+  const maxCol = Math.floor((nx + w - 1) / worldTileSize);
+  const minRow = Math.floor(ny / worldTileSize);
+  const maxRow = Math.floor((ny + h - 1) / worldTileSize);
+
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = minCol; c <= maxCol; c++) {
+      if (r >= 0 && r < mapData.height && c >= 0 && c < mapData.width) {
+        let index = r * mapData.width + c;
+        for (const layer of mapData.layers) {
+           if (layer.type === 'tilelayer' && (layer.name === 'walls' || layer.name === 'collision')) {
+              if (layer.data[index] > 0) return true;
+           }
+        }
+      }
+    }
+  }
+  return false;
+}
+
 /**
  * Manages player position, direction, and sprite animation.
  * Reads keyboard state via useInput, steps physics via useGameLoop.
@@ -119,9 +148,26 @@ export function usePlayerMovement({ mapWidth, mapHeight, speed, renderedWidth, r
     let newX = state.x + dx * step
     let newY = state.y + dy * step
 
-    // Clamp to map boundaries
-    newX = Math.max(0, Math.min(mapWidth  - renderedWidth,  newX))
-    newY = Math.max(0, Math.min(mapHeight - renderedHeight, newY))
+    const md = (window as any).currentGameMapData;
+    const rawMapWidth = md ? md.width * 64 : mapWidth;
+    const rawMapHeight = md ? md.height * 64 : mapHeight;
+
+    // Clamp to map boundaries (Hitbox is fixed 64x64)
+    newX = Math.max(0, Math.min(rawMapWidth  - 64, newX))
+    newY = Math.max(0, Math.min(rawMapHeight - 64, newY))
+
+    if (md && isBlocked(md, newX, newY, 64, 64)) {
+      if (!isBlocked(md, newX, state.y, 64, 64)) {
+        newY = state.y;
+      }
+      else if (!isBlocked(md, state.x, newY, 64, 64)) {
+        newX = state.x;
+      }
+      else {
+        newX = state.x;
+        newY = state.y;
+      }
+    }
 
     // --- Animation ---
     const msPerFrame = 1000 / ANIMATION_FPS

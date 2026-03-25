@@ -8,11 +8,12 @@ Bem-vindo à nova versão do **Dragon Arena**! O backend foi migrado de Node.js 
 
 O projeto é dividido em dois grandes pilares:
 
-1.  **`server-cpp/`**: O motor do jogo.
+1.  **`server-cpp/`**: O motor do jogo e Fonte da Verdade.
     -   **Networking**: Baseado em `uWebSockets` e `nlohmann/json`.
-    -   **Lógica**: Sistemas modulares de movimento e combate.
+    -   **Mapas Dinâmicos**: Lê matrizes do Tiled (`.tmj`) e determina colisões absolutas e bounds.
+    -   **Lógica**: Sistemas modulares de movimento e combate (Hitboxes).
     -   **Sincronização**: Loop de rede de 1s para eventos passivos (respawn) e broadcast instantâneo para ações de jogadores.
-2.  **`client-electron/`**: A interface visual.
+2.  **`client-electron/`**: A interface visual (App/EXE).
     -   **Tecnologias**: React 18, Vite, TypeScript.
     -   **Distribuição**: Empacotado com Electron para rodar como App nativo.
 
@@ -39,6 +40,20 @@ Requisitos: Node.js (v18+).
     VITE_SERVER_URL=ws://localhost:3001
     ```
 4.  Inicie o jogo: `npm run dev`.
+
+---
+
+## 🌍 Mapas Dinâmicos (Server-Authoritative)
+
+A Arena não é mais hardcoded em CSS! O Servidor C++ lê o mapa dinamicamente exportado do **Tiled** e transmite a geometria para o Cliente instanciar os visuais.
+
+Para alterar o Mapa do jogo:
+1. Abra o seu Tiled Editor.
+2. Desenhe seu mapa utilizando as camadas estritas: `ground` (piso), `walls` (paredes frontais) e `plants` (árvores).
+3. Caso queira blocos invisíveis rígidos, pinte a camada `collision`.
+4. Plante os `player_spawn` e `dummy_spawn` pela ObjectLayer de `spawns`.
+5. Exporte como JSON (`.tmj`) para a pasta `server-cpp/map-assets/tiled/default_map.tmj`.
+6. Reinicie o servidor C++. **O executável Cliente dos jogadores montará o novo mapa sozinho ao reconectar!** As hitboxes/colisões estão matematicamente presas à âncora 64x64 nos pés do personagem.
 
 ---
 

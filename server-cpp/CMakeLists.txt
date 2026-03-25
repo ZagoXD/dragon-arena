@@ -70,6 +70,7 @@ add_executable(DragonArenaServer
     MovementSystem.cpp
     GameWorld.cpp
     NetworkHandler.cpp
+    MapLoader.cpp
     ${US_SOURCES}
 )
 

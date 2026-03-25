@@ -3,6 +3,7 @@ import { Player } from '../Player/Player'
 import { HUD } from '../HUD/HUD'
 import { Dummy, DummyData } from '../Dummy/Dummy'
 import { Projectile, ProjectileData } from '../Projectile/Projectile'
+import { MapRenderer } from '../MapRenderer/MapRenderer'
 import { usePlayerMovement } from '../../hooks/usePlayerMovement'
 import { useGameLoop } from '../../hooks/useGameLoop'
 import { useMousePosition } from '../../hooks/useMousePosition'
@@ -10,8 +11,7 @@ import { useSocket, NetPlayer } from '../../hooks/useSocket'
 import { CHARACTERS } from '../../config/characters'
 import {
   VIEWPORT_WIDTH,     VIEWPORT_HEIGHT,
-  MAP_WIDTH,          MAP_HEIGHT,
-  DUMMY_MAX_HP,       DUMMY_SIZE,
+  DUMMY_SIZE,
   getClosest4WayDirection
 } from '../../config/spriteMap'
 import './Arena.css'
@@ -43,19 +43,15 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
 
   // ── 2. Entity State (HP, Dummies, Projectiles) ─────────────
   const [hp, setHp] = useState<number>(character.maxHp)
-  const [dummies, setDummies] = useState<DummyData[]>([
-    { id: 'd1', x: MAP_WIDTH / 2 - 200, y: MAP_HEIGHT / 2 - 200, hp: DUMMY_MAX_HP },
-    { id: 'd2', x: MAP_WIDTH / 2 + 200, y: MAP_HEIGHT / 2 - 100, hp: DUMMY_MAX_HP },
-    { id: 'd3', x: MAP_WIDTH / 2,       y: MAP_HEIGHT / 2 + 250, hp: DUMMY_MAX_HP },
-  ])
+  const [dummies, setDummies] = useState<DummyData[]>([])
   const [projectiles, setProjectiles] = useState<ProjectileData[]>([])
   const [showScoreboard, setShowScoreboard] = useState(false)
   const [respawnTimer, setRespawnTimer] = useState<number | null>(null)
 
   // ── 3. Movement Hook ──────────────────────────────────────
   const player = usePlayerMovement({
-    mapWidth: MAP_WIDTH,
-    mapHeight: MAP_HEIGHT,
+    mapWidth: 2048,   // Replaced on server join
+    mapHeight: 1280,  // Replaced on server join
     speed: character.movementSpeed,
     renderedWidth,
     renderedHeight,
@@ -118,6 +114,15 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
     }
   }, [player])
 
+  const onSelfMoved = useCallback((x: number, y: number) => {
+    // Only snap if distance > 10 pixels to avoid micro-jitter
+    const dx = playerRef.current.x - x;
+    const dy = playerRef.current.y - y;
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+       playerRef.current.setPosition(x, y);
+    }
+  }, [])
+
   // Auto-respawn logic
   useEffect(() => {
     if (respawnTimer === null) return
@@ -153,7 +158,7 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
 
   // ── 6. Multiplayer Hook ───────────────────────────────────
   const { 
-    socketId, otherPlayers, kills, deaths, 
+    socketId, mapData, otherPlayers, kills, deaths, 
     emitMove, emitShoot, emitDamage, emitDummyDamage, emitHitPlayer, emitRespawn 
   } = useSocket(
     playerName, 
@@ -162,6 +167,7 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
     onCurrentDummies,
     onDummyDamaged,
     onSelfDamaged,
+    onSelfMoved,
     onOtherShot
   )
 
@@ -191,13 +197,16 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
   const mousePos = useMousePosition()
 
   // ── 8. Camera Logic ───────────────────────────────────────
+  const mapWidth = mapData ? mapData.width * 64 : 2048
+  const mapHeight = mapData ? mapData.height * 64 : 1280
+
   const { cameraX, cameraY } = useMemo(() => {
-    const px = player.x + renderedWidth / 2
-    const py = player.y + renderedHeight / 2
-    const cx = Math.max(0, Math.min(MAP_WIDTH - VIEWPORT_WIDTH, px - VIEWPORT_WIDTH / 2))
-    const cy = Math.max(0, Math.min(MAP_HEIGHT - VIEWPORT_HEIGHT, py - VIEWPORT_HEIGHT / 2))
+    const px = player.x + 32
+    const py = player.y + 32
+    const cx = Math.max(0, Math.min(mapWidth - VIEWPORT_WIDTH, px - VIEWPORT_WIDTH / 2))
+    const cy = Math.max(0, Math.min(mapHeight - VIEWPORT_HEIGHT, py - VIEWPORT_HEIGHT / 2))
     return { cameraX: cx, cameraY: cy }
-  }, [player.x, player.y, renderedWidth, renderedHeight])
+  }, [player.x, player.y, renderedWidth, renderedHeight, mapWidth, mapHeight])
 
   const cameraRef = useRef({ cameraX, cameraY })
   cameraRef.current = { cameraX, cameraY }
@@ -246,8 +255,9 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
 
     // Spawning Attack
     if (isMouseDownRef.current && !castRef.current.active && castRef.current.cooldownTimer <= 0 && hpRef.current > 0) {
-      const originX = playerRef.current.x + renderedWidth / 2
-      const originY = playerRef.current.y + renderedHeight / 2 + 20
+      // The visual center of the 128x128 character sprite (which is offset 64px up from the physics box)
+      const originX = playerRef.current.x + 32
+      const originY = playerRef.current.y
       const viewportClientLeft = (window.innerWidth - VIEWPORT_WIDTH * scale) / 2
       const viewportClientTop = (window.innerHeight - VIEWPORT_HEIGHT * scale) / 2
       const mouseLogicalX = (mousePos.current.x - viewportClientLeft) / scale
@@ -341,6 +351,14 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
   })
 
   // ── 11. Render ────────────────────────────────────────────
+  if (!mapData) {
+    return (
+      <div className="arena-shell" style={{ color: '#ffcc00', fontSize: '1.5rem', fontFamily: 'monospace' }}>
+        Awaiting Map Data from Server...
+      </div>
+    )
+  }
+
   return (
     <div className="arena-shell">
       <div
@@ -349,8 +367,10 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
       >
         <div
           className="arena-map"
-          style={{ width: MAP_WIDTH, height: MAP_HEIGHT, transform: `translate(${-cameraX}px, ${-cameraY}px)` }}
+          style={{ width: mapWidth, height: mapHeight, transform: `translate(${-cameraX}px, ${-cameraY}px)` }}
         >
+          <MapRenderer mapData={mapData} renderLayer="background" />
+
           {dummies.map(d => <Dummy key={d.id} dummy={d} />)}
           
           {(Object.values(otherPlayers) as NetPlayer[]).map(p => (
@@ -370,13 +390,15 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
           )}
 
           {projectiles.map(proj => <Projectile key={proj.id} projectile={proj} />)}
+          
+          <MapRenderer mapData={mapData} renderLayer="foreground" />
         </div>
 
         <HUD 
           playerName={playerName} character={character} hp={hp} 
           playerPos={{ x: player.x, y: player.y }} dummies={dummies}
           otherPlayers={Object.values(otherPlayers) as NetPlayer[]}
-          mapWidth={MAP_WIDTH} mapHeight={MAP_HEIGHT}
+          mapWidth={mapWidth} mapHeight={mapHeight}
         />
 
         {respawnTimer !== null && (
