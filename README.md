@@ -1,4 +1,4 @@
-# 🐉 Dragon Arena: C++ Migration MVP
+# 🐉 Dragon Arena
 
 Bem-vindo à nova versão do **Dragon Arena**! O backend foi migrado de Node.js para **C++ (uWebSockets)** para garantir alta performance, baixa latência e melhor escalabilidade. O frontend continua em **React + Electron**, proporcionando uma experiência desktop premium.
 
