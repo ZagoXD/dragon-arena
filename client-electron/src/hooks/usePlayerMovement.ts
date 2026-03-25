@@ -12,6 +12,7 @@ export interface PlayerState {
   direction: Direction
   animRow: number   // the actual sprite sheet row to use
   lockAction: (dir: Direction, durationMs: number) => void
+  setPosition: (x: number, y: number) => void
 }
 
 interface Options {
@@ -50,7 +51,11 @@ export function usePlayerMovement({ mapWidth, mapHeight, speed, renderedWidth, r
     setState(prev => ({ ...prev, direction: dir }))
   }, [])
 
-  const [state, setState] = useState<Omit<PlayerState, 'lockAction'>>({
+  const setPosition = useCallback((x: number, y: number) => {
+    setState(prev => ({ ...prev, x, y }))
+  }, [])
+
+  const [state, setState] = useState<Omit<PlayerState, 'lockAction' | 'setPosition'>>({
     // Start at the centre of the map
     x: Math.floor(mapWidth  / 2 - renderedWidth  / 2),
     y: Math.floor(mapHeight / 2 - renderedHeight / 2),
@@ -132,5 +137,5 @@ export function usePlayerMovement({ mapWidth, mapHeight, speed, renderedWidth, r
     setState({ x: newX, y: newY, direction: newDirection, animRow })
   })
 
-  return { ...state, lockAction }
+  return { ...state, lockAction, setPosition }
 }

@@ -108,12 +108,15 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
     setProjectiles([...projectilesRef.current])
   }, [])
 
-  const onSelfDamaged = useCallback((newHp: number) => {
+  const onSelfDamaged = useCallback((newHp: number, x?: number, y?: number) => {
     setHp(newHp)
+    if (x !== undefined && y !== undefined) {
+      player.setPosition(x, y)
+    }
     if (newHp <= 0) {
       setRespawnTimer(5)
     }
-  }, [])
+  }, [player])
 
   // Auto-respawn logic
   useEffect(() => {

@@ -1,73 +1,64 @@
-# Dragon Arena Multiplayer
+# 🐉 Dragon Arena: C++ Migration MVP
 
-Um jogo de batalha em arena multiplayer em tempo real, com autoridade do servidor, construído com **React**, **Socket.io** e **Electron**.
-Um jogo de batalha em arena multiplayer em tempo real, com autoridade do servidor, construído com **React**, **Socket.io** e **Electron**.
-
-## Funcionalidades
-
-- **Combate em Tempo Real**: Sistema de auto-ataque veloz com sincronização de projéteis.
-- **Rede Multiplayer**: Integrado com Socket.io para baixa latência de movimento e estado de combate.
-- **Progresso Persistente**: Acompanhamento de Kills (Abates) e Deaths (Mortes) com um Placar em tempo real (Pressione **Tab**).
-- **Renascer Automático (Auto-Respawn)**: Sistema de morte com contagem regressiva de 5 segundos e retorno automático à batalha.
-- **Jogo em Segundo Plano**: O loop do jogo permanece ativo mesmo quando minimizado ou em uma aba em segundo plano (Heartbeat baseado em Web Worker).
-- **Multiplataforma**: Execute como um aplicativo de desktop (Electron) ou em qualquer navegador web moderno.
-- **Excelência Visual**: Estética premium com animações suaves, barras de vida e um HUD dinâmico.
-
-## Tecnologias Utilizadas
-
-- **Frontend**: React 18, Vite, TypeScript.
-- **Backend**: Node.js, Socket.io, tsx.
-- **Desktop**: Electron (Wrapper nativo).
-- **Estilização**: CSS Vanilla com efeitos modernos (Glassmorphism, Blurs).
-
-## Como Rodar o Projeto
-
-### 1. Requisitos
-Certifique-se de ter o **Node.js** instalado em sua máquina.
-
-### 2. Instalação
-Clone o repositório e instale as dependências:
-```bash
-npm install
-```
-
-### 3. Iniciar o Servidor (Backend)
-Em um terminal, execute o servidor Socket.io:
-```bash
-npm run server
-```
-
-### 4. Iniciar o Cliente (Frontend)
-Em outro terminal, você pode escolher como rodar o jogo:
-
-**Para rodar no Navegador:**
-```bash
-npm run dev
-```
-Acesse `http://localhost:5173` no seu navegador.
-
-**Para rodar via Electron (Desktop):**
-```bash
-npm run dev
-```
-(O comando `dev` iniciará tanto o servidor de desenvolvimento do Vite quanto a janela do Electron).
-
-## Como Jogar
-
-1. **Escolha seu Dragão**: Digite seu nome e escolha um dos personagens disponíveis.
-2. **Movimentação**: Use **WASD** ou as **Setas** do teclado para se mover.
-3. **Combate**: Use o **Botão Esquerdo do Mouse** para disparar ataques na direção do cursor.
-4. **Alvos**: Você pode atacar Dummies de treino ou outros jogadores conectados.
-5. **Placar**: Segure a tecla **Tab** para ver o ranking da arena.
-6. **Morte e Renascimento**: Se sua vida chegar a zero, seu personagem desaparecerá e você renascerá no centro do mapa após 5 segundos.
-
-## Estrutura do Projeto
-
-- `/server`: Lógica do servidor autoritativo.
-- `/src/components`: Componentes de interface (Arena, Player, Projectile, HUD, Scoreboard).
-- `/src/hooks`: Lógica de estado e rede customizada.
-- `/src/config`: Definições de personagens e magias.
-- `/electron`: Configuração da janela Desktop.
+Bem-vindo à nova versão do **Dragon Arena**! O backend foi migrado de Node.js para **C++ (uWebSockets)** para garantir alta performance, baixa latência e melhor escalabilidade. O frontend continua em **React + Electron**, proporcionando uma experiência desktop premium.
 
 ---
-Divirta-se na Arena! 🐲🔥
+
+## 🏗️ Arquitetura do Projeto
+
+O projeto é dividido em dois grandes pilares:
+
+1.  **`server-cpp/`**: O motor do jogo.
+    -   **Networking**: Baseado em `uWebSockets` e `nlohmann/json`.
+    -   **Lógica**: Sistemas modulares de movimento e combate.
+    -   **Sincronização**: Loop de rede de 1s para eventos passivos (respawn) e broadcast instantâneo para ações de jogadores.
+2.  **`client-electron/`**: A interface visual.
+    -   **Tecnologias**: React 18, Vite, TypeScript.
+    -   **Distribuição**: Empacotado com Electron para rodar como App nativo.
+
+---
+
+## 🚀 Como Rodar o Projeto
+
+### 1. Iniciar o Servidor C++ (`server-cpp`)
+Requisitos: Visual Studio 2022 (com C++ Desktop) ou CMake.
+
+1.  Abra a pasta `server-cpp` no Visual Studio.
+2.  Aguarde o CMake gerar o cache.
+3.  Defina o item de inicialização para `main.cpp` (ou o executável gerado).
+4.  Rode em modo **Release** ou **Debug**.
+5.  O console dirá: `Servidor Dragon Arena (Modular) rodando na porta 3001`.
+
+### 2. Iniciar o Cliente Electron (`client-electron`)
+Requisitos: Node.js (v18+).
+
+1.  Acesse a pasta `client-electron/`.
+2.  Instale as dependências: `npm install`.
+3.  Configure o arquivo `.env`:
+    ```env
+    VITE_SERVER_URL=ws://localhost:3001
+    ```
+4.  Inicie o jogo: `npm run dev`.
+
+---
+
+## 🛠️ Guia de Customização
+
+### Como Adicionar um Novo Personagem?
+1.  **Frontend**: Adicione os metadados em `client-electron/src/config/characters.ts`.
+2.  **Backend**: Adicione as estatísticas equivalentes em `server-cpp/GameConfig.h`.
+    -   As chaves de ID (ex: `charizard`, `blastoise`) devem ser idênticas nos dois arquivos.
+
+### Como Mudar o Tempo de Respawn?
+-   **Dummies**: Altere o valor no método `GameWorld::update` (atualmente 10000ms).
+-   **Jogadores**: Altere o `setTimeout` na tela de morte (`Arena.tsx`) ou normalize no backend em `CombatSystem.h`.
+
+---
+
+## 📜 Boas Práticas
+
+-   **Eventos Nomeados**: Sempre use nomes de eventos consistentes entre C++ e TypeScript (ex: `playerMoved`, `dummyDamaged`).
+-   **Aceleração de Rede**: O loop de movimento do player roda a ~30ms para suavidade, enquanto o heartbeat do mundo roda a 1s para economizar CPU.
+-   **Headers**: Ao modificar sistemas (Movimentação/Combate), sempre limpe o cache do CMake para evitar erros de linkagem.
+
+---
