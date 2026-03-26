@@ -111,10 +111,10 @@
   color: #ddd;
 }
 
-.local-player-row {
-  background: rgba(255, 204, 0, 0.1);
+.local-player {
+  background: rgba(255, 204, 0, 0.15);
 }
-.local-player-row td:first-child {
+.local-player td:first-child {
   color: #ffcc00;
   font-weight: bold;
 }

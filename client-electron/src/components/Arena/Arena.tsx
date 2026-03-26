@@ -122,7 +122,7 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
   }, [respawnTimer])
 
   const { 
-    socketId, mapData, otherPlayers, 
+    socketId, mapData, otherPlayers, kills, deaths,
     emitMove, emitShoot, emitDamage, emitDummyDamage, emitHitPlayer, emitRespawn, emitUseSkill 
   } = useSocket(
     playerName, characterId, character.maxHp,
@@ -354,6 +354,22 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
     }
   })
 
+  // Prepare scoreboard data
+  const scoreboardData = useMemo(() => {
+    const list = [
+      { id: socketId || 'local', name: playerName, characterId, kills, deaths, isLocal: true },
+      ...Object.values(otherPlayers).map(p => ({
+        id: p.id,
+        name: p.name,
+        characterId: p.characterId,
+        kills: p.kills || 0,
+        deaths: p.deaths || 0,
+        isLocal: false
+      }))
+    ]
+    return list.sort((a, b) => b.kills - a.kills || a.deaths - b.deaths)
+  }, [socketId, playerName, characterId, kills, deaths, otherPlayers])
+
   if (!mapData) {
     return (
       <div className="arena-shell" style={{ color: '#ffcc00', fontSize: '1.5rem', fontFamily: 'monospace' }}>
@@ -447,8 +463,28 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
         {showScoreboard && (
           <div className="scoreboard-overlay">
             <div className="scoreboard-content">
-              <h2>Scoreboard</h2>
-              <p>TAB to close</p>
+              <h2>Dragon Arena - Scoreboard</h2>
+              <table className="scoreboard-table">
+                <thead>
+                  <tr>
+                    <th>Player</th>
+                    <th>Dragon</th>
+                    <th>Kills</th>
+                    <th>Deaths</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scoreboardData.map(p => (
+                    <tr key={p.id} className={p.isLocal ? 'local-player' : ''}>
+                      <td>{p.name} {p.isLocal ? '(You)' : ''}</td>
+                      <td>{CHARACTERS[p.characterId]?.name || p.characterId}</td>
+                      <td>{p.kills}</td>
+                      <td>{p.deaths}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="scoreboard-hint">Release TAB to close</p>
             </div>
           </div>
         )}
