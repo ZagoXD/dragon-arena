@@ -16,6 +16,7 @@ client-electron/dist-electron/
 client-electron/release/
 client-electron/out/
 server-cpp/out/
+server-cpp/build/
 server-cpp/.vs/
 server-cpp/bin/
 server-cpp/x64/

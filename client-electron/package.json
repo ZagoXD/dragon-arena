@@ -1,7 +1,9 @@
 {
   "name": "dragon-arena",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
+  "author": "Dragon Arena Team",
+  "description": "Dragon Arena Integrated Desktop Game",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
