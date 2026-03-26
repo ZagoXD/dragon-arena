@@ -122,7 +122,7 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
   }, [respawnTimer])
 
   const { 
-    socketId, mapData, otherPlayers, kills, deaths, 
+    socketId, mapData, otherPlayers, 
     emitMove, emitShoot, emitDamage, emitDummyDamage, emitHitPlayer, emitRespawn, emitUseSkill 
   } = useSocket(
     playerName, characterId, character.maxHp,

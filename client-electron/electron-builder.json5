@@ -20,6 +20,12 @@
   "win": {
     "target": [
       {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
+      },
+      {
         "target": "nsis",
         "arch": [
           "x64"
@@ -41,6 +47,9 @@
     "perMachine": false,
     "allowToChangeInstallationDirectory": true,
     "deleteAppDataOnUninstall": false
+  },
+  "portable": {
+    "artifactName": "${productName}-Portable-${version}.${ext}"
   },
   "linux": {
     "target": [
