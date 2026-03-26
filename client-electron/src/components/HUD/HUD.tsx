@@ -9,15 +9,19 @@ interface Props {
   hp: number
   playerPos: { x: number, y: number }
   dummies: { id: string, x: number, y: number, hp: number }[]
-  otherPlayers?: { id: string, x: number, y: number, hp: number }[]
+  otherPlayers?: { id: string, x: number, y: number, hp: number, kills?: number, deaths?: number }[]
   mapWidth: number
   mapHeight: number
+  skillCooldowns?: Record<string, number>
+  autoAttackCooldown?: number
 }
 
-export function HUD({ playerName, character, hp, playerPos, dummies, otherPlayers = [], mapWidth, mapHeight }: Props) {
+export function HUD({ 
+  playerName, character, hp, playerPos, dummies, otherPlayers = [], 
+  mapWidth, mapHeight, skillCooldowns = {}, autoAttackCooldown = 0 
+}: Props) {
   const hpPct = Math.max(0, (hp / character.maxHp) * 100)
   
-  // Portrait logic
   const portraitWidth = character.frameWidth * 0.5
   const portraitHeight = character.frameHeight * 0.5
   const sheetWidth = character.frameWidth * 4 * 0.5
@@ -32,7 +36,7 @@ export function HUD({ playerName, character, hp, playerPos, dummies, otherPlayer
   }, [])
 
   const currentRow = character.idleRows[animIndex % character.idleRows.length]
-  const bgPosX = -(2 * portraitWidth) // Column 2 (Down/Front)
+  const bgPosX = -(2 * portraitWidth) 
   const bgPosY = -(currentRow * portraitHeight)
   
   return (
@@ -52,33 +56,62 @@ export function HUD({ playerName, character, hp, playerPos, dummies, otherPlayer
         <div className="hud-stats">
           <div className="hud-player-name">{playerName}</div>
           <div className="hud-char-name">{character.name}</div>
-          <div className="hud-stat-line">Speed: {character.movementSpeed}</div>
-          <div className="hud-stat-line">Damage: {character.autoAttack.damage}</div>
+          <div className="hud-stat-line" style={{ color: '#4caf50' }}>HP: {Math.ceil(hp)}</div>
+          <div className="hud-stat-line">SPD: {character.movementSpeed}</div>
         </div>
       </div>
 
       {/* 2. Center Panel (Action Bar & HP) */}
       <div className="hud-panel hud-center">
-        {/* Action Bar */}
         <div className="hud-actionbar">
-          <div className="hud-spell" id="action-bar-spell-1" style={{ '--cooldown-pct': '0%' } as React.CSSProperties}>
+          {/* Auto Attack (LMB) */}
+          <div 
+            className="hud-spell" 
+            style={{ '--cooldown-pct': `${(autoAttackCooldown / character.autoAttack.cooldownMs) * 100}%` } as any}
+          >
              <div className="hud-spell-icon" style={{ backgroundImage: `url(${character.autoAttack.imageSrc})` }}></div>
              <div className="hud-spell-cooldown-overlay"></div>
              <span className="hud-spell-hotkey">LMB</span>
           </div>
+
+          {/* Special Skills (1, 2, 3) */}
+          {character.skills.map((skill, idx) => {
+            const cd = skillCooldowns[skill.id] || 0
+            const cdPct = (cd / (skill.cooldownMs || 1)) * 100
+            
+            // Skill icon: if it's a sprite sheet (like Dragon Dive), crop to first frame
+            const isDragonDive = skill.id === 'dragon_dive'
+            const iconStyle: React.CSSProperties = isDragonDive ? {
+               backgroundImage: `url(${skill.imageSrc})`,
+               backgroundSize: '300% 400%',
+               backgroundPosition: '0 0'
+            } : {
+               backgroundImage: `url(${skill.imageSrc})`
+            }
+
+            return (
+              <div 
+                key={skill.id} 
+                className="hud-spell" 
+                style={{ '--cooldown-pct': `${cdPct}%` } as any}
+              >
+                <div className="hud-spell-icon" style={iconStyle}></div>
+                <div className="hud-spell-cooldown-overlay"></div>
+                <span className="hud-spell-hotkey">{idx + 1}</span>
+              </div>
+            )
+          })}
         </div>
 
-        {/* HP Bar */}
         <div className="hud-hp-bar">
           <div className="hud-hp-fill" style={{ width: `${hpPct}%` }}></div>
           <span className="hud-hp-text">{Math.ceil(hp)} / {character.maxHp}</span>
         </div>
       </div>
 
-      {/* 3. Right Panel (Minimap) */}
+      {/* 3. Right Panel (Minimap & K/D) */}
       <div className="hud-panel hud-minimap">
          <div className="minimap-board">
-           {/* Player Dot */}
            <div 
              className="minimap-dot minimap-player"
              style={{ 
@@ -86,7 +119,6 @@ export function HUD({ playerName, character, hp, playerPos, dummies, otherPlayer
                top: `${(playerPos.y / mapHeight) * 100}%`
              }} 
            />
-           {/* Dummy Dots (White) */}
            {dummies && dummies.map(d => (
              d.hp > 0 && (
                <div 
@@ -99,7 +131,6 @@ export function HUD({ playerName, character, hp, playerPos, dummies, otherPlayer
                />
              )
            ))}
-           {/* Other Players (Red) */}
            {otherPlayers.map(p => (
              p.hp > 0 && (
                <div 

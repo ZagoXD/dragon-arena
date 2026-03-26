@@ -13,6 +13,7 @@ export interface NetPlayer {
   maxHp: number
   kills: number
   deaths: number
+  isDashing?: boolean
 }
 
 export function useSocket(
@@ -56,10 +57,6 @@ export function useSocket(
       const data = JSON.parse(msgEvent.data)
       const { event: eventName } = data
       
-      if (eventName !== 'playerMoved') {
-        // console.log(`[WS] Evento recebido: ${eventName}`, data)
-      }
-
       switch (eventName) {
         case 'welcome':
           socketIdRef.current = data.id
@@ -86,10 +83,8 @@ export function useSocket(
         
         case 'playerJoined':
           if (data.player.id === socketIdRef.current) {
-            console.log('[WS] Eu joinou com sucesso!')
             onSelfDamaged(data.player.hp, data.player.x, data.player.y)
           } else {
-            console.log(`[WS] Outro player joinou: ${data.player.name} (${data.player.id})`)
             setOtherPlayers(prev => ({ ...prev, [data.player.id]: data.player }))
           }
           break
@@ -100,7 +95,6 @@ export function useSocket(
           } else {
             setOtherPlayers(prev => {
               if (!prev[data.id]) return prev
-
               return { 
                 ...prev, 
                 [data.id]: { 
@@ -108,7 +102,8 @@ export function useSocket(
                   x: data.x, 
                   y: data.y, 
                   direction: data.direction, 
-                  animRow: data.animRow 
+                  animRow: data.animRow,
+                  isDashing: data.isDashing
                 } 
               }
             })
@@ -131,20 +126,16 @@ export function useSocket(
            break
 
         case 'playerScored':
-          if (data.victimId === socketIdRef.current) {
-            setDeaths(data.targetDeaths)
-          }
-          if (data.attackerId === socketIdRef.current) {
-            setKills(data.attackerKills)
-          }
+          if (data.victimId === socketIdRef.current) setDeaths(data.targetDeaths)
+          if (data.attackerId === socketIdRef.current) setKills(data.attackerKills)
 
           setOtherPlayers(prev => {
             const next = { ...prev }
             if (next[data.victimId]) {
-              next[data.victimId] = { ...next[data.victimId], kills: data.targetKills, deaths: data.targetDeaths }
+              next[data.victimId] = { ...next[data.victimId], deaths: data.targetDeaths }
             }
             if (data.attackerId && next[data.attackerId]) {
-              next[data.attackerId] = { ...next[data.attackerId], kills: data.attackerKills, deaths: data.attackerDeaths }
+              next[data.attackerId] = { ...next[data.attackerId], kills: data.attackerKills }
             }
             return next
           })
@@ -173,6 +164,10 @@ export function useSocket(
           if (data.playerId !== socketIdRef.current) {
             onOtherShotRef.current?.(data)
           }
+          break
+
+        case 'skillUsed':
+          // Optional: handle visual effect trigger
           break
       }
     }
@@ -213,8 +208,13 @@ export function useSocket(
 
   const emitHitPlayer = (targetId: string, damage: number) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.log(`[WS] Emitindo hitPlayer: target=${targetId}, damage=${damage}`)
       wsRef.current.send(JSON.stringify({ event: 'hitPlayer', targetId, attackerId: socketIdRef.current, damage }))
+    }
+  }
+
+  const emitUseSkill = (skillId: string, x: number, y: number) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'useSkill', skillId, x, y }))
     }
   }
 
@@ -230,6 +230,7 @@ export function useSocket(
     emitDummyDamage,
     emitHitPlayer,
     emitRespawn,
-    socket: null
+    emitUseSkill,
+    isConnected: !!socketId
   }
 }

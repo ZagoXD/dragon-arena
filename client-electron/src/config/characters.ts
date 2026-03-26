@@ -1,5 +1,6 @@
 import charizardSrc from '../assets/characters/charizard.png'
 import emberSrc from '../assets/spells/ember.png'
+import dragonDiveSrc from '../assets/spells/dragon_dive.png'
 
 export interface SpellConfig {
   id: string
@@ -11,6 +12,7 @@ export interface SpellConfig {
   castTimeMs: number
   cooldownMs: number
   imageSrc: string
+  aimingWidth?: number // For reusable aiming arrows
 }
 
 export interface CharacterConfig {
@@ -24,6 +26,7 @@ export interface CharacterConfig {
   idleRows: number[]
   walkRows: number[]
   autoAttack: SpellConfig
+  skills: SpellConfig[]
   imageSrc: string
 }
 
@@ -35,12 +38,25 @@ export const SPELLS: Record<string, SpellConfig> = {
     id: 'ember',
     name: 'Ember',
     speed: 1000,
-    damage: 150,
+    damage: 50,
     range: 600,
     frameSize: 32,
     castTimeMs: 300,
     cooldownMs: 800,
     imageSrc: emberSrc,
+    aimingWidth: 32
+  },
+  dragonDive: {
+    id: 'dragon_dive',
+    name: 'Dragon Dive',
+    speed: 0, // Instant dash logic
+    damage: 200,
+    range: 600,
+    frameSize: 32,
+    castTimeMs: 0,
+    cooldownMs: 3000,
+    imageSrc: dragonDiveSrc,
+    aimingWidth: 32
   }
 }
 
@@ -59,6 +75,7 @@ export const CHARACTERS: Record<string, CharacterConfig> = {
     idleRows: [0, 1, 2, 3],
     walkRows: [4, 5, 6],
     autoAttack: SPELLS.ember,
+    skills: [SPELLS.dragonDive],
     imageSrc: charizardSrc,
   }
 }

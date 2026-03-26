@@ -19,8 +19,6 @@ void NetworkHandler::start() {
         if (listen_socket) {
             std::cout << "Servidor Dragon Arena (Modular) rodando na porta " << port << std::endl;
             
-            // Iniciar loop de update do mundo (Respawn de Dummies, etc)
-            // Usamos o loop principal do uWS
             struct us_loop_t *loop = (struct us_loop_t *) uWS::Loop::get();
             struct us_timer_t *timer = us_create_timer(loop, 0, sizeof(NetworkHandler *));
             
@@ -29,7 +27,7 @@ void NetworkHandler::start() {
             us_timer_set(timer, [](struct us_timer_t *t) {
                 NetworkHandler *nh = *(NetworkHandler **) us_timer_ext(t);
                 nh->world.update(nh);
-            }, 1000, 1000);
+            }, 50, 50); // 50ms = 20Hz
         }
     }).run();
 }
@@ -65,7 +63,6 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             int maxHp = data.contains("maxHp") ? (int)data["maxHp"] : 500;
             world.addPlayer(id, data["name"], data["characterId"], maxHp);
 
-            // Welcome message to tell user THEIR id
             ws->send(json({{"event", "welcome"}, {"id", id}}).dump(), uWS::OpCode::TEXT);
 
             if (world.getMapLoader().isLoaded()) {
@@ -81,7 +78,6 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
         } 
         else if (event == "move") {
             if (world.movePlayer(userData->id, data["x"], data["y"], data["direction"], data["animRow"])) {
-                // Move was processed. Fetch the validated Player state to broadcast real coords
                 json p = world.getPlayerJson(userData->id);
                 ws->publish("arena", json({
                     {"event", "playerMoved"}, {"id", userData->id},
@@ -112,7 +108,6 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
         else if (event == "hitPlayer") {
             auto res = world.hitPlayer(data["targetId"], userData->id, data["damage"]);
             if (res.hit) {
-                std::cout << "[WS] Player " << data["targetId"] << " colpito da " << userData->id << " HP: " << res.newHp << std::endl;
                 broadcast(json({{"event", "playerDamaged"}, {"id", data["targetId"]}, {"hp", res.newHp}}).dump());
 
                 if (res.killed) {
@@ -128,23 +123,24 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             json p = world.getPlayerJson(userData->id);
             broadcast(json({{"event", "playerRespawned"}, {"id", userData->id}, {"hp", p["hp"]}, {"x", p["x"]}, {"y", p["y"]}}).dump());
         }
+        else if (event == "useSkill") {
+            world.useSkill(userData->id, data["skillId"], data["x"], data["y"], this);
+        }
     } catch (const std::exception &e) {
         std::cerr << "[WS] Errore parsing JSON: " << e.what() << " Messaggio: " << message << std::endl;
     } catch (...) {
-        std::cerr << "[WS] Errore sconosciuto nel processing del messaggio" << std::endl;
+        std::cerr << "[WS] Errore sconosciuto nel processing do messaggio" << std::endl;
     }
 }
 
 void NetworkHandler::handleClose(uWS::WebSocket<false, true, PerSocketData> *ws) {
     PerSocketData *userData = ws->getUserData();
-    if (!userData->id.empty()) {
+    if (userData && !userData->id.empty()) {
         std::string id = userData->id;
-        
         {
             std::lock_guard<std::mutex> lock(clients_mtx);
             clients.erase(id);
         }
-
         world.removePlayer(id);
         broadcast(json({{"event", "playerLeft"}, {"id", id}}).dump());
     }

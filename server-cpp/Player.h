@@ -17,6 +17,15 @@ public:
     int hp, maxHp;
     int kills, deaths;
 
+    // Dash / Skill 1 State
+    bool isDashing = false;
+    float dashStartX = 0, dashStartY = 0;
+    float dashTargetX = 0, dashTargetY = 0;
+    long long dashStartTime = 0;
+    long long dashDuration = 0;
+    long long lastSkill1Time = 0;
+    std::vector<std::string> dashHitIds;
+
     Player() = default;
     Player(std::string id, std::string name, std::string charId, int maxHp);
 

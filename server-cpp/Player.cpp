@@ -2,7 +2,8 @@
 
 Player::Player(std::string id, std::string name, std::string charId, int maxHp)
     : id(id), name(name), characterId(charId), hp(maxHp), maxHp(maxHp), 
-      x(2048.0f), y(1280.0f), direction("down"), animRow(0), kills(0), deaths(0) {}
+      x(2048.0f), y(1280.0f), direction("down"), animRow(0), kills(0), deaths(0),
+      isDashing(false), lastSkill1Time(0) {}
 
 json Player::to_json() const {
     return {

@@ -48,7 +48,10 @@ public:
     int hitDummy(std::string dummyId, int damage);
     int takeDamage(std::string id, int amount);
     void respawnPlayer(std::string id);
-    void update(NetworkHandler* network); // Check for dummy respawns
+    void useSkill(std::string playerId, std::string skillId, float targetX, float targetY, NetworkHandler* network);
+    void update(NetworkHandler* network); // High-frequency update
+private:
+    void updateDashes(NetworkHandler* network, long long now_ms);
 };
 
 #endif
