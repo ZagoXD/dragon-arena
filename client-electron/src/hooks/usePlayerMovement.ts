@@ -127,7 +127,8 @@ export function usePlayerMovement({ mapWidth, mapHeight, speed, renderedWidth, r
     }
 
     let newDirection: Direction = state.direction
-    if (isMoving) {
+    const isLocked = lockTimerRef.current > 0
+    if (isMoving && !isLocked) {
       if      (dx > 0) newDirection = 'right'
       else if (dx < 0) newDirection = 'left'
       else if (dy < 0) newDirection = 'up'
@@ -142,8 +143,8 @@ export function usePlayerMovement({ mapWidth, mapHeight, speed, renderedWidth, r
     const rawMapWidth = md ? md.width * 64 : mapWidth;
     const rawMapHeight = md ? md.height * 64 : mapHeight;
 
-    newX = Math.max(0, Math.min(rawMapWidth  - 64, newX))
-    newY = Math.max(0, Math.min(rawMapHeight - 64, newY))
+    newX = Math.max(0, Math.min(rawMapWidth  - renderedWidth,  newX))
+    newY = Math.max(0, Math.min(rawMapHeight - renderedHeight, newY))
 
     if (md && isBlocked(md, newX, newY, 64, 64)) {
       if (!isBlocked(md, newX, state.y, 64, 64)) newY = state.y;

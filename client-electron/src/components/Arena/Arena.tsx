@@ -42,6 +42,7 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
   const [projectiles, setProjectiles] = useState<ProjectileData[]>([])
   const [showScoreboard, setShowScoreboard] = useState(false)
   const [respawnTimer, setRespawnTimer] = useState<number | null>(null)
+  const viewportRef = useRef<HTMLDivElement>(null)
   
   const [aimingSkill, setAimingSkill] = useState<SpellConfig | null>(null)
   const [ skillCooldowns, setSkillCooldowns ] = useState<Record<string, number>>({})
@@ -154,8 +155,8 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
   const mapHeight = mapData ? mapData.height * 64 : 1280
 
   const { cameraX, cameraY } = useMemo(() => {
-    const px = player.x + 32
-    const py = player.y + 32
+    const px = player.x + renderedWidth / 2
+    const py = player.y + renderedHeight / 2
     const cx = Math.max(0, Math.min(mapWidth - VIEWPORT_WIDTH, px - VIEWPORT_WIDTH / 2))
     const cy = Math.max(0, Math.min(mapHeight - VIEWPORT_HEIGHT, py - VIEWPORT_HEIGHT / 2))
     return { cameraX: cx, cameraY: cy }
@@ -172,15 +173,16 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
     const activeSkill = aimingSkillRef.current
     if (!activeSkill) return
 
-    const viewportClientLeft = (window.innerWidth - VIEWPORT_WIDTH * scale) / 2
-    const viewportClientTop = (window.innerHeight - VIEWPORT_HEIGHT * scale) / 2
-    const mouseLogicalX = (mousePos.current.x - viewportClientLeft) / scale
-    const mouseLogicalY = (mousePos.current.y - viewportClientTop) / scale
+    const vRef = viewportRef.current
+    if (!vRef) return
+    const rect = vRef.getBoundingClientRect()
+    const mouseLogicalX = (mousePos.current.x - rect.left) / scale
+    const mouseLogicalY = (mousePos.current.y - rect.top) / scale
     const targetWorldX = mouseLogicalX + cameraRef.current.cameraX
     const targetWorldY = mouseLogicalY + cameraRef.current.cameraY
 
-    const originX = player.x + 32
-    const originY = player.y + 32
+    const originX = player.x + renderedWidth / 2
+    const originY = player.y + renderedHeight / 2
     const angle = Math.atan2(targetWorldY - originY, targetWorldX - originX)
     player.setDirection(getClosest4WayDirection(angle))
 
@@ -246,15 +248,16 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
     }
 
     if (aimingSkillRef.current) {
-        const viewportClientLeft = (window.innerWidth - VIEWPORT_WIDTH * scale) / 2
-        const viewportClientTop = (window.innerHeight - VIEWPORT_HEIGHT * scale) / 2
-        const mouseLogicalX = (mousePos.current.x - viewportClientLeft) / scale
-        const mouseLogicalY = (mousePos.current.y - viewportClientTop) / scale
+        const vRef = viewportRef.current
+        if (!vRef) return
+        const rect = vRef.getBoundingClientRect()
+        const mouseLogicalX = (mousePos.current.x - rect.left) / scale
+        const mouseLogicalY = (mousePos.current.y - rect.top) / scale
         const targetWorldX = mouseLogicalX + cameraRef.current.cameraX
         const targetWorldY = mouseLogicalY + cameraRef.current.cameraY
 
-        const originX = playerRef.current.x + 32
-        const originY = playerRef.current.y + 32
+        const originX = playerRef.current.x + renderedWidth / 2
+        const originY = playerRef.current.y + renderedHeight / 2
         const dx = targetWorldX - originX
         const dy = targetWorldY - originY
         const dist = Math.min(aimingSkillRef.current.range, Math.hypot(dx, dy))
@@ -283,12 +286,13 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
     })
 
     if (isMouseDownRef.current && !castRef.current.active && castRef.current.cooldownTimer <= 0 && hpRef.current > 0 && !aimingSkillRef.current) {
-      const originX = playerRef.current.x + 32
-      const originY = playerRef.current.y + 32
-      const viewportClientLeft = (window.innerWidth - VIEWPORT_WIDTH * scale) / 2
-      const viewportClientTop = (window.innerHeight - VIEWPORT_HEIGHT * scale) / 2
-      const mouseLogicalX = (mousePos.current.x - viewportClientLeft) / scale
-      const mouseLogicalY = (mousePos.current.y - viewportClientTop) / scale
+      const originX = playerRef.current.x + renderedWidth / 2
+      const originY = playerRef.current.y + renderedHeight / 2
+      const vRef = viewportRef.current
+      if (!vRef) return
+      const rect = vRef.getBoundingClientRect()
+      const mouseLogicalX = (mousePos.current.x - rect.left) / scale
+      const mouseLogicalY = (mousePos.current.y - rect.top) / scale
       const targetWorldX = mouseLogicalX + cameraRef.current.cameraX
       const targetWorldY = mouseLogicalY + cameraRef.current.cameraY
       const angle = Math.atan2(targetWorldY - originY, targetWorldX - originX)
@@ -382,6 +386,7 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
     <div className="arena-shell">
       <div
         className="arena-viewport"
+        ref={viewportRef}
         style={{ width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT, transform: `scale(${scale})` }}
       >
         <div
