@@ -5,16 +5,16 @@ import { useArenaNetworkState } from '../../hooks/useArenaNetworkState'
 import { CHARACTER_VISUALS } from '../../config/visualConfig'
 import { getClosest4WayDirection, VIEWPORT_HEIGHT, VIEWPORT_WIDTH } from '../../config/spriteMap'
 import { useArenaController } from '../../hooks/useArenaController'
-import { ArenaWorldView } from './ArenaWorldView'
+import { PixiArenaView } from './PixiArenaView'
 import './Arena.css'
 
 interface Props {
   playerName: string
   characterId?: string
-  onGameOver: () => void
+  onReturnToSelect: (respawnAvailableAt?: number) => void
 }
 
-export function Arena({ playerName, characterId = 'charizard', onGameOver }: Props) {
+export function Arena({ playerName, characterId = 'charizard', onReturnToSelect }: Props) {
   const fallbackVisual = CHARACTER_VISUALS[characterId] || CHARACTER_VISUALS.charizard
   const localPlayerIdRef = useRef<string | undefined>(undefined)
   const lockActionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left', durationMs: number) => void) | null>(null)
@@ -54,6 +54,7 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
     autoAttackCD,
     authoritativePosition,
     localDashState,
+    impactEffects,
     emitMove,
     emitRespawn,
     emitShoot,
@@ -81,7 +82,7 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
     emitRespawn,
     emitShoot,
     emitUseSkill,
-    onGameOver,
+    onReturnToSelect,
   })
 
   localPlayerIdRef.current = socketId
@@ -126,7 +127,7 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
         ref={controller.viewportRef}
         style={{ width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT, transform: `scale(${controller.scale})` }}
       >
-        <ArenaWorldView
+        <PixiArenaView
           mapData={mapData}
           tileSize={tileSize}
           mapWidth={mapWidth}
@@ -139,6 +140,7 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
           remotePlayers={resolvedOtherPlayers}
           localPlayer={localPlayer}
           projectiles={projectiles}
+          impactEffects={impactEffects}
           aimingArrowData={controller.aimingArrowData}
         />
 
@@ -160,6 +162,14 @@ export function Arena({ playerName, characterId = 'charizard', onGameOver }: Pro
             <div className="death-content">
               <h1>YOU DIED</h1>
               <p>Respawning in {controller.respawnTimer}s...</p>
+              <button
+                type="button"
+                className="death-return-button"
+                onClick={() => onReturnToSelect(controller.respawnAvailableAt ?? undefined)}
+              >
+                Back To Character Select
+              </button>
+              <p className="death-hint">Press ESC while dead to change character</p>
             </div>
           </div>
         )}

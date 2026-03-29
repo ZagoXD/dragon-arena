@@ -26,7 +26,7 @@ interface UseArenaControllerParams {
   emitRespawn: () => void
   emitShoot: (targetX: number, targetY: number) => void
   emitUseSkill: (skillId: string, x: number, y: number) => void
-  onGameOver: () => void
+  onReturnToSelect: (respawnAvailableAt?: number) => void
 }
 
 export function useArenaController({
@@ -46,7 +46,7 @@ export function useArenaController({
   emitRespawn,
   emitShoot,
   emitUseSkill,
-  onGameOver,
+  onReturnToSelect,
 }: UseArenaControllerParams) {
   const [scale, setScale] = useState(() =>
     Math.min(window.innerWidth / VIEWPORT_WIDTH, window.innerHeight / VIEWPORT_HEIGHT)
@@ -61,6 +61,7 @@ export function useArenaController({
     originY: number
   } | null>(null)
   const [respawnTimer, setRespawnTimer] = useState<number | null>(null)
+  const [respawnAvailableAt, setRespawnAvailableAt] = useState<number | null>(null)
 
   const viewportRef = useRef<HTMLDivElement>(null)
   const mousePos = useMousePosition()
@@ -112,19 +113,15 @@ export function useArenaController({
   }, [authoritativePosition, player.reconcilePosition])
 
   useEffect(() => {
-    if (hasAuthoritativePlayerState && hp <= 0) {
-      onGameOver()
-    }
-  }, [hasAuthoritativePlayerState, hp, onGameOver])
-
-  useEffect(() => {
     if (!hasAuthoritativePlayerState) return
     if (hp > 0) {
       setRespawnTimer(null)
+      setRespawnAvailableAt(null)
       return
     }
     if (respawnTimer === null) {
       setRespawnTimer(respawnSeconds)
+      setRespawnAvailableAt(Date.now() + respawnSeconds * 1000)
     }
   }, [hasAuthoritativePlayerState, hp, respawnSeconds, respawnTimer])
 
@@ -239,7 +236,16 @@ export function useArenaController({
         const cd = skillCooldowns[character.skills[0].id] || 0
         if (cd <= 0) setAimingSkill(character.skills[0])
       }
-      if (e.key === 'Escape') setAimingSkill(null)
+      if (e.key === 'Escape') {
+        if (aimingSkillRef.current) {
+          setAimingSkill(null)
+          return
+        }
+
+        if (hasAuthoritativePlayerState && hp <= 0) {
+          onReturnToSelect(respawnAvailableAt ?? undefined)
+        }
+      }
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -252,7 +258,7 @@ export function useArenaController({
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [character, skillCooldowns])
+  }, [character, skillCooldowns, hasAuthoritativePlayerState, hp, onReturnToSelect, respawnAvailableAt])
 
   useGameLoop(() => {
     if (!character) return
@@ -334,5 +340,6 @@ export function useArenaController({
     showScoreboard,
     aimingArrowData,
     respawnTimer,
+    respawnAvailableAt,
   }
 }

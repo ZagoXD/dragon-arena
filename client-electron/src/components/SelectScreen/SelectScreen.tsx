@@ -22,13 +22,17 @@ function getSpellIconStyle(spell: VisualSpellConfig): React.CSSProperties {
 
 interface Props {
   playerName: string
+  selectionLockedUntil: number | null
   onSelect: (characterId: string) => void
 }
 
-export function SelectScreen({ playerName, onSelect }: Props) {
+export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Props) {
   const [animIndex, setAnimIndex] = useState(0)
   const [hoveredSkill, setHoveredSkill] = useState<VisualSpellConfig | null>(null)
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+  const [lockRemainingMs, setLockRemainingMs] = useState(0)
+
+  const isSelectionLocked = selectionLockedUntil !== null && lockRemainingMs > 0
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -36,6 +40,21 @@ export function SelectScreen({ playerName, onSelect }: Props) {
     }, 1000 / ANIMATION_FPS)
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    const updateRemaining = () => {
+      if (selectionLockedUntil === null) {
+        setLockRemainingMs(0)
+        return
+      }
+
+      setLockRemainingMs(Math.max(0, selectionLockedUntil - Date.now()))
+    }
+
+    updateRemaining()
+    const interval = setInterval(updateRemaining, 250)
+    return () => clearInterval(interval)
+  }, [selectionLockedUntil])
 
   return (
     <div
@@ -56,7 +75,15 @@ export function SelectScreen({ playerName, onSelect }: Props) {
           const allSkills = [SPELL_VISUALS.ember, SPELL_VISUALS.dragon_dive]
 
           return (
-            <div key={char.id} className="character-card" onClick={() => onSelect(char.id)}>
+            <div
+              key={char.id}
+              className="character-card"
+              onClick={() => {
+                if (!isSelectionLocked) {
+                  onSelect(char.id)
+                }
+              }}
+            >
               <div
                 className="character-portrait"
                 style={{
@@ -89,12 +116,22 @@ export function SelectScreen({ playerName, onSelect }: Props) {
                   ))}
                 </div>
 
-                <button className="select-btn">Select Legend</button>
+                <button className="select-btn" disabled={isSelectionLocked}>
+                  {isSelectionLocked
+                    ? `Respawn Lock ${Math.ceil(lockRemainingMs / 1000)}s`
+                    : 'Select Legend'}
+                </button>
               </div>
             </div>
           )
         })}
       </div>
+
+      {isSelectionLocked && (
+        <p style={{ marginTop: '18px', color: '#ffcc88', fontFamily: 'monospace', letterSpacing: '0.04em' }}>
+          You can change your next character now, but re-entry stays locked until the respawn cooldown ends.
+        </p>
+      )}
 
       {hoveredSkill && (
         <div

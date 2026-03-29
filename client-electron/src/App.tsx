@@ -2,17 +2,17 @@ import { useState, useCallback } from 'react'
 import { NameScreen } from './components/NameScreen/NameScreen'
 import { SelectScreen } from './components/SelectScreen/SelectScreen'
 import { Arena } from './components/Arena/Arena'
-import { GameOver } from './components/GameOver/GameOver'
 import { LoadingScreen } from './components/LoadingScreen/LoadingScreen'
 import { TitleBar } from './components/TitleBar/TitleBar'
 import './App.css'
 
-type Screen = 'name' | 'loading' | 'select' | 'arena' | 'gameover'
+type Screen = 'name' | 'loading' | 'select' | 'arena'
 
 function App() {
   const [screen, setScreen] = useState<Screen>('name')
   const [playerName, setPlayerName] = useState('')
   const [characterId, setCharacterId] = useState<string>('charizard')
+  const [selectionLockedUntil, setSelectionLockedUntil] = useState<number | null>(null)
   
   // Connectivity Test State
   const [loadingStatus, setLoadingStatus] = useState('Initializing...')
@@ -68,16 +68,16 @@ function App() {
 
   // Called when the user picks a character
   const handleSelectCharacter = (id: string) => {
+    if (selectionLockedUntil !== null && Date.now() < selectionLockedUntil) {
+      return
+    }
     setCharacterId(id)
     setScreen('arena')
   }
 
-  const handleGameOver = () => {
-    setScreen('gameover')
-  }
-
-  const handleRestart = () => {
-    setScreen('name')
+  const handleReturnToSelect = (respawnAvailableAt?: number) => {
+    setSelectionLockedUntil(respawnAvailableAt ?? null)
+    setScreen('select')
   }
 
   return (
@@ -97,6 +97,7 @@ function App() {
       {screen === 'select' && (
         <SelectScreen 
           playerName={playerName} 
+          selectionLockedUntil={selectionLockedUntil}
           onSelect={handleSelectCharacter} 
         />
       )}
@@ -104,13 +105,7 @@ function App() {
         <Arena 
           playerName={playerName} 
           characterId={characterId}
-          onGameOver={handleGameOver} 
-        />
-      )}
-      {screen === 'gameover' && (
-        <GameOver 
-          playerName={playerName} 
-          onRestart={handleRestart} 
+          onReturnToSelect={handleReturnToSelect}
         />
       )}
     </>

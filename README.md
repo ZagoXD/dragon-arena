@@ -1,79 +1,192 @@
-# 🐉 Dragon Arena
+# Dragon Arena
 
-Bem-vindo à nova versão do **Dragon Arena**! O backend foi migrado de Node.js para **C++ (uWebSockets)** para garantir alta performance, baixa latência e melhor escalabilidade. O frontend continua em **React + Electron**, proporcionando uma experiência desktop premium.
+Dragon Arena agora roda com uma arquitetura de **servidor autoritativo em C++** e **cliente desktop em Electron**.
 
----
+O backend é responsável pela verdade do gameplay. O frontend recebe estado, renderiza o mundo e cuida da experiência visual.
 
-## 🏗️ Arquitetura do Projeto
+## Arquitetura
 
-O projeto é dividido em dois grandes pilares:
+### `server-cpp/`
 
-1.  **`server-cpp/`**: O motor do jogo e Fonte da Verdade.
-    -   **Networking**: Baseado em `uWebSockets` e `nlohmann/json`.
-    -   **Mapas Dinâmicos**: Lê matrizes do Tiled (`.tmj`) e determina colisões absolutas e bounds.
-    -   **Lógica**: Sistemas modulares de movimento e combate (Hitboxes).
-    -   **Sincronização**: Loop de rede de 1s para eventos passivos (respawn) e broadcast instantâneo para ações de jogadores.
-2.  **`client-electron/`**: A interface visual (App/EXE).
-    -   **Tecnologias**: React 18, Vite, TypeScript.
-    -   **Distribuição**: Empacotado com Electron para rodar como App nativo.
+Servidor autoritativo do jogo.
 
----
+- Networking em `uWebSockets` + `nlohmann/json`
+- Config de gameplay em `config/gameplay.json`
+- Mapa carregado de `map-assets/tiled/default_map.tmj`
+- Tick autoritativo, snapshots e eventos de sessão
+- Sistemas separados por domínio:
+  - `SkillSystem`
+  - `ProjectileSystem`
+  - `DashSystem`
+  - `RespawnSystem`
+  - `CombatSystem`
+  - `WorldSetup`
+  - `WorldTickRunner`
+  - `WorldSnapshotBuilder`
 
-## 🚀 Como Rodar o Projeto
+Responsabilidades do backend:
 
-### 1. Iniciar o Servidor C++ (`server-cpp`)
-Requisitos: Visual Studio 2022 (com C++ Desktop) ou CMake.
+- spawn e respawn de players e dummies
+- movimento autoritativo
+- colisão com mapa
+- auto attacks e skills
+- projéteis, dano, kill/death
+- snapshots do mundo
+- scoreboard autoritativo
+- bootstrap da sessão
 
-1.  Abra a pasta `server-cpp` no Visual Studio.
-2.  Aguarde o CMake gerar o cache.
-3.  Defina o item de inicialização para `main.cpp` (ou o executável gerado).
-4.  Rode em modo **Release** ou **Debug**.
-5.  O console dirá: `Servidor Dragon Arena (Modular) rodando na porta 3001`.
+### `client-electron/`
 
-### 2. Iniciar o Cliente Electron (`client-electron`)
-Requisitos: Node.js (v18+).
+Cliente desktop do jogo.
 
-1.  Acesse a pasta `client-electron/`.
-2.  Instale as dependências: `npm install`.
-3.  Configure o arquivo `.env`:
-    ```env
-    VITE_SERVER_URL=ws://localhost:3001
-    ```
-4.  Inicie o jogo: `npm run dev`.
+- Shell desktop em Electron
+- UI em React + TypeScript
+- Renderização do mundo em PixiJS
+- HUD, seleção de personagem, nome e overlays em React
 
----
+Responsabilidades do cliente:
 
-## 🌍 Mapas Dinâmicos (Server-Authoritative)
+- input local
+- câmera
+- feedback visual
+- HUD e menus
+- interpolação/apresentação visual
+- render do mapa, players, dummies, projéteis e efeitos
 
-A Arena não é mais hardcoded em CSS! O Servidor C++ lê o mapa dinamicamente exportado do **Tiled** e transmite a geometria para o Cliente instanciar os visuais.
+O cliente **não decide gameplay crítico**. Ele envia intenção e responde ao estado do servidor.
 
-Para alterar o Mapa do jogo:
-1. Abra o seu Tiled Editor.
-2. Desenhe seu mapa utilizando as camadas estritas: `ground` (piso), `walls` (paredes frontais) e `plants` (árvores).
-3. Caso queira blocos invisíveis rígidos, pinte a camada `collision`.
-4. Plante os `player_spawn` e `dummy_spawn` pela ObjectLayer de `spawns`.
-5. Exporte como JSON (`.tmj`) para a pasta `server-cpp/map-assets/tiled/default_map.tmj`.
-6. Reinicie o servidor C++. **O executável Cliente dos jogadores montará o novo mapa sozinho ao reconectar!** As hitboxes/colisões estão matematicamente presas à âncora 64x64 nos pés do personagem.
+## Fluxo de Rede
 
----
+O fluxo principal hoje é:
 
-## 🛠️ Guia de Customização
+1. o cliente conecta no servidor
+2. recebe `sessionInit`
+3. inicializa bootstrap, mapa e snapshot inicial
+4. passa a consumir snapshots/eventos autoritativos
+5. envia somente intenções como `move`, `shoot`, `useSkill` e `respawn`
 
-### Como Adicionar um Novo Personagem?
-1.  **Frontend**: Adicione os metadados em `client-electron/src/config/characters.ts`.
-2.  **Backend**: Adicione as estatísticas equivalentes em `server-cpp/GameConfig.h`.
-    -   As chaves de ID (ex: `charizard`, `blastoise`) devem ser idênticas nos dois arquivos.
+## Estrutura de Renderização
 
-### Como Mudar o Tempo de Respawn?
--   **Dummies**: Altere o valor no método `GameWorld::update` (atualmente 10000ms).
--   **Jogadores**: Altere o `setTimeout` na tela de morte (`Arena.tsx`) ou normalize no backend em `CombatSystem.h`.
+No frontend, a arena está dividida assim:
 
----
+- [App.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/App.tsx): fluxo de telas
+- [Arena.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/Arena/Arena.tsx): composição da arena
+- [useSocket.ts](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/hooks/useSocket.ts): transporte e eventos
+- [useArenaNetworkState.ts](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/hooks/useArenaNetworkState.ts): estado autoritativo consumido pela arena
+- [useArenaController.ts](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/hooks/useArenaController.ts): input, câmera, aiming e fluxo local
+- [PixiArenaView.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/Arena/PixiArenaView.tsx): renderização do mundo em Pixi
 
-## 📜 Boas Práticas
+## Configuração de Gameplay
 
--   **Eventos Nomeados**: Sempre use nomes de eventos consistentes entre C++ e TypeScript (ex: `playerMoved`, `dummyDamaged`).
--   **Aceleração de Rede**: O loop de movimento do player roda a ~30ms para suavidade, enquanto o heartbeat do mundo roda a 1s para economizar CPU.
--   **Headers**: Ao modificar sistemas (Movimentação/Combate), sempre limpe o cache do CMake para evitar erros de linkagem.
+O gameplay do servidor é carregado de:
 
----
+- [gameplay.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/gameplay.json)
+
+Lá ficam:
+
+- personagens
+- spells
+- timings
+- hp
+- velocidade
+- collider
+- respawn
+- dimensões base do mundo
+
+Se quiser mudar valores reais de gameplay, o lugar correto é o backend/config.
+
+## Mapa
+
+O mapa é exportado do Tiled e lido pelo backend em:
+
+- [default_map.tmj](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/map-assets/tiled/default_map.tmj)
+
+Camadas usadas hoje:
+
+- `ground`
+- `plants`
+- `collision`
+- `walls`
+- `spawns`
+
+O cliente recebe os dados do mapa do servidor e monta a parte visual localmente.
+
+## Como Rodar
+
+### Backend
+
+O servidor precisa destes itens no mesmo contexto de execução:
+
+- `DragonArenaServer.exe`
+- pasta `config/` com `gameplay.json`
+- pasta `map-assets/`
+
+Estrutura esperada:
+
+```txt
+server/
+  DragonArenaServer.exe
+  config/
+    gameplay.json
+  map-assets/
+    tiled/
+      default_map.tmj
+```
+
+Observação:
+
+- o servidor procura `config/gameplay.json` e `map-assets/tiled/default_map.tmj` por caminhos relativos
+
+### Cliente em desenvolvimento
+
+Dentro de [client-electron](C:/Users/gugu_/Documents/github/dragon-arena/client-electron):
+
+```bash
+npm install
+npm run dev
+```
+
+Por padrão o cliente tenta conectar em:
+
+```txt
+ws://localhost:3001
+```
+
+Você pode ajustar isso por `VITE_SERVER_URL`.
+
+### Cliente empacotado
+
+O app Electron empacotado **não é só o `.exe`**.
+
+Para distribuir manualmente, use a pasta inteira:
+
+- `client-electron/release/0.0.1/win-unpacked/`
+
+Ela contém:
+
+- executável
+- DLLs do Electron
+- `resources/`
+- `app.asar`
+
+Se copiar só o `.exe`, o cliente não roda corretamente.
+
+Observação importante:
+
+- o cliente empacotado ainda depende de um backend acessível
+- hoje ele não sobe o servidor C++ sozinho
+
+## Estado Atual da Arquitetura
+
+Hoje o projeto está organizado neste modelo:
+
+- backend C++ como fonte da verdade
+- frontend React/Electron/Pixi como camada de apresentação
+- gameplay separado de visual
+- mapa e conteúdo carregados de arquivos
+- protocolo de sessão consolidado
+- arena renderizada em Pixi
+
+Em outras palavras:
+
+**a arquitetura principal de servidor autoritativo + cliente visual já está consolidada.**

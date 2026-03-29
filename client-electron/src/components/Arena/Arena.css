@@ -35,6 +35,12 @@
   will-change: transform;
 }
 
+.arena-pixi-root {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
 /* Inner vignette overlay — depth sense inside viewport */
 .arena-viewport::after {
   content: '';
@@ -169,4 +175,39 @@
   font-size: 1.5rem;
   margin-top: 10px;
   color: #aaa;
+}
+
+.death-return-button {
+  margin-top: 22px;
+  padding: 12px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(38, 40, 56, 0.96) 0%, rgba(16, 17, 28, 0.96) 100%);
+  color: #f4f0e4;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.death-return-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 208, 120, 0.55);
+  background: linear-gradient(180deg, rgba(54, 45, 38, 0.98) 0%, rgba(26, 20, 16, 0.98) 100%);
+}
+
+.death-return-button:active {
+  transform: translateY(0);
+}
+
+.death-hint {
+  margin-top: 14px;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d8c7a0;
 }

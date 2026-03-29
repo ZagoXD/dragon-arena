@@ -9,8 +9,7 @@ import {
   useSocket,
 } from './useSocket'
 import { GameplayBootstrap } from '../types/gameplay'
-import { DummyData } from '../components/Dummy/Dummy'
-import { ProjectileData } from '../components/Projectile/Projectile'
+import { DummyData, ProjectileData } from '../types/arenaWorld'
 
 interface UseArenaNetworkStateParams {
   playerName: string
@@ -29,6 +28,16 @@ interface RemotePlayerSample {
 interface LocalDashState {
   isDashing: boolean
   dashAngle?: number
+}
+
+interface ImpactEffect {
+  id: string
+  x: number
+  y: number
+  radius: number
+  color: number
+  life: number
+  maxLife: number
 }
 
 function getRemoteDashAngle(
@@ -71,6 +80,7 @@ export function useArenaNetworkState({
   const [autoAttackCD, setAutoAttackCD] = useState(0)
   const [authoritativePosition, setAuthoritativePosition] = useState<{ x: number, y: number } | null>(null)
   const [localDashState, setLocalDashState] = useState<LocalDashState>({ isDashing: false })
+  const [impactEffects, setImpactEffects] = useState<ImpactEffect[]>([])
 
   const otherPlayersRef = useRef<Record<string, NetPlayer>>({})
   const remoteSamplesRef = useRef<Record<string, RemotePlayerSample[]>>({})
@@ -135,8 +145,25 @@ export function useArenaNetworkState({
   }, [resolveProjectile])
 
   const onProjectileRemoved = useCallback((projectileId: string) => {
+    const removedProjectile = projectilesRef.current.find(proj => proj.id === projectileId)
     projectilesRef.current = projectilesRef.current.filter(proj => proj.id !== projectileId)
     setProjectiles([...projectilesRef.current])
+
+    if (removedProjectile) {
+      const isEmber = removedProjectile.spell.id === 'ember'
+      setImpactEffects(prev => [
+        ...prev,
+        {
+          id: `${projectileId}-${performance.now()}`,
+          x: removedProjectile.x,
+          y: removedProjectile.y,
+          radius: isEmber ? 28 : 40,
+          color: isEmber ? 0xff8a00 : 0xffd166,
+          life: isEmber ? 180 : 220,
+          maxLife: isEmber ? 180 : 220,
+        },
+      ])
+    }
   }, [])
 
   const onProjectilesSnapshot = useCallback((snapshotProjectiles: ProjectileSpawnEvent[]) => {
@@ -380,6 +407,10 @@ export function useArenaNetworkState({
       setAutoAttackCD(prev => Math.max(0, prev - deltaMs))
     }
 
+    setImpactEffects(prev => prev
+      .map(effect => ({ ...effect, life: effect.life - deltaMs }))
+      .filter(effect => effect.life > 0))
+
     setSkillCooldowns(prev => {
       const next: Record<string, number> = {}
       let changed = false
@@ -418,6 +449,7 @@ export function useArenaNetworkState({
     autoAttackCD,
     authoritativePosition,
     localDashState,
+    impactEffects,
     emitMove,
     emitShoot,
     emitRespawn,
