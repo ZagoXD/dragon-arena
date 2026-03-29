@@ -6,6 +6,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 # Nome do projeto
 project(DragonArenaServer)
+enable_testing()
 
 # Desativar mensagens de segurança chatas do Windows e o aviso do zlib
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
@@ -68,10 +69,20 @@ set(US_SOURCES
 # Adicionar o executavel
 add_executable(DragonArenaServer 
     main.cpp 
+    GameConfig.cpp
     Player.cpp
     CombatSystem.cpp
     MovementSystem.cpp
     GameWorld.cpp
+    DashSystem.cpp
+    SkillSystem.cpp
+    ProjectileSystem.cpp
+    ProtocolPayloadBuilder.cpp
+    RespawnSystem.cpp
+    ServerDiagnostics.cpp
+    WorldSetup.cpp
+    WorldTickRunner.cpp
+    WorldSnapshotBuilder.cpp
     NetworkHandler.cpp
     MapLoader.cpp
     ${US_SOURCES}
@@ -101,3 +112,34 @@ endif()
 
 # Opcional: Definir onde o .exe sera gerado
 set_target_properties(DragonArenaServer PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
+add_executable(DragonArenaGameplayTests
+    tests/GameplayTests.cpp
+    tests/NetworkHandlerStub.cpp
+    GameConfig.cpp
+    Player.cpp
+    CombatSystem.cpp
+    MovementSystem.cpp
+    SkillSystem.cpp
+    ProjectileSystem.cpp
+    DashSystem.cpp
+    RespawnSystem.cpp
+    ProtocolPayloadBuilder.cpp
+    ServerDiagnostics.cpp
+    WorldSetup.cpp
+    WorldSnapshotBuilder.cpp
+    MapLoader.cpp
+)
+
+target_include_directories(DragonArenaGameplayTests PRIVATE 
+    ${json_SOURCE_DIR}/single_include
+    ${uwebsockets_SOURCE_DIR}/src
+    ${usockets_SOURCE_DIR}/src
+    ${libuv_SOURCE_DIR}/include
+)
+
+target_link_libraries(DragonArenaGameplayTests PRIVATE 
+    nlohmann_json::nlohmann_json
+)
+
+add_test(NAME DragonArenaGameplayTests COMMAND DragonArenaGameplayTests)

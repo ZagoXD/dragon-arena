@@ -1,5 +1,5 @@
 import { getSpellFrame } from '../../config/spriteMap'
-import { SpellConfig } from '../../config/characters'
+import { ResolvedSpellConfig } from '../../config/visualConfig'
 import './Projectile.css'
 
 export interface ProjectileData {
@@ -8,7 +8,7 @@ export interface ProjectileData {
   y: number
   angle: number
   distance: number
-  spell: SpellConfig
+  spell: ResolvedSpellConfig
   isLocal: boolean // true = fired by this client; can hit other players
   ownerId?: string
 }

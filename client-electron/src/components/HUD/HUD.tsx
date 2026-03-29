@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { CharacterConfig } from '../../config/characters'
+import { ResolvedCharacterConfig } from '../../config/visualConfig'
 import { ANIMATION_FPS } from '../../config/spriteMap'
 import './HUD.css'
 
 interface Props {
   playerName: string
-  character: CharacterConfig
+  character: ResolvedCharacterConfig
   hp: number
   playerPos: { x: number, y: number }
   dummies: { id: string, x: number, y: number, hp: number }[]

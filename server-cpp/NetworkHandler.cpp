@@ -1,5 +1,18 @@
 #include "NetworkHandler.h"
+#include "ProtocolConfig.h"
+#include "ProtocolPayloadBuilder.h"
+#include "ServerDiagnostics.h"
 #include <iostream>
+
+namespace {
+bool hasString(const json& payload, const char* key) {
+    return payload.contains(key) && payload[key].is_string();
+}
+
+bool hasNumber(const json& payload, const char* key) {
+    return payload.contains(key) && payload[key].is_number();
+}
+}
 
 NetworkHandler::NetworkHandler(GameWorld &world, int port) : world(world), port(port) {}
 
@@ -27,7 +40,7 @@ void NetworkHandler::start() {
             us_timer_set(timer, [](struct us_timer_t *t) {
                 NetworkHandler *nh = *(NetworkHandler **) us_timer_ext(t);
                 nh->world.update(nh);
-            }, 50, 50); // 50ms = 20Hz
+            }, DRAGON_ARENA_TICK_INTERVAL_MS, DRAGON_ARENA_TICK_INTERVAL_MS);
         }
     }).run();
 }
@@ -49,10 +62,24 @@ void NetworkHandler::sendTo(const std::string &id, const std::string &message) {
 void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *ws, std::string_view message) {
     try {
         auto data = json::parse(message);
+        if (!hasString(data, "event")) {
+            ws->send(ProtocolPayloadBuilder::buildProtocolError("missing_event", "Payload must include a string event field").dump(), uWS::OpCode::TEXT);
+            return;
+        }
+
         std::string event = data["event"];
         PerSocketData *userData = ws->getUserData();
+        ServerDiagnostics::logProtocolEvent("clientMessage", {
+            {"event", event},
+            {"hasSession", userData != nullptr && !userData->id.empty()}
+        });
         
         if (event == "join") {
+            if (!hasString(data, "name") || !hasString(data, "characterId")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("join", "invalid_payload", "join requires string name and characterId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
             std::string id = std::to_string(reinterpret_cast<uintptr_t>(ws));
             userData->id = id;
             {
@@ -60,76 +87,83 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 clients[id] = ws;
             }
 
-            int maxHp = data.contains("maxHp") ? (int)data["maxHp"] : 500;
-            world.addPlayer(id, data["name"], data["characterId"], maxHp);
-
-            ws->send(json({{"event", "welcome"}, {"id", id}}).dump(), uWS::OpCode::TEXT);
-
-            if (world.getMapLoader().isLoaded()) {
-                ws->send(json({{"event", "mapData"}, {"map", world.getMapLoader().getRawMapData()}}).dump(), uWS::OpCode::TEXT);
-            }
-
-            ws->send(json({{"event", "currentPlayers"}, {"players", world.getPlayersJson()}}).dump(), uWS::OpCode::TEXT);
-            ws->send(json({{"event", "currentDummies"}, {"dummies", world.getDummiesJson()}}).dump(), uWS::OpCode::TEXT);
+            world.addPlayer(id, data["name"], data["characterId"]);
+            ws->send(world.getSessionInitJson(id).dump(), uWS::OpCode::TEXT);
             
             std::string joinMsg = json({{"event", "playerJoined"}, {"player", world.getPlayerJson(id)}}).dump();
             broadcast(joinMsg);
             ws->subscribe("arena");
         } 
         else if (event == "move") {
-            if (world.movePlayer(userData->id, data["x"], data["y"], data["direction"], data["animRow"])) {
-                json p = world.getPlayerJson(userData->id);
-                ws->publish("arena", json({
-                    {"event", "playerMoved"}, {"id", userData->id},
-                    {"x", p["x"]}, {"y", p["y"]},
-                    {"direction", data["direction"]}, {"animRow", data["animRow"]}
-                }).dump(), uWS::OpCode::TEXT);
+            if (userData->id.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("move", "not_joined", "Client must join before sending move", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!hasNumber(data, "inputX") || !hasNumber(data, "inputY") || !hasString(data, "direction") || !data.contains("animRow") || !data["animRow"].is_number_integer()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("move", "invalid_payload", "move requires numeric inputX/inputY, string direction and integer animRow", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!world.movePlayer(userData->id, data["inputX"], data["inputY"], data["direction"], data["animRow"])) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("move", "move_rejected", "Move intent was not accepted for the current player state", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
             }
         }
         else if (event == "shoot") {
-            ws->publish("arena", json({
-                {"event", "playerShot"}, {"playerId", userData->id},
-                {"originX", data["originX"]}, {"originY", data["originY"]},
-                {"angle", data["angle"]}
-            }).dump(), uWS::OpCode::TEXT);
-        }
-        else if (event == "dummyDamage") {
-            int newHp = world.hitDummy(data["dummyId"], data["damage"]);
-            if (newHp >= 0) {
-                broadcast(json({{"event", "dummyDamaged"}, {"id", data["dummyId"]}, {"hp", newHp}}).dump());
+            if (userData->id.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("shoot", "not_joined", "Client must join before shooting", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
             }
-        }
-        else if (event == "takeDamage") {
-            int newHp = world.takeDamage(userData->id, data["amount"]);
-            if (newHp >= 0) {
-                broadcast(json({{"event", "playerDamaged"}, {"id", userData->id}, {"hp", newHp}}).dump());
+            if (!hasNumber(data, "targetX") || !hasNumber(data, "targetY")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("shoot", "invalid_payload", "shoot requires numeric targetX and targetY", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
             }
-        }
-        else if (event == "hitPlayer") {
-            auto res = world.hitPlayer(data["targetId"], userData->id, data["damage"]);
-            if (res.hit) {
-                broadcast(json({{"event", "playerDamaged"}, {"id", data["targetId"]}, {"hp", res.newHp}}).dump());
-
-                if (res.killed) {
-                    broadcast(json({
-                        {"event", "playerScored"}, {"victimId", data["targetId"]}, {"attackerId", userData->id},
-                        {"targetDeaths", res.victimDeaths}, {"attackerKills", res.attackerKills}
-                    }).dump());
-                }
+            if (!world.requestAutoAttack(userData->id, data["targetX"], data["targetY"], this)) {
+                sendTo(userData->id, json({
+                    {"event", "autoAttackRejected"},
+                    {"code", "cooldown_or_state"},
+                    {"reason", "Auto attack was rejected due to cooldown or player state"},
+                    {"tick", world.getCurrentTick()}
+                }).dump());
             }
         }
         else if (event == "respawn") {
-            world.respawnPlayer(userData->id);
-            json p = world.getPlayerJson(userData->id);
-            broadcast(json({{"event", "playerRespawned"}, {"id", userData->id}, {"hp", p["hp"]}, {"x", p["x"]}, {"y", p["y"]}}).dump());
+            if (userData->id.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("respawn", "not_joined", "Client must join before respawning", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (world.respawnPlayer(userData->id)) {
+                json p = world.getPlayerJson(userData->id);
+                broadcast(json({{"event", "playerRespawned"}, {"tick", world.getCurrentTick()}, {"id", userData->id}, {"hp", p["hp"]}, {"x", p["x"]}, {"y", p["y"]}}).dump());
+            } else {
+                sendTo(userData->id, ProtocolPayloadBuilder::buildActionRejected("respawn", "respawn_locked", "Player cannot respawn yet", world.getCurrentTick()).dump());
+            }
         }
         else if (event == "useSkill") {
-            world.useSkill(userData->id, data["skillId"], data["x"], data["y"], this);
+            if (userData->id.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("useSkill", "not_joined", "Client must join before using skills", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!hasString(data, "skillId") || !hasNumber(data, "x") || !hasNumber(data, "y")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("useSkill", "invalid_payload", "useSkill requires string skillId and numeric x/y", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!world.useSkill(userData->id, data["skillId"], data["x"], data["y"], this)) {
+                sendTo(userData->id, json({
+                    {"event", "skillRejected"},
+                    {"skillId", data["skillId"]},
+                    {"code", "cooldown_or_state"},
+                    {"reason", "Skill request was rejected due to cooldown, invalid skill or player state"},
+                    {"tick", world.getCurrentTick()}
+                }).dump());
+            }
+        } else {
+            ws->send(ProtocolPayloadBuilder::buildProtocolError("unknown_event", "Unknown event '" + event + "'").dump(), uWS::OpCode::TEXT);
         }
     } catch (const std::exception &e) {
         std::cerr << "[WS] Errore parsing JSON: " << e.what() << " Messaggio: " << message << std::endl;
+        ws->send(ProtocolPayloadBuilder::buildProtocolError("invalid_json", e.what()).dump(), uWS::OpCode::TEXT);
     } catch (...) {
         std::cerr << "[WS] Errore sconosciuto nel processing do messaggio" << std::endl;
+        ws->send(ProtocolPayloadBuilder::buildProtocolError("unknown_error", "Unknown message processing error").dump(), uWS::OpCode::TEXT);
     }
 }
 

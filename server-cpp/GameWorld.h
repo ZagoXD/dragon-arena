@@ -7,6 +7,7 @@
 #include <vector>
 #include "Player.h"
 #include "GameConfig.h"
+#include "GameState.h"
 #include "MovementSystem.h"
 #include "CombatSystem.h"
 #include "MapLoader.h"
@@ -16,25 +17,29 @@ class GameWorld {
 private:
     MapLoader mapLoader;
     std::map<std::string, Player> players;
-    struct Dummy {
-        std::string id;
-        float x, y;
-        int hp;
-        long long deathTime; // timestamp in ms, 0 if alive
-    };
-    std::map<std::string, Dummy> dummies;
+    std::map<std::string, DummyEntity> dummies;
+    std::vector<ActiveProjectile> activeProjectiles;
+    std::vector<PendingAutoAttack> pendingAutoAttacks;
     std::mutex mtx;
-    std::map<std::string, CharacterStats> charConfigs;
+    WorldDefinition worldDefinition;
+    unsigned long long worldTick = 0;
+    long long lastUpdateMs = 0;
+    long long lastSnapshotMs = 0;
 
 public:
     GameWorld();
     const MapLoader& getMapLoader() const { return mapLoader; }
-    void addPlayer(std::string id, std::string name, std::string charId, int maxHp);
+    unsigned long long getCurrentTick() const { return worldTick; }
+    void addPlayer(std::string id, std::string name, std::string charId);
     void removePlayer(std::string id);
-    bool movePlayer(std::string id, float x, float y, std::string dir, int anim);
+    bool movePlayer(std::string id, float inputX, float inputY, std::string dir, int anim);
     json getPlayersJson();
     json getPlayerJson(std::string id);
     json getDummiesJson();
+    json getProjectilesJson();
+    json getWorldSnapshotJson();
+    json getBootstrapJson(std::string playerId);
+    json getSessionInitJson(std::string playerId);
 
     struct HitResult {
         bool hit;
@@ -44,14 +49,20 @@ public:
         int victimDeaths;
     };
 
-    HitResult hitPlayer(std::string victimId, std::string attackerId, int damage);
-    int hitDummy(std::string dummyId, int damage);
+    HitResult hitPlayer(std::string victimId, std::string attackerId);
+    int hitDummy(std::string attackerId, std::string dummyId);
     int takeDamage(std::string id, int amount);
-    void respawnPlayer(std::string id);
-    void useSkill(std::string playerId, std::string skillId, float targetX, float targetY, NetworkHandler* network);
+    bool respawnPlayer(std::string id);
+    bool requestAutoAttack(std::string playerId, float targetX, float targetY, NetworkHandler* network);
+    bool useSkill(std::string playerId, std::string skillId, float targetX, float targetY, NetworkHandler* network);
     void update(NetworkHandler* network); // High-frequency update
 private:
+    void updateSimulation(NetworkHandler* network, float deltaSeconds, long long now_ms);
+    void broadcastSnapshot(NetworkHandler* network, long long now_ms);
     void updateDashes(NetworkHandler* network, long long now_ms);
+    void updateDummyRespawns(NetworkHandler* network, long long now_ms);
+    void updatePendingAutoAttacks(NetworkHandler* network, long long now_ms);
+    void updateProjectiles(NetworkHandler* network, float deltaSeconds, long long now_ms);
 };
 
 #endif

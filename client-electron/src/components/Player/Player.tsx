@@ -2,22 +2,24 @@ import { useMemo } from 'react'
 import {
   DIRECTION_COLUMNS,
   Direction,
+  getSpellFrame,
 } from '../../config/spriteMap'
-import { CharacterConfig } from '../../config/characters'
+import { ResolvedCharacterConfig } from '../../config/visualConfig'
 import './Player.css'
 
 interface Props {
   playerName: string
-  character: CharacterConfig
+  character: ResolvedCharacterConfig
   x: number
   y: number
   direction: Direction
   animRow: number 
   hp: number
   isDashing?: boolean
+  dashAngle?: number
 }
 
-export function Player({ playerName, character, x, y, direction, animRow, hp, isDashing }: Props) {
+export function Player({ playerName, character, x, y, direction, animRow, hp, isDashing, dashAngle }: Props) {
   const isCharizardDash = isDashing && character.id === 'charizard'
   const activeImage = isCharizardDash ? character.skills[0].imageSrc : character.imageSrc
   
@@ -31,6 +33,8 @@ export function Player({ playerName, character, x, y, direction, animRow, hp, is
   const renderScale = isCharizardDash ? 2.0 : character.renderScale
   const renderedWidth = frameWidth * renderScale
   const renderedHeight = frameHeight * renderScale
+  const horizontalOffset = (renderedWidth - character.colliderWidth) / 2
+  const verticalOffset = renderedHeight - character.colliderHeight
   
   // Sheet dimensions
   // Normal: character.frameWidth * 4 columns, variable rows.
@@ -41,18 +45,15 @@ export function Player({ playerName, character, x, y, direction, animRow, hp, is
   const sheetWidthPx = frameWidth * colCount * renderScale
   const sheetHeightPx = frameHeight * rowCount * renderScale
 
-  // Row/Col selection for dragon_dive.png (3x3 grid)
-  // Index (row, col):
-  // (0,1): Up, (2,1): Down, (1,0): Left, (1,2): Right
-  const dashPosMap: Record<Direction, { row: number, col: number }> = {
-    'up':    { row: 0, col: 1 },
-    'down':  { row: 2, col: 1 },
-    'left':  { row: 1, col: 0 },
-    'right': { row: 1, col: 2 }
-  }
+  const fallbackDashAngle =
+    direction === 'right' ? 0 :
+    direction === 'down' ? Math.PI / 2 :
+    direction === 'left' ? Math.PI :
+    -Math.PI / 2
+  const { col: dashCol, row: dashRow } = getSpellFrame(dashAngle ?? fallbackDashAngle)
 
-  const actualRow = isCharizardDash ? dashPosMap[direction].row : animRow
-  const actualCol = isCharizardDash ? dashPosMap[direction].col : DIRECTION_COLUMNS[direction]
+  const actualRow = isCharizardDash ? dashRow : animRow
+  const actualCol = isCharizardDash ? dashCol : DIRECTION_COLUMNS[direction]
 
   const bgPos = `-${actualCol * renderedWidth}px -${actualRow * renderedHeight}px`
 
@@ -67,8 +68,8 @@ export function Player({ playerName, character, x, y, direction, animRow, hp, is
     <div
       className="player"
       style={{ 
-        left: x - (renderedWidth - 64) / 2, 
-        top: y - (renderedHeight - 64), 
+        left: x - horizontalOffset,
+        top: y - verticalOffset,
         width: renderedWidth, 
         height: renderedHeight,
         zIndex: isDashing ? 10 : 1

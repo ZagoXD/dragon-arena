@@ -5,8 +5,6 @@ import plantImgSrc from '/tilesets/Extra/TX Plant with Shadow.png'
 import wallImgSrc from '/tilesets/TX Tileset Wall.png'
 
 const SOURCE_TILE_SIZE = 32
-const SCALE = 2
-const WORLD_TILE_SIZE = SOURCE_TILE_SIZE * SCALE
 
 const TILESETS_LOCAL_PATHS: Record<string, { src: string, cols: number }> = {
   'TX Tileset Grass.png': { src: grassImgSrc, cols: 8 },
@@ -14,7 +12,15 @@ const TILESETS_LOCAL_PATHS: Record<string, { src: string, cols: number }> = {
   'TX Plant with Shadow.png': { src: plantImgSrc, cols: 16 }
 }
 
-export function MapRenderer({ mapData, renderLayer = 'all' }: { mapData: any, renderLayer?: 'all' | 'background' | 'foreground' }) {
+export function MapRenderer({
+  mapData,
+  tileSize = 64,
+  renderLayer = 'all',
+}: {
+  mapData: any
+  tileSize?: number
+  renderLayer?: 'all' | 'background' | 'foreground'
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -86,13 +92,13 @@ export function MapRenderer({ mapData, renderLayer = 'all' }: { mapData: any, re
           const srcX = (localTileId % targetTileset.cols) * SOURCE_TILE_SIZE
           const srcY = Math.floor(localTileId / targetTileset.cols) * SOURCE_TILE_SIZE
           
-          const destX = (index % widthTiles) * WORLD_TILE_SIZE
-          const destY = Math.floor(index / widthTiles) * WORLD_TILE_SIZE
+          const destX = (index % widthTiles) * tileSize
+          const destY = Math.floor(index / widthTiles) * tileSize
           
           ctx.drawImage(
             img, 
-            srcX, srcY, SOURCE_TILE_SIZE, SOURCE_TILE_SIZE, 
-            destX, destY, WORLD_TILE_SIZE, WORLD_TILE_SIZE
+            srcX, srcY, SOURCE_TILE_SIZE, SOURCE_TILE_SIZE,
+            destX, destY, tileSize, tileSize
           )
         })
       })
@@ -116,12 +122,12 @@ export function MapRenderer({ mapData, renderLayer = 'all' }: { mapData: any, re
       }
       images[ts.firstgid] = img
     })
-  }, [mapData, renderLayer])
+  }, [mapData, renderLayer, tileSize])
 
   if (!mapData) return null
 
-  const mapWidth = mapData.width * WORLD_TILE_SIZE
-  const mapHeight = mapData.height * WORLD_TILE_SIZE
+  const mapWidth = mapData.width * tileSize
+  const mapHeight = mapData.height * tileSize
 
   return (
     <canvas 

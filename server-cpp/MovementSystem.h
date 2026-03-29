@@ -7,7 +7,8 @@
 
 class MovementSystem {
 public:
-    static void handleMove(Player &p, float nx, float ny, std::string dir, int anim, const MapLoader& mapLoader);
+    static void handleMoveIntent(Player &p, float inputX, float inputY, std::string dir, int anim);
+    static bool applyMovement(Player &p, float deltaSeconds, const MapLoader& mapLoader);
 };
 
 #endif

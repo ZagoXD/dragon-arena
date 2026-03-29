@@ -1,4 +1,3 @@
-import { DUMMY_MAX_HP, DUMMY_SIZE } from '../../config/spriteMap'
 import './Dummy.css'
 
 export interface DummyData {
@@ -10,10 +9,12 @@ export interface DummyData {
 
 interface Props {
   dummy: DummyData
+  maxHp: number
+  size: number
 }
 
-export function Dummy({ dummy }: Props) {
-  const pct = Math.max(0, (dummy.hp / DUMMY_MAX_HP) * 100)
+export function Dummy({ dummy, maxHp, size }: Props) {
+  const pct = Math.max(0, (dummy.hp / maxHp) * 100)
   
   const barColor =
     pct > 60 ? '#4caf50' :
@@ -24,10 +25,10 @@ export function Dummy({ dummy }: Props) {
     <div
       className="dummy"
       style={{
-        left: dummy.x - DUMMY_SIZE / 2, // centered
-        top: dummy.y - DUMMY_SIZE / 2,
-        width: DUMMY_SIZE,
-        height: DUMMY_SIZE,
+        left: dummy.x - size / 2,
+        top: dummy.y - size / 2,
+        width: size,
+        height: size,
       }}
     >
       <div className="dummy__overhead">
