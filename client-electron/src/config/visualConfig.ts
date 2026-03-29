@@ -12,6 +12,8 @@ export interface VisualSpellConfig {
   imageSrc: string
   frameSize: number
   aimingWidth?: number
+  renderMode?: 'directional_sheet' | 'single_rotated'
+  iconMode?: 'sheet_focus' | 'single_fit'
 }
 
 export interface VisualCharacterConfig {
@@ -37,15 +39,19 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
     id: 'ember',
     description: 'O dragao cospe fogo, causando dano a quem for atingido.',
     imageSrc: emberSrc,
-    frameSize: 32,
+    frameSize: 64,
     aimingWidth: 32,
+    renderMode: 'single_rotated',
+    iconMode: 'single_fit',
   },
   dragon_dive: {
     id: 'dragon_dive',
     description: 'O dragao realiza um avanco feroz, causando dano ao longo do trajeto.',
     imageSrc: dragonDiveSrc,
-    frameSize: 32,
+    frameSize: 64,
     aimingWidth: 32,
+    renderMode: 'single_rotated',
+    iconMode: 'single_fit',
   },
 }
 

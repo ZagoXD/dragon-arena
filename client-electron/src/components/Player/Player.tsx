@@ -20,27 +20,25 @@ interface Props {
 }
 
 export function Player({ playerName, character, x, y, direction, animRow, hp, isDashing, dashAngle }: Props) {
-  const isCharizardDash = isDashing && character.id === 'charizard'
-  const activeImage = isCharizardDash ? character.skills[0].imageSrc : character.imageSrc
-  
-  const frameWidth = isCharizardDash ? 32 : character.frameWidth
-  const frameHeight = isCharizardDash ? 32 : character.frameHeight
-  
-  // Render scale: normal is character.renderScale (e.g. 0.5 for 256px -> 128px)
-  // Dash: 32px asset. User wants it half character width. 
-  // Character width is 128px. Half is 64px. 
-  // 32px * 2.0 = 64px.
-  const renderScale = isCharizardDash ? 2.0 : character.renderScale
+  const dashVisual = character.skills[0]
+  const isCharizardDash = isDashing && character.id === 'charizard' && !!dashVisual
+  const isDashSingleRotated = isCharizardDash && dashVisual.renderMode === 'single_rotated'
+  const activeImage = isCharizardDash ? dashVisual.imageSrc : character.imageSrc
+
+  const frameWidth = isCharizardDash ? dashVisual.frameSize : character.frameWidth
+  const frameHeight = isCharizardDash ? dashVisual.frameSize : character.frameHeight
+
+  const renderScale = isCharizardDash
+    ? (isDashSingleRotated ? 1.0 : 2.0)
+    : character.renderScale
   const renderedWidth = frameWidth * renderScale
   const renderedHeight = frameHeight * renderScale
   const horizontalOffset = (renderedWidth - character.colliderWidth) / 2
   const verticalOffset = renderedHeight - character.colliderHeight
   
-  // Sheet dimensions
-  // Normal: character.frameWidth * 4 columns, variable rows.
-  // Dragon Dive: 96x96 total (3 columns of 32px, 3 rows of 32px).
-  const colCount = isCharizardDash ? 3 : 4
-  const rowCount = isCharizardDash ? 3 : Math.max(...character.idleRows, ...character.walkRows) + 1
+  const isDirectionalDash = isCharizardDash && !isDashSingleRotated
+  const colCount = isDirectionalDash ? 3 : 4
+  const rowCount = isDirectionalDash ? 3 : Math.max(...character.idleRows, ...character.walkRows) + 1
   
   const sheetWidthPx = frameWidth * colCount * renderScale
   const sheetHeightPx = frameHeight * rowCount * renderScale
@@ -52,8 +50,8 @@ export function Player({ playerName, character, x, y, direction, animRow, hp, is
     -Math.PI / 2
   const { col: dashCol, row: dashRow } = getSpellFrame(dashAngle ?? fallbackDashAngle)
 
-  const actualRow = isCharizardDash ? dashRow : animRow
-  const actualCol = isCharizardDash ? dashCol : DIRECTION_COLUMNS[direction]
+  const actualRow = isDirectionalDash ? dashRow : animRow
+  const actualCol = isDirectionalDash ? dashCol : DIRECTION_COLUMNS[direction]
 
   const bgPos = `-${actualCol * renderedWidth}px -${actualRow * renderedHeight}px`
 
@@ -90,10 +88,16 @@ export function Player({ playerName, character, x, y, direction, animRow, hp, is
           width: renderedWidth,
           height: renderedHeight,
           backgroundImage: `url(${activeImage})`,
-          backgroundPosition: bgPos,
-          backgroundSize: `${sheetWidthPx}px ${sheetHeightPx}px`,
+          backgroundPosition: isCharizardDash
+            ? (isDirectionalDash ? bgPos : 'center')
+            : bgPos,
+          backgroundSize: isCharizardDash
+            ? (isDashSingleRotated ? 'contain' : `${sheetWidthPx}px ${sheetHeightPx}px`)
+            : `${sheetWidthPx}px ${sheetHeightPx}px`,
+          backgroundRepeat: 'no-repeat',
           imageRendering: 'pixelated',
-          filter: isDashing ? 'brightness(1.5) drop-shadow(0 0 10px rgba(255,100,0,0.8))' : 'none'
+          filter: isDashing ? 'brightness(1.5) drop-shadow(0 0 10px rgba(255,100,0,0.8))' : 'none',
+          transform: isDashSingleRotated ? `rotate(${dashAngle ?? fallbackDashAngle}rad)` : undefined,
         }}
       />
     </div>

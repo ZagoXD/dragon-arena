@@ -3,6 +3,23 @@ import { CHARACTER_VISUALS, SPELL_VISUALS, VisualSpellConfig } from '../../confi
 import { ANIMATION_FPS } from '../../config/spriteMap'
 import './SelectScreen.css'
 
+function getSpellIconStyle(spell: VisualSpellConfig): React.CSSProperties {
+  if (spell.iconMode === 'single_fit') {
+    return {
+      backgroundImage: `url(${spell.imageSrc})`,
+      backgroundSize: 'contain',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+    }
+  }
+
+  return {
+    backgroundImage: `url(${spell.imageSrc})`,
+    backgroundSize: '300% 300%',
+    backgroundPosition: '100% 50%',
+  }
+}
+
 interface Props {
   playerName: string
   onSelect: (characterId: string) => void
@@ -67,11 +84,7 @@ export function SelectScreen({ playerName, onSelect }: Props) {
                         setHoveredSkill(skill)
                       }}
                       onMouseLeave={() => setHoveredSkill(null)}
-                      style={{
-                        backgroundImage: `url(${skill.imageSrc})`,
-                        backgroundSize: '300% 300%',
-                        backgroundPosition: '100% 50%',
-                      }}
+                      style={getSpellIconStyle(skill)}
                     />
                   ))}
                 </div>

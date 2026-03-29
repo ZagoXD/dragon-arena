@@ -3,6 +3,23 @@ import { ResolvedCharacterConfig } from '../../config/visualConfig'
 import { ANIMATION_FPS } from '../../config/spriteMap'
 import './HUD.css'
 
+function getSpellIconStyle(spell: ResolvedCharacterConfig['autoAttack']): React.CSSProperties {
+  if (spell.iconMode === 'single_fit') {
+    return {
+      backgroundImage: `url(${spell.imageSrc})`,
+      backgroundSize: 'contain',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+    }
+  }
+
+  return {
+    backgroundImage: `url(${spell.imageSrc})`,
+    backgroundSize: '300% 300%',
+    backgroundPosition: '100% 50%',
+  }
+}
+
 interface Props {
   playerName: string
   character: ResolvedCharacterConfig
@@ -91,11 +108,7 @@ export function HUD({
           >
              <div 
                className="hud-spell-icon" 
-               style={{ 
-                 backgroundImage: `url(${character.autoAttack.imageSrc})`,
-                 backgroundSize: '300% 300%',
-                 backgroundPosition: '100% 50%'
-               }}
+               style={getSpellIconStyle(character.autoAttack)}
              ></div>
              {autoAttackCooldown > 0 && (
                <div className="hud-spell-cooldown-overlay">
@@ -109,11 +122,7 @@ export function HUD({
           {character.skills.map((skill, idx) => {
             const cd = skillCooldowns[skill.id] || 0
             
-            const iconStyle: React.CSSProperties = {
-               backgroundImage: `url(${skill.imageSrc})`,
-               backgroundSize: '300% 300%',
-               backgroundPosition: '100% 50%'
-            }
+            const iconStyle = getSpellIconStyle(skill)
 
             return (
               <div 

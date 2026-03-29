@@ -19,9 +19,8 @@ interface Props {
 
 export function Projectile({ projectile }: Props) {
   const { spell, x, y, angle } = projectile
+  const isDirectionalSheet = spell.renderMode !== 'single_rotated'
   const { col, row } = getSpellFrame(angle)
-
-  // sprite is 96x96 total (if 32x32 frames)
   const bgPos = `-${col * spell.frameSize}px -${row * spell.frameSize}px`
 
   return (
@@ -31,9 +30,12 @@ export function Projectile({ projectile }: Props) {
         left: x - spell.frameSize / 2, // center the sprite
         top: y - spell.frameSize / 2,
         backgroundImage: `url(${spell.imageSrc})`,
-        backgroundPosition: bgPos,
+        backgroundPosition: isDirectionalSheet ? bgPos : 'center',
+        backgroundSize: isDirectionalSheet ? `${spell.frameSize * 3}px ${spell.frameSize * 3}px` : 'contain',
+        backgroundRepeat: 'no-repeat',
         width: spell.frameSize,
         height: spell.frameSize,
+        transform: isDirectionalSheet ? undefined : `rotate(${angle}rad)`,
       }}
     />
   )
