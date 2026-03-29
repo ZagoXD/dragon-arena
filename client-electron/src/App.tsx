@@ -4,6 +4,7 @@ import { SelectScreen } from './components/SelectScreen/SelectScreen'
 import { Arena } from './components/Arena/Arena'
 import { GameOver } from './components/GameOver/GameOver'
 import { LoadingScreen } from './components/LoadingScreen/LoadingScreen'
+import { TitleBar } from './components/TitleBar/TitleBar'
 import './App.css'
 
 type Screen = 'name' | 'loading' | 'select' | 'arena' | 'gameover'
@@ -81,6 +82,7 @@ function App() {
 
   return (
     <>
+      <TitleBar />
       {screen === 'name' && (
         <NameScreen onStart={handleNameEnter} />
       )}

@@ -1,0 +1,73 @@
+.title-bar {
+  height: 32px;
+  background-color: rgba(10, 10, 15, 0.95);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 10000;
+  backdrop-filter: blur(12px);
+}
+
+.title-bar__drag-area {
+  flex: 1;
+  height: 100%;
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  padding-left: 16px;
+}
+
+.title-bar__logo {
+  font-family: 'Inter', sans-serif;
+  font-weight: 900;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: #e8e8f0;
+}
+
+.title-bar__logo .highlight {
+  color: #ff5a20;
+  margin-left: 2px;
+}
+
+.title-bar__controls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.title-bar__button {
+  width: 46px;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  transition: background-color 0.2s, color 0.2s;
+  cursor: default;
+  outline: none;
+}
+
+.title-bar__button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.title-bar__button--close:hover {
+  background-color: #e81123;
+  color: #fff;
+}
+
+/* Adjust root to account for title bar */
+#root {
+  padding-top: 32px;
+  box-sizing: border-box;
+}

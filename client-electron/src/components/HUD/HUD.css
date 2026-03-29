@@ -1,106 +1,154 @@
 /* ============================================================
-   HUD Overhaul (Bottom Panel)
+   Dragon Arena - Modern HUD Overhaul
    ============================================================ */
+
+:root {
+  --hud-bg: rgba(10, 15, 25, 0.7);
+  --hud-accent: #ff5a20;
+  --hud-border: rgba(255, 255, 255, 0.1);
+  --hud-blur: 16px;
+  --hp-red: #ef4444;
+  --hp-green: #22c55e;
+  --mana-blue: #3b82f6;
+  --font-main: 'Inter', sans-serif;
+}
 
 .hud-container {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 180px;
-  background: linear-gradient(to top, rgba(10, 15, 25, 0.95) 0%, rgba(10, 15, 25, 0.8) 80%, transparent 100%);
+  height: 160px;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  padding: 0 40px 10px 40px;
+  padding: 0 32px 24px 32px;
   box-sizing: border-box;
   z-index: 9000;
   pointer-events: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, transparent 100%);
 }
 
 .hud-panel {
   pointer-events: auto;
   display: flex;
   align-items: center;
-  height: 140px;
+  padding: 16px;
+  border-radius: 20px;
+  background-color: var(--hud-bg);
+  backdrop-filter: blur(var(--hud-blur));
+  border: 1px solid var(--hud-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 /* ── 1. Status Panel (Left) ── */
 .hud-status {
-  flex: 1;
-  display: flex;
   gap: 20px;
+  min-width: 280px;
+}
+
+.hud-portrait-container {
+  position: relative;
+  width: 80px;
+  height: 80px;
 }
 
 .hud-portrait {
-  border: 4px solid #334155;
-  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
   background-color: #1e293b;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   background-repeat: no-repeat;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  transform: scale(0.9);
-  transform-origin: bottom left;
+  border: 2px solid var(--hud-border);
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+
+.hud-portrait-hp-ring {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 16px;
+  border: 2px solid transparent;
+  border-top-color: var(--hp-red);
+  transition: transform 0.3s ease;
+  pointer-events: none;
 }
 
 .hud-stats {
   display: flex;
   flex-direction: column;
-  color: white;
-  text-shadow: 1px 1px 2px black;
-  font-family: 'Inter', sans-serif;
+  justify-content: center;
 }
 
 .hud-player-name {
-  font-size: 1.5rem;
+  font-family: var(--font-main);
+  font-size: 1.1rem;
   font-weight: 900;
-  color: #fca311;
-  margin-bottom: 4px;
+  color: #fff;
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
 }
 
 .hud-char-name {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-family: var(--font-main);
+  font-size: 0.8rem;
+  font-weight: 600;
   color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   margin-bottom: 8px;
 }
 
-.hud-stat-line {
-  font-size: 0.9rem;
+.hud-stats-grid {
+  display: flex;
+  gap: 12px;
+}
+
+.hud-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
   color: #e2e8f0;
 }
 
 /* ── 2. Center Panel (Action Bar & HP) ── */
 .hud-center {
-  flex: 2;
   flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
   gap: 16px;
-  margin-bottom: 10px;
+  min-width: 440px;
+  padding: 12px 24px;
 }
 
 .hud-actionbar {
   display: flex;
-  gap: 16px;
+  gap: 12px;
 }
 
 .hud-spell {
   position: relative;
-  width: 64px;
-  height: 64px;
-  background-color: #0f172a;
-  border: 3px solid #334155;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
-  overflow: visible; /* Allow hotkey to overflow slightly */
-  transition: transform 0.1s ease;
+  width: 52px;
+  height: 52px;
+  background-color: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--hud-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.2s;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .hud-spell:hover {
   transform: translateY(-2px);
-  border-color: #475569;
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .hud-spell-icon {
@@ -108,114 +156,131 @@
   height: 100%;
   background-size: cover;
   image-rendering: pixelated;
-  border-radius: 4px;
 }
 
 .hud-spell-cooldown-overlay {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: var(--cooldown-pct, 0%);
-  background-color: rgba(0, 0, 0, 0.75);
+  inset: 0; /* Full coverage */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.65);
   backdrop-filter: grayscale(100%);
-  transition: height 0.05s linear;
-  border-radius: 4px;
+  transition: opacity 0.2s;
+  z-index: 5;
+}
+
+.hud-spell-cooldown-text {
+  color: #fff;
+  font-family: var(--font-main);
+  font-size: 1.25rem;
+  font-weight: 900;
+  text-shadow: 0 0 10px rgba(0,0,0,0.8);
 }
 
 .hud-spell-hotkey {
   position: absolute;
-  top: -10px;
-  left: -10px;
-  background: #3b82f6;
-  color: white;
+  top: 2px;
+  left: 4px;
+  font-family: var(--font-main);
+  font-size: 10px;
   font-weight: 900;
-  font-size: 0.75rem;
-  min-width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 2px solid #1e3a8a;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-  text-shadow: 1px 1px 0 #000;
+  color: rgba(255, 255, 255, 0.7);
   z-index: 10;
+}
+
+.hud-hp-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .hud-hp-bar {
   width: 100%;
-  max-width: 600px;
-  height: 28px;
-  background: #1e293b;
-  border: 3px solid #0f172a;
+  height: 12px;
+  background: rgba(15, 23, 42, 0.6);
   border-radius: 6px;
   position: relative;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.8);
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .hud-hp-fill {
   height: 100%;
-  background: linear-gradient(to right, #b91c1c, #ef4444);
-  background-size: 200% 100%;
-  transition: width 0.15s ease-out;
+  background: linear-gradient(90deg, #ef4444, #f87171);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.hud-hp-text {
-  position: absolute;
-  width: 100%;
-  text-align: center;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-  color: white;
-  font-weight: 900;
-  font-size: 1rem;
-  text-shadow: 1px 1px 2px black, -1px -1px 2px black, 1px -1px 2px black, -1px 1px 2px black;
+.hud-hp-labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.hud-hp-val {
+  font-family: var(--font-main);
+  font-size: 10px;
+  font-weight: 800;
+  color: #ef4444;
+  text-transform: uppercase;
 }
 
 /* ── 3. Minimap Panel (Right) ── */
-.hud-minimap {
-  flex: 1;
-  justify-content: flex-end;
+.hud-minimap-panel {
+  padding: 8px;
+  border-radius: 50%;
+  width: 110px;
+  height: 110px;
 }
 
 .minimap-board {
-  width: 180px;
-  height: 180px;
-  background-color: rgba(15, 23, 42, 0.7);
-  border: 3px solid #334155;
-  border-radius: 8px;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(15, 23, 42, 0.5);
+  border-radius: 50%;
   position: relative;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
-  margin-bottom: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.minimap-board::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(transparent 50%, rgba(255, 255, 255, 0.02) 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
 }
 
 .minimap-dot {
   position: absolute;
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
-  border: 1px solid rgba(0, 0, 0, 0.5);
+  filter: blur(0.5px);
 }
 
 .minimap-player {
-  background-color: #3b82f6;
-  z-index: 5;
-  width: 10px;
-  height: 10px;
-  border: 1px solid white;
+  background-color: #fff;
+  box-shadow: 0 0 8px #fff;
+  z-index: 10;
+  width: 8px;
+  height: 8px;
 }
 
 .minimap-dummy {
-  background-color: #ffffff;
-  z-index: 2;
+  background-color: #94a3b8;
+  z-index: 5;
 }
 
 .minimap-enemy {
   background-color: #ef4444;
-  z-index: 3;
+  box-shadow: 0 0 6px #ef4444;
+  z-index: 8;
 }

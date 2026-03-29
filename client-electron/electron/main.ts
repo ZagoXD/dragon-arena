@@ -26,11 +26,14 @@ let win: BrowserWindow | null
 function createWindow() {
   win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    frame: false, // Frameless window
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       backgroundThrottling: false,
     },
   })
+
+  win.setMenu(null) // Remove default menu (File, Edit, etc.)
 
   // Test active push message to Renderer-process.
   win.webContents.on('did-finish-load', () => {
@@ -64,3 +67,12 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(createWindow)
+
+// Window manipulation handlers
+import { ipcMain } from 'electron'
+ipcMain.on('window-minimize', () => win?.minimize())
+ipcMain.on('window-maximize', () => {
+  if (win?.isMaximized()) win.unmaximize()
+  else win?.maximize()
+})
+ipcMain.on('window-close', () => win?.close())

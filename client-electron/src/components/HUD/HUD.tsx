@@ -22,9 +22,9 @@ export function HUD({
 }: Props) {
   const hpPct = Math.max(0, (hp / character.maxHp) * 100)
   
-  const portraitWidth = character.frameWidth * 0.5
-  const portraitHeight = character.frameHeight * 0.5
-  const sheetWidth = character.frameWidth * 4 * 0.5
+  // Adjusted scaling for 80px container
+  const portraitSize = 80
+  const sheetWidth = portraitSize * 4
 
   const [animIndex, setAnimIndex] = useState(0)
 
@@ -36,81 +36,106 @@ export function HUD({
   }, [])
 
   const currentRow = character.idleRows[animIndex % character.idleRows.length]
-  const bgPosX = -(2 * portraitWidth) 
-  const bgPosY = -(currentRow * portraitHeight)
+  const bgPosX = -(2 * portraitSize) 
+  const bgPosY = -(currentRow * portraitSize)
   
   return (
     <div className="hud-container">
       {/* 1. Left Panel (Status) */}
       <div className="hud-panel hud-status">
-        <div 
-          className="hud-portrait"
-          style={{
-            backgroundImage: `url(${character.imageSrc})`,
-            width: portraitWidth,
-            height: portraitHeight,
-            backgroundSize: `${sheetWidth}px auto`,
-            backgroundPosition: `${bgPosX}px ${bgPosY}px`
-          }}
-        />
+        <div className="hud-portrait-container">
+          <div 
+            className="hud-portrait"
+            style={{
+              backgroundImage: `url(${character.imageSrc})`,
+              backgroundSize: `${sheetWidth}px auto`,
+              backgroundPosition: `${bgPosX}px ${bgPosY}px`
+            }}
+          />
+          <div 
+            className="hud-portrait-hp-ring"
+            style={{ borderColor: hpPct < 30 ? '#ef4444' : 'transparent' }}
+          />
+        </div>
         <div className="hud-stats">
           <div className="hud-player-name">{playerName}</div>
           <div className="hud-char-name">{character.name}</div>
-          <div className="hud-stat-line" style={{ color: '#4caf50' }}>HP: {Math.ceil(hp)}</div>
-          <div className="hud-stat-line">SPD: {character.movementSpeed}</div>
+          <div className="hud-stats-grid">
+            <div className="hud-stat-item">
+               <span style={{ color: '#ef4444' }}>HP</span> {Math.ceil(hp)}
+            </div>
+            <div className="hud-stat-item">
+               <span style={{ color: '#fbbf24' }}>SPD</span> {character.movementSpeed}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* 2. Center Panel (Action Bar & HP) */}
       <div className="hud-panel hud-center">
+        <div className="hud-hp-container">
+           <div className="hud-hp-labels">
+             <span className="hud-hp-val">Vitality</span>
+             <span className="hud-hp-val" style={{ color: '#fff' }}>{Math.ceil(hp)} / {character.maxHp}</span>
+           </div>
+           <div className="hud-hp-bar">
+             <div className="hud-hp-fill" style={{ width: `${hpPct}%` }}></div>
+           </div>
+        </div>
+
         <div className="hud-actionbar">
           {/* Auto Attack (LMB) */}
           <div 
             className="hud-spell" 
-            style={{ '--cooldown-pct': `${(autoAttackCooldown / character.autoAttack.cooldownMs) * 100}%` } as any}
+            title="Auto Attack"
           >
-             <div className="hud-spell-icon" style={{ backgroundImage: `url(${character.autoAttack.imageSrc})` }}></div>
-             <div className="hud-spell-cooldown-overlay"></div>
+             <div 
+               className="hud-spell-icon" 
+               style={{ 
+                 backgroundImage: `url(${character.autoAttack.imageSrc})`,
+                 backgroundSize: '300% 300%',
+                 backgroundPosition: '100% 50%'
+               }}
+             ></div>
+             {autoAttackCooldown > 0 && (
+               <div className="hud-spell-cooldown-overlay">
+                  <span className="hud-spell-cooldown-text">{(autoAttackCooldown / 1000).toFixed(1)}</span>
+               </div>
+             )}
              <span className="hud-spell-hotkey">LMB</span>
           </div>
 
           {/* Special Skills (1, 2, 3) */}
           {character.skills.map((skill, idx) => {
             const cd = skillCooldowns[skill.id] || 0
-            const cdPct = (cd / (skill.cooldownMs || 1)) * 100
             
-            // Skill icon: if it's a sprite sheet (like Dragon Dive), crop to first frame
-            const isDragonDive = skill.id === 'dragon_dive'
-            const iconStyle: React.CSSProperties = isDragonDive ? {
+            const iconStyle: React.CSSProperties = {
                backgroundImage: `url(${skill.imageSrc})`,
-               backgroundSize: '300% 400%',
-               backgroundPosition: '0 0'
-            } : {
-               backgroundImage: `url(${skill.imageSrc})`
+               backgroundSize: '300% 300%',
+               backgroundPosition: '100% 50%'
             }
 
             return (
               <div 
                 key={skill.id} 
                 className="hud-spell" 
-                style={{ '--cooldown-pct': `${cdPct}%` } as any}
+                title={skill.name}
               >
                 <div className="hud-spell-icon" style={iconStyle}></div>
-                <div className="hud-spell-cooldown-overlay"></div>
+                {cd > 0 && (
+                  <div className="hud-spell-cooldown-overlay">
+                    <span className="hud-spell-cooldown-text">{Math.ceil(cd / 1000)}</span>
+                  </div>
+                )}
                 <span className="hud-spell-hotkey">{idx + 1}</span>
               </div>
             )
           })}
         </div>
-
-        <div className="hud-hp-bar">
-          <div className="hud-hp-fill" style={{ width: `${hpPct}%` }}></div>
-          <span className="hud-hp-text">{Math.ceil(hp)} / {character.maxHp}</span>
-        </div>
       </div>
 
-      {/* 3. Right Panel (Minimap & K/D) */}
-      <div className="hud-panel hud-minimap">
+      {/* 3. Right Panel (Minimap) */}
+      <div className="hud-panel hud-minimap-panel">
          <div className="minimap-board">
            <div 
              className="minimap-dot minimap-player"

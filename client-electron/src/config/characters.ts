@@ -12,6 +12,7 @@ export interface SpellConfig {
   castTimeMs: number
   cooldownMs: number
   imageSrc: string
+  description: string
   aimingWidth?: number // For reusable aiming arrows
 }
 
@@ -44,6 +45,7 @@ export const SPELLS: Record<string, SpellConfig> = {
     castTimeMs: 300,
     cooldownMs: 800,
     imageSrc: emberSrc,
+    description: 'O dragão cospe fogo, causando dano a quem for atingido',
     aimingWidth: 32
   },
   dragonDive: {
@@ -56,6 +58,7 @@ export const SPELLS: Record<string, SpellConfig> = {
     castTimeMs: 0,
     cooldownMs: 3000,
     imageSrc: dragonDiveSrc,
+    description: 'O dragão realiza um avanço feroz, causando dano a todos os alvos atingidos pelo caminho',
     aimingWidth: 32
   }
 }
