@@ -5,13 +5,13 @@ import { TilesetInfo } from './pixiTypes'
 const SOURCE_TILE_SIZE = 32
 
 const TILESETS_LOCAL_PATHS: Record<string, { src: string, cols: number }> = {
-  'TX Tileset Grass.png': { src: '/tilesets/TX Tileset Grass.png', cols: 8 },
-  'grass.png': { src: '/tilesets/TX Tileset Grass.png', cols: 8 },
-  'TX Tileset Wall.png': { src: '/tilesets/TX Tileset Wall.png', cols: 16 },
-  'wall.png': { src: '/tilesets/TX Tileset Wall.png', cols: 16 },
-  'TX Plant with Shadow.png': { src: '/tilesets/Extra/TX Plant with Shadow.png', cols: 16 },
-  'plant.png': { src: '/tilesets/Extra/TX Plant with Shadow.png', cols: 16 },
-  'plants.png': { src: '/tilesets/Extra/TX Plant with Shadow.png', cols: 16 },
+  'TX Tileset Grass.png': { src: 'tilesets/TX Tileset Grass.png', cols: 8 },
+  'grass.png': { src: 'tilesets/TX Tileset Grass.png', cols: 8 },
+  'TX Tileset Wall.png': { src: 'tilesets/TX Tileset Wall.png', cols: 16 },
+  'wall.png': { src: 'tilesets/TX Tileset Wall.png', cols: 16 },
+  'TX Plant with Shadow.png': { src: 'tilesets/Extra/TX Plant with Shadow.png', cols: 16 },
+  'plant.png': { src: 'tilesets/Extra/TX Plant with Shadow.png', cols: 16 },
+  'plants.png': { src: 'tilesets/Extra/TX Plant with Shadow.png', cols: 16 },
 }
 
 export function getTilesetInfo(tileset: any) {
@@ -27,7 +27,7 @@ export function getTilesetInfo(tileset: any) {
   const fallback = TILESETS_LOCAL_PATHS[filename]
   return {
     firstgid: tileset.firstgid,
-    src: fallback ? fallback.src : `/tilesets/${filename}`,
+    src: fallback ? fallback.src : `tilesets/${filename}`,
     cols: tileset.columns || (fallback ? fallback.cols : 16),
   } satisfies TilesetInfo
 }
