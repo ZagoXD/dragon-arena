@@ -84,7 +84,6 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
     burnStatuses,
     burnZones,
     emitMove,
-    emitRespawn,
     emitShoot,
     emitUseSkill,
   } = useArenaNetworkState({
@@ -109,7 +108,6 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
     skillCooldowns,
     respawnSeconds,
     emitMove,
-    emitRespawn,
     emitShoot,
     emitUseSkill,
     onReturnToSelect,

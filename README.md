@@ -1,8 +1,8 @@
 # Dragon Arena
 
-Dragon Arena agora roda com uma arquitetura de **servidor autoritativo em C++** e **cliente desktop em Electron**.
+Dragon Arena roda hoje com uma arquitetura de **servidor autoritativo em C++** e **cliente desktop em Electron/React/PixiJS**.
 
-O backend é responsável pela verdade do gameplay. O frontend recebe estado, renderiza o mundo e cuida da experiência visual.
+O backend é a fonte de verdade do gameplay. O frontend envia intenção, recebe estado autoritativo e cuida da renderização, HUD, câmera e feedback visual.
 
 ## Arquitetura
 
@@ -10,16 +10,18 @@ O backend é responsável pela verdade do gameplay. O frontend recebe estado, re
 
 Servidor autoritativo do jogo.
 
-- Networking em `uWebSockets` + `nlohmann/json`
-- Config de gameplay em `config/gameplay.json`
+- Networking com `uWebSockets` + `nlohmann/json`
+- Tick autoritativo e snapshots periódicos
 - Mapa carregado de `map-assets/tiled/default_map.tmj`
-- Tick autoritativo, snapshots e eventos de sessão
-- Sistemas separados por domínio:
+- Gameplay carregado de arquivos JSON separados por domínio
+- Sistemas organizados por responsabilidade:
+  - `CombatSystem`
+  - `MovementSystem`
   - `SkillSystem`
   - `ProjectileSystem`
   - `DashSystem`
+  - `BurnSystem`
   - `RespawnSystem`
-  - `CombatSystem`
   - `WorldSetup`
   - `WorldTickRunner`
   - `WorldSnapshotBuilder`
@@ -29,11 +31,16 @@ Responsabilidades do backend:
 - spawn e respawn de players e dummies
 - movimento autoritativo
 - colisão com mapa
-- auto attacks e skills
-- projéteis, dano, kill/death
-- snapshots do mundo
-- scoreboard autoritativo
-- bootstrap da sessão
+- auto attack, skills e passivas
+- projéteis, áreas de efeito e dano
+- kill/death e scoreboard
+- bootstrap de sessão
+- snapshots e eventos autoritativos
+
+Observação importante:
+
+- o **respawn automático de players agora é autoritativo no backend**
+- o frontend só exibe o countdown visual
 
 ### `client-electron/`
 
@@ -41,59 +48,63 @@ Cliente desktop do jogo.
 
 - Shell desktop em Electron
 - UI em React + TypeScript
-- Renderização do mundo em PixiJS
+- Renderização da arena em PixiJS
 - HUD, seleção de personagem, nome e overlays em React
 
 Responsabilidades do cliente:
 
 - input local
 - câmera
-- feedback visual
+- interpolação visual
 - HUD e menus
-- interpolação/apresentação visual
-- render do mapa, players, dummies, projéteis e efeitos
+- feedback visual de skills, projéteis e passivas
+- render de mapa, players, dummies e efeitos
 
-O cliente **não decide gameplay crítico**. Ele envia intenção e responde ao estado do servidor.
+O cliente **não decide gameplay crítico**.
 
 ## Fluxo de Rede
 
-O fluxo principal hoje é:
+Fluxo principal:
 
 1. o cliente conecta no servidor
 2. recebe `sessionInit`
 3. inicializa bootstrap, mapa e snapshot inicial
-4. passa a consumir snapshots/eventos autoritativos
-5. envia somente intenções como `move`, `shoot`, `useSkill` e `respawn`
+4. consome snapshots e eventos autoritativos
+5. envia intenções como `move`, `shoot` e `useSkill`
+
+Hoje o cliente não precisa mais disparar o respawn automático. O servidor renasce o player sozinho quando `playerRespawnMs` expira.
 
 ## Estrutura de Renderização
 
-No frontend, a arena está dividida assim:
+No frontend, a arena está organizada assim:
 
 - [App.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/App.tsx): fluxo de telas
-- [Arena.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/Arena/Arena.tsx): composição da arena
-- [useSocket.ts](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/hooks/useSocket.ts): transporte e eventos
-- [useArenaNetworkState.ts](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/hooks/useArenaNetworkState.ts): estado autoritativo consumido pela arena
-- [useArenaController.ts](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/hooks/useArenaController.ts): input, câmera, aiming e fluxo local
+- [Arena.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/Arena/Arena.tsx): composição principal da arena
 - [PixiArenaView.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/Arena/PixiArenaView.tsx): renderização do mundo em Pixi
+- [useSocket.ts](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/hooks/useSocket.ts): transporte e protocolo
+- [useArenaNetworkState.ts](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/hooks/useArenaNetworkState.ts): consumo do estado autoritativo
+- [useArenaController.ts](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/hooks/useArenaController.ts): input, aiming, câmera e fluxo local
 
 ## Configuração de Gameplay
 
-O gameplay do servidor é carregado de:
+O gameplay do servidor não fica mais em um único `gameplay.json`.
 
-- [gameplay.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/gameplay.json)
+Hoje ele é montado a partir de arquivos separados em `server-cpp/config/`:
 
-Lá ficam:
+- [world.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/world.json)
+- [charizard.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/characters/charizard.json)
+- [ember.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/spells/ember.json)
+- [dragon_dive.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/spells/dragon_dive.json)
+- [flamethrower.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/spells/flamethrower.json)
+- [fire_blast.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/spells/fire_blast.json)
+- [burn.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/passives/burn.json)
 
-- personagens
-- spells
-- timings
-- hp
-- velocidade
-- collider
-- respawn
-- dimensões base do mundo
+Esse modelo facilita:
 
-Se quiser mudar valores reais de gameplay, o lugar correto é o backend/config.
+- manutenção
+- expansão de conteúdo
+- merge em equipe
+- validação por domínio
 
 ## Mapa
 
@@ -109,7 +120,7 @@ Camadas usadas hoje:
 - `walls`
 - `spawns`
 
-O cliente recebe os dados do mapa do servidor e monta a parte visual localmente.
+O backend lê o mapa e o entrega ao cliente no bootstrap da sessão. O cliente usa esses dados para montar a renderização visual localmente.
 
 ## Como Rodar
 
@@ -118,7 +129,7 @@ O cliente recebe os dados do mapa do servidor e monta a parte visual localmente.
 O servidor precisa destes itens no mesmo contexto de execução:
 
 - `DragonArenaServer.exe`
-- pasta `config/` com `gameplay.json`
+- pasta `config/`
 - pasta `map-assets/`
 
 Estrutura esperada:
@@ -127,7 +138,16 @@ Estrutura esperada:
 server/
   DragonArenaServer.exe
   config/
-    gameplay.json
+    world.json
+    characters/
+      charizard.json
+    spells/
+      ember.json
+      dragon_dive.json
+      flamethrower.json
+      fire_blast.json
+    passives/
+      burn.json
   map-assets/
     tiled/
       default_map.tmj
@@ -135,7 +155,7 @@ server/
 
 Observação:
 
-- o servidor procura `config/gameplay.json` e `map-assets/tiled/default_map.tmj` por caminhos relativos
+- o servidor procura `config/` e `map-assets/tiled/default_map.tmj` por caminhos relativos
 
 ### Cliente em desenvolvimento
 
@@ -156,7 +176,7 @@ Você pode ajustar isso por `VITE_SERVER_URL`.
 
 ### Cliente empacotado
 
-O app Electron empacotado **não é só o `.exe`**.
+O app Electron empacotado não é só o `.exe`.
 
 Para distribuir manualmente, use a pasta inteira:
 
@@ -171,22 +191,22 @@ Ela contém:
 
 Se copiar só o `.exe`, o cliente não roda corretamente.
 
-Observação importante:
+Observação:
 
 - o cliente empacotado ainda depende de um backend acessível
 - hoje ele não sobe o servidor C++ sozinho
 
-## Estado Atual da Arquitetura
+## Estado Atual
 
-Hoje o projeto está organizado neste modelo:
+Hoje o projeto está consolidado neste modelo:
 
 - backend C++ como fonte da verdade
-- frontend React/Electron/Pixi como camada de apresentação
-- gameplay separado de visual
-- mapa e conteúdo carregados de arquivos
+- frontend Electron/React/Pixi como camada visual
+- gameplay separado por arquivos de config
 - protocolo de sessão consolidado
-- arena renderizada em Pixi
+- respawn autoritativo no servidor
+- arena renderizada em PixiJS
 
-Em outras palavras:
+Em resumo:
 
-**a arquitetura principal de servidor autoritativo + cliente visual já está consolidada.**
+**a arquitetura principal de servidor autoritativo + cliente visual já está estabelecida.**

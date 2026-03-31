@@ -11,6 +11,15 @@ class NetworkHandler;
 
 class RespawnSystem {
 public:
+    static void updatePlayerRespawns(
+        std::map<std::string, Player>& players,
+        const MapLoader& mapLoader,
+        const WorldDefinition& worldDefinition,
+        unsigned long long worldTick,
+        long long nowMs,
+        NetworkHandler* network
+    );
+
     static void updateDummyRespawns(
         std::map<std::string, DummyEntity>& dummies,
         const WorldDefinition& worldDefinition,

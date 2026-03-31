@@ -3,6 +3,39 @@
 #include "WorldSetup.h"
 #include <chrono>
 
+void RespawnSystem::updatePlayerRespawns(
+    std::map<std::string, Player>& players,
+    const MapLoader& mapLoader,
+    const WorldDefinition& worldDefinition,
+    unsigned long long worldTick,
+    long long nowMs,
+    NetworkHandler* network
+) {
+    for (auto& [playerId, player] : players) {
+        if (!player.canRespawn(nowMs, worldDefinition.playerRespawnMs)) {
+            continue;
+        }
+
+        WorldSetup::placePlayerAtSpawn(player, mapLoader, worldDefinition);
+        player.respawn(player.x, player.y);
+        player.inputX = 0.0f;
+        player.inputY = 0.0f;
+        player.isDashing = false;
+        player.dashHitIds.clear();
+
+        if (network) {
+            network->broadcast(json({
+                {"event", "playerRespawned"},
+                {"tick", worldTick},
+                {"id", playerId},
+                {"hp", player.hp},
+                {"x", player.x},
+                {"y", player.y}
+            }).dump());
+        }
+    }
+}
+
 void RespawnSystem::updateDummyRespawns(
     std::map<std::string, DummyEntity>& dummies,
     const WorldDefinition& worldDefinition,

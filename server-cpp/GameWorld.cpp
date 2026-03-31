@@ -169,6 +169,7 @@ void GameWorld::updateSimulation(NetworkHandler* network, float deltaSeconds, lo
     updateProjectiles(network, deltaSeconds, now_ms);
     updateAreaEffects(network, now_ms);
     updateBurns(network, now_ms);
+    updatePlayerRespawns(network, now_ms);
     updateDummyRespawns(network, now_ms);
 }
 
@@ -196,6 +197,10 @@ void GameWorld::updateDashes(NetworkHandler* network, long long now_ms) {
 
 void GameWorld::updateDummyRespawns(NetworkHandler* network, long long now_ms) {
     RespawnSystem::updateDummyRespawns(dummies, worldDefinition, worldTick, now_ms, network);
+}
+
+void GameWorld::updatePlayerRespawns(NetworkHandler* network, long long now_ms) {
+    RespawnSystem::updatePlayerRespawns(players, mapLoader, worldDefinition, worldTick, now_ms, network);
 }
 
 void GameWorld::updatePendingAutoAttacks(NetworkHandler* network, long long now_ms) {

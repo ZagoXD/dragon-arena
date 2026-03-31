@@ -24,7 +24,6 @@ interface UseArenaControllerParams {
   skillCooldowns: Record<string, number>
   respawnSeconds: number
   emitMove: (inputX: number, inputY: number, direction: 'up' | 'right' | 'down' | 'left', animRow: number) => void
-  emitRespawn: () => void
   emitShoot: (targetX: number, targetY: number) => void
   emitUseSkill: (skillId: string, x: number, y: number) => void
   onReturnToSelect: (respawnAvailableAt?: number) => void
@@ -45,7 +44,6 @@ export function useArenaController({
   skillCooldowns,
   respawnSeconds,
   emitMove,
-  emitRespawn,
   emitShoot,
   emitUseSkill,
   onReturnToSelect,
@@ -151,18 +149,11 @@ export function useArenaController({
 
     updateTimer()
     const intervalId = setInterval(updateTimer, 250)
-    const timeoutId = window.setTimeout(() => {
-      if (!respawnRequestedRef.current) {
-        respawnRequestedRef.current = true
-        emitRespawn()
-      }
-    }, Math.max(0, respawnAvailableAt - Date.now()))
 
     return () => {
       clearInterval(intervalId)
-      window.clearTimeout(timeoutId)
     }
-  }, [hp, respawnAvailableAt, emitRespawn])
+  }, [hp, respawnAvailableAt])
 
   const camera = useMemo(() => {
     const px = player.x + (character?.colliderWidth ?? 64) / 2
