@@ -253,6 +253,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
         buildPlayer(
           frameTextureCacheRef.current,
           player.name,
+          player.role,
           player.character,
           player.x,
           player.y,
@@ -271,6 +272,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
         buildPlayer(
           frameTextureCacheRef.current,
           props.localPlayer.name,
+          props.localPlayer.role,
           props.localPlayer.character,
           props.localPlayer.x,
           props.localPlayer.y,

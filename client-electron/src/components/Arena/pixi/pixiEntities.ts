@@ -26,6 +26,7 @@ function getVerticalRelativeRotation(angle: number) {
 export function buildPlayer(
   frameTextureCache: Map<string, Texture>,
   playerName: string,
+  role: string | undefined,
   character: ResolvedCharacterConfig,
   x: number,
   y: number,
@@ -122,6 +123,8 @@ export function buildPlayer(
 
   const overheadY = -verticalOffset - 28
   const hpWidth = 88
+  const showAdminBadge = (role || '').toLowerCase() === 'admin'
+  const overheadShiftY = showAdminBadge ? 16 : 0
 
   const nameLabel = new Text({
     text: playerName,
@@ -134,22 +137,42 @@ export function buildPlayer(
   })
   nameLabel.anchor.set(0.5, 1)
   nameLabel.x = character.colliderWidth / 2
-  nameLabel.y = overheadY
+  nameLabel.y = overheadY - overheadShiftY
+
+  const adminLabel = showAdminBadge ? new Text({
+    text: 'Admin',
+    style: {
+      fontFamily: 'monospace',
+      fontSize: 12,
+      fontWeight: '700',
+      fill: 0xff4d4f,
+      stroke: { color: 0x2b0000, width: 3 },
+    },
+  }) : null
+  if (adminLabel) {
+    adminLabel.anchor.set(0.5, 1)
+    adminLabel.x = character.colliderWidth / 2
+    adminLabel.y = overheadY - overheadShiftY - 16
+  }
 
   const hpTrack = new Graphics()
   hpTrack.roundRect(0, 0, hpWidth, 8, 4)
   hpTrack.fill(0x1b1b1b)
   hpTrack.stroke({ width: 1, color: 0xffffff, alpha: 0.18 })
   hpTrack.x = character.colliderWidth / 2 - hpWidth / 2
-  hpTrack.y = overheadY + 4
+  hpTrack.y = overheadY - overheadShiftY + 4
 
   const hpFill = new Graphics()
   hpFill.roundRect(0, 0, Math.max(0, hpWidth * hpPercentage), 8, 4)
   hpFill.fill(barColor)
   hpFill.x = character.colliderWidth / 2 - hpWidth / 2
-  hpFill.y = overheadY + 4
+  hpFill.y = overheadY - overheadShiftY + 4
 
-  container.addChild(shadow, nameLabel, hpTrack, hpFill, sprite)
+  if (adminLabel) {
+    container.addChild(shadow, adminLabel, nameLabel, hpTrack, hpFill, sprite)
+  } else {
+    container.addChild(shadow, nameLabel, hpTrack, hpFill, sprite)
+  }
   return container
 }
 

@@ -127,6 +127,7 @@ json ProtocolPayloadBuilder::buildAuthSuccess(
             {"email", authenticatedUser.user.email},
             {"username", authenticatedUser.user.username},
             {"nickname", authenticatedUser.user.nickname},
+            {"role", authenticatedUser.user.role},
             {"createdAt", authenticatedUser.user.createdAt}
         }},
         {"profile", {
@@ -137,6 +138,27 @@ json ProtocolPayloadBuilder::buildAuthSuccess(
         }},
         {"sessionToken", sessionToken},
         {"sessionExpiresAtMs", sessionExpiresAtMs},
+        {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+    };
+}
+
+json ProtocolPayloadBuilder::buildProfileSync(const AuthenticatedUser& authenticatedUser) {
+    return {
+        {"event", "profileSync"},
+        {"user", {
+            {"id", authenticatedUser.user.id},
+            {"email", authenticatedUser.user.email},
+            {"username", authenticatedUser.user.username},
+            {"nickname", authenticatedUser.user.nickname},
+            {"role", authenticatedUser.user.role},
+            {"createdAt", authenticatedUser.user.createdAt}
+        }},
+        {"profile", {
+            {"userId", authenticatedUser.profile.userId},
+            {"level", authenticatedUser.profile.level},
+            {"xp", authenticatedUser.profile.xp},
+            {"coins", authenticatedUser.profile.coins}
+        }},
         {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
     };
 }

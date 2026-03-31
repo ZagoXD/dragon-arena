@@ -1,16 +1,19 @@
 #include "Player.h"
 #include <chrono>
 
-Player::Player(std::string id, std::string name, const CharacterDefinition& definition)
+Player::Player(std::string id, std::string name, const CharacterDefinition& definition, std::string role)
     : id(id), name(name), characterId(definition.id), hp(definition.maxHp), maxHp(definition.maxHp),
       x(2048.0f), y(1280.0f), direction("down"), animRow(0), kills(0), deaths(0),
       movementSpeed(definition.movementSpeed), colliderWidth(definition.colliderWidth),
       colliderHeight(definition.colliderHeight), autoAttackSpellId(definition.autoAttackSpellId),
-      skillIds(definition.skillIds), passiveId(definition.passiveId), isDashing(false) {}
+      skillIds(definition.skillIds), passiveId(definition.passiveId), isDashing(false) {
+    this->role = std::move(role);
+}
 
 json Player::to_json() const {
     return {
         {"id", id}, {"name", name}, {"characterId", characterId},
+        {"role", role},
         {"x", x}, {"y", y}, {"direction", direction},
         {"animRow", animRow}, {"hp", hp}, {"maxHp", maxHp},
         {"kills", kills}, {"deaths", deaths},

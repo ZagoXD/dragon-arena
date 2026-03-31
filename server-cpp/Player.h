@@ -13,6 +13,7 @@ class Player {
 public:
     std::string id;
     std::string name;
+    std::string role = "player";
     std::string characterId;
     float x, y;
     std::string direction;
@@ -39,7 +40,7 @@ public:
     std::vector<std::string> dashHitIds;
 
     Player() = default;
-    Player(std::string id, std::string name, const CharacterDefinition& definition);
+    Player(std::string id, std::string name, const CharacterDefinition& definition, std::string role = "player");
 
     json to_json() const;
     void update_position(float x, float y, std::string dir, int anim);

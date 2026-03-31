@@ -16,6 +16,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
   const [nickname, setNickname] = useState('')
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberSession, setRememberSession] = useState(true)
   const [localError, setLocalError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -69,6 +70,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
       mode,
       identifier: identifier.trim(),
       password,
+      rememberSession,
     })
   }
 
@@ -182,6 +184,18 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
             onChange={e => setPassword(e.target.value)}
             onKeyDown={handleKeyDown}
           />
+
+          {mode === 'login' && (
+            <label className="name-screen__checkbox">
+              <input
+                className="name-screen__checkbox-input"
+                type="checkbox"
+                checked={rememberSession}
+                onChange={e => setRememberSession(e.target.checked)}
+              />
+              <span className="name-screen__checkbox-label">Permanecer logado</span>
+            </label>
+          )}
 
           {(localError || authError) && <p className="name-screen__error">{localError || authError}</p>}
           {!localError && !authError && authInfo && <p className="name-screen__success">{authInfo}</p>}

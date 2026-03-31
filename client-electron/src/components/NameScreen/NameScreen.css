@@ -214,3 +214,26 @@
   font-size: 0.82rem;
   text-align: center;
 }
+
+.name-screen__checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  margin-top: 0.15rem;
+  color: #dbe5f3;
+  cursor: pointer;
+  user-select: none;
+}
+
+.name-screen__checkbox-input {
+  width: 18px;
+  height: 18px;
+  accent-color: #ff5a20;
+  cursor: pointer;
+}
+
+.name-screen__checkbox-label {
+  font-size: 0.88rem;
+  letter-spacing: 0.04em;
+}

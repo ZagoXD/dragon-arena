@@ -21,6 +21,21 @@ int main() {
         }
 
         UserRepository users(database);
+        std::string roleSchemaError;
+        if (users.ensureRoleSchema(&roleSchemaError)) {
+            std::cout << "[Database] users.role schema ready." << std::endl;
+        } else {
+            std::cerr << "[Database] Could not ensure users.role schema: " << roleSchemaError << std::endl;
+        }
+
+        std::string promoteAdminError;
+        if (users.updateRoleByEmailOrUsername("skyziinxd@gmail.com", "admin", &promoteAdminError) ||
+            users.updateRoleByEmailOrUsername("Skyziinxd", "admin", &promoteAdminError)) {
+            std::cout << "[Database] Admin role ensured for skyziinxd@gmail.com / Skyziinxd." << std::endl;
+        } else if (!promoteAdminError.empty()) {
+            std::cerr << "[Database] Could not ensure admin role: " << promoteAdminError << std::endl;
+        }
+
         std::string countError;
         long long totalUsers = users.countUsers(&countError);
         if (totalUsers >= 0) {

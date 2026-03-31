@@ -19,10 +19,10 @@ GameWorld::GameWorld() : worldDefinition(GameConfig::getWorldDefinition()) {
     dummies = WorldSetup::createInitialDummies(mapLoader, worldDefinition);
 }
 
-void GameWorld::addPlayer(std::string id, std::string name, std::string charId) {
+void GameWorld::addPlayer(std::string id, std::string name, std::string charId, std::string role) {
     std::lock_guard<std::mutex> lock(mtx);
     const auto& definition = GameConfig::getCharacterDefinition(charId);
-    Player p(id, name, definition);
+    Player p(id, name, definition, role);
     WorldSetup::placePlayerAtSpawn(p, mapLoader, worldDefinition);
     players[id] = p;
 }

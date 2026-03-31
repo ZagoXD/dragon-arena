@@ -103,6 +103,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             userData->email = session.authenticatedSession->authenticatedUser.user.email;
             userData->username = session.authenticatedSession->authenticatedUser.user.username;
             userData->nickname = session.authenticatedSession->authenticatedUser.user.nickname;
+            userData->role = session.authenticatedSession->authenticatedUser.user.role;
             ws->send(ProtocolPayloadBuilder::buildAuthSuccess(
                 "register",
                 session.authenticatedSession->authenticatedUser,
@@ -133,6 +134,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             userData->email = session.authenticatedSession->authenticatedUser.user.email;
             userData->username = session.authenticatedSession->authenticatedUser.user.username;
             userData->nickname = session.authenticatedSession->authenticatedUser.user.nickname;
+            userData->role = session.authenticatedSession->authenticatedUser.user.role;
             ws->send(ProtocolPayloadBuilder::buildAuthSuccess(
                 "login",
                 session.authenticatedSession->authenticatedUser,
@@ -157,12 +159,50 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             userData->email = session.authenticatedSession->authenticatedUser.user.email;
             userData->username = session.authenticatedSession->authenticatedUser.user.username;
             userData->nickname = session.authenticatedSession->authenticatedUser.user.nickname;
+            userData->role = session.authenticatedSession->authenticatedUser.user.role;
             ws->send(ProtocolPayloadBuilder::buildAuthSuccess(
                 "session",
                 session.authenticatedSession->authenticatedUser,
                 session.authenticatedSession->session.token,
                 session.authenticatedSession->session.expiresAtMs
             ).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "profileSync") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("profileSync", "not_authenticated", "Client must authenticate before syncing profile", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            std::string repositoryError;
+            std::optional<UserRecord> user = userRepository.findById(userData->userId, &repositoryError);
+            if (!user.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "profileSync",
+                    "user_not_found",
+                    repositoryError.empty() ? "Authenticated user was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            repositoryError.clear();
+            std::optional<PlayerProfileRecord> profile = userRepository.findProfileByUserId(userData->userId, &repositoryError);
+            if (!profile.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "profileSync",
+                    "profile_not_found",
+                    repositoryError.empty() ? "Player profile was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            userData->email = user->email;
+            userData->username = user->username;
+            userData->nickname = user->nickname;
+            userData->role = user->role;
+
+            ws->send(ProtocolPayloadBuilder::buildProfileSync(AuthenticatedUser{*user, *profile}).dump(), uWS::OpCode::TEXT);
         }
         else if (event == "join") {
             if (!userData->authenticated) {
@@ -185,7 +225,12 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 clients[id] = ws;
             }
 
-            world.addPlayer(id, userData->nickname.empty() ? userData->username : userData->nickname, data["characterId"]);
+            world.addPlayer(
+                id,
+                userData->nickname.empty() ? userData->username : userData->nickname,
+                data["characterId"],
+                userData->role
+            );
             ws->send(world.getSessionInitJson(id).dump(), uWS::OpCode::TEXT);
             
             std::string joinMsg = json({{"event", "playerJoined"}, {"player", world.getPlayerJson(id)}}).dump();

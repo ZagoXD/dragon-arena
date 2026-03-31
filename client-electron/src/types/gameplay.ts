@@ -44,6 +44,7 @@ export interface WorldGameplayDefinition {
 export interface BootstrapPlayerState {
   id: string
   name: string
+  role?: string
   characterId: string
   x: number
   y: number

@@ -18,6 +18,7 @@ struct PerSocketData {
     std::string email;
     std::string username;
     std::string nickname;
+    std::string role = "player";
     bool authenticated = false;
 };
 

@@ -23,7 +23,7 @@ UserRepository::UserRepository(Database& database)
 
 std::optional<UserRecord> UserRepository::findById(long long id, std::string* error) const {
     DatabaseQueryResult result = database.execute(
-        "SELECT id, email, username, nickname, password_hash, created_at "
+        "SELECT id, email, username, nickname, role, password_hash, created_at "
         "FROM users WHERE id = $1 LIMIT 1",
         {std::to_string(id)}
     );
@@ -46,6 +46,7 @@ std::optional<UserRecord> UserRepository::mapUser(const DatabaseQueryResult& res
     user.email = row.get("email").value_or("");
     user.username = row.get("username").value_or("");
     user.nickname = row.get("nickname").value_or("");
+    user.role = row.get("role").value_or("player");
     user.passwordHash = row.get("password_hash").value_or("");
     user.createdAt = row.get("created_at").value_or("");
     return user;
@@ -67,7 +68,7 @@ std::optional<PlayerProfileRecord> UserRepository::mapProfile(const DatabaseQuer
 
 std::optional<UserRecord> UserRepository::findByEmail(const std::string& email, std::string* error) const {
     DatabaseQueryResult result = database.execute(
-        "SELECT id, email, username, nickname, password_hash, created_at "
+        "SELECT id, email, username, nickname, role, password_hash, created_at "
         "FROM users WHERE email = $1 LIMIT 1",
         {email}
     );
@@ -81,7 +82,7 @@ std::optional<UserRecord> UserRepository::findByEmail(const std::string& email, 
 
 std::optional<UserRecord> UserRepository::findByUsername(const std::string& username, std::string* error) const {
     DatabaseQueryResult result = database.execute(
-        "SELECT id, email, username, nickname, password_hash, created_at "
+        "SELECT id, email, username, nickname, role, password_hash, created_at "
         "FROM users WHERE username = $1 LIMIT 1",
         {username}
     );
@@ -95,7 +96,7 @@ std::optional<UserRecord> UserRepository::findByUsername(const std::string& user
 
 std::optional<UserRecord> UserRepository::findByNickname(const std::string& nickname, std::string* error) const {
     DatabaseQueryResult result = database.execute(
-        "SELECT id, email, username, nickname, password_hash, created_at "
+        "SELECT id, email, username, nickname, role, password_hash, created_at "
         "FROM users WHERE nickname = $1 LIMIT 1",
         {nickname}
     );
@@ -112,7 +113,7 @@ std::optional<UserRecord> UserRepository::findByEmailOrUsername(
     std::string* error
 ) const {
     DatabaseQueryResult result = database.execute(
-        "SELECT id, email, username, nickname, password_hash, created_at "
+        "SELECT id, email, username, nickname, role, password_hash, created_at "
         "FROM users WHERE email = $1 OR username = $1 LIMIT 1",
         {value}
     );
@@ -143,9 +144,9 @@ std::optional<PlayerProfileRecord> UserRepository::findProfileByUserId(
 
 bool UserRepository::createUser(const CreateUserRequest& request, UserRecord* outUser, std::string* error) {
     DatabaseQueryResult result = database.execute(
-        "INSERT INTO users (email, username, nickname, password_hash) "
-        "VALUES ($1, $2, $3, $4) "
-        "RETURNING id, email, username, nickname, password_hash, created_at",
+        "INSERT INTO users (email, username, nickname, role, password_hash) "
+        "VALUES ($1, $2, $3, 'player', $4) "
+        "RETURNING id, email, username, nickname, role, password_hash, created_at",
         {request.email, request.username, request.nickname, request.passwordHash}
     );
 
@@ -187,6 +188,54 @@ bool UserRepository::updatePasswordHash(long long userId, const std::string& pas
     if (result.affectedRows <= 0) {
         if (error != nullptr) {
             *error = "Password hash update affected no rows";
+        }
+        return false;
+    }
+
+    return true;
+}
+
+bool UserRepository::ensureRoleSchema(std::string* error) {
+    DatabaseQueryResult addColumnResult = database.execute(
+        "ALTER TABLE users "
+        "ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'player'"
+    );
+    if (!addColumnResult.ok) {
+        if (error != nullptr) {
+            *error = addColumnResult.error;
+        }
+        return false;
+    }
+
+    DatabaseQueryResult backfillResult = database.execute(
+        "UPDATE users SET role = 'player' WHERE role IS NULL OR role = ''"
+    );
+    if (!backfillResult.ok) {
+        if (error != nullptr) {
+            *error = backfillResult.error;
+        }
+        return false;
+    }
+
+    return true;
+}
+
+bool UserRepository::updateRoleByEmailOrUsername(const std::string& value, const std::string& role, std::string* error) {
+    DatabaseQueryResult result = database.execute(
+        "UPDATE users SET role = $2 WHERE email = $1 OR username = $1",
+        {value, role}
+    );
+
+    if (!result.ok) {
+      if (error != nullptr) {
+          *error = result.error;
+      }
+      return false;
+    }
+
+    if (result.affectedRows <= 0) {
+        if (error != nullptr) {
+            *error = "Role update affected no rows";
         }
         return false;
     }

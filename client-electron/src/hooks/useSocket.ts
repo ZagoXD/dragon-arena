@@ -7,6 +7,7 @@ const EXPECTED_PROTOCOL_VERSION = 2
 export interface NetPlayer {
   id: string
   name: string
+  role?: string
   characterId: string
   x: number
   y: number
@@ -66,6 +67,7 @@ export interface ArenaAuthIntent {
   nickname?: string
   identifier?: string
   sessionToken?: string
+  rememberSession?: boolean
   password: string
 }
 
@@ -77,6 +79,7 @@ export interface AuthSuccessPayload {
     email: string
     username: string
     nickname: string
+    role: string
     createdAt: string
   }
   sessionToken: string
@@ -87,6 +90,12 @@ export interface AuthSuccessPayload {
     xp: number
     coins: number
   }
+}
+
+export interface ProfileSyncPayload {
+  event: 'profileSync'
+  user: AuthSuccessPayload['user']
+  profile: AuthSuccessPayload['profile']
 }
 
 export function useSocket(

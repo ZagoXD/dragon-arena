@@ -10,6 +10,7 @@ struct UserRecord {
     std::string email;
     std::string username;
     std::string nickname;
+    std::string role = "player";
     std::string passwordHash;
     std::string createdAt;
 };
@@ -52,6 +53,8 @@ public:
 
     bool createUser(const CreateUserRequest& request, UserRecord* outUser, std::string* error = nullptr);
     bool updatePasswordHash(long long userId, const std::string& passwordHash, std::string* error = nullptr);
+    bool ensureRoleSchema(std::string* error = nullptr);
+    bool updateRoleByEmailOrUsername(const std::string& value, const std::string& role, std::string* error = nullptr);
     bool createInitialProfile(long long userId, PlayerProfileRecord* outProfile, std::string* error = nullptr);
     bool createUserWithInitialProfile(
         const CreateUserRequest& request,

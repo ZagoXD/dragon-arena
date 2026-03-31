@@ -48,6 +48,9 @@ public:
         const std::string& sessionToken,
         long long sessionExpiresAtMs
     );
+    static json buildProfileSync(
+        const AuthenticatedUser& authenticatedUser
+    );
     static json buildAuthError(
         const std::string& code,
         const std::string& reason

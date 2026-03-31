@@ -33,7 +33,7 @@ public:
     GameWorld();
     const MapLoader& getMapLoader() const { return mapLoader; }
     unsigned long long getCurrentTick() const { return worldTick; }
-    void addPlayer(std::string id, std::string name, std::string charId);
+    void addPlayer(std::string id, std::string name, std::string charId, std::string role = "player");
     void removePlayer(std::string id);
     bool movePlayer(std::string id, float inputX, float inputY, std::string dir, int anim);
     json getPlayersJson();

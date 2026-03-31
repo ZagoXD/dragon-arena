@@ -178,6 +178,7 @@ export function Arena({
       ? {
           id: socketId || 'local',
           name: displayPlayerName,
+          role: bootstrap?.player?.role,
           character,
           x: controller.player.x,
           y: controller.player.y,

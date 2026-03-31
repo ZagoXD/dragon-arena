@@ -1,13 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { NameScreen } from './components/NameScreen/NameScreen'
+import { HomeScreen } from './components/HomeScreen/HomeScreen'
 import { SelectScreen } from './components/SelectScreen/SelectScreen'
 import { Arena } from './components/Arena/Arena'
 import { LoadingScreen } from './components/LoadingScreen/LoadingScreen'
 import { TitleBar } from './components/TitleBar/TitleBar'
-import { ArenaAuthIntent, AuthSuccessPayload } from './hooks/useSocket'
+import { ArenaAuthIntent, AuthSuccessPayload, ProfileSyncPayload } from './hooks/useSocket'
 import './App.css'
 
-type Screen = 'name' | 'loading' | 'select' | 'arena'
+type Screen = 'name' | 'loading' | 'home' | 'select' | 'arena'
 const AUTH_SESSION_STORAGE_KEY = 'dragon-arena-auth-session'
 
 interface StoredAuthSession {
@@ -20,6 +21,9 @@ interface StoredAuthSession {
 function App() {
   const [screen, setScreen] = useState<Screen>('name')
   const [playerName, setPlayerName] = useState('')
+  const [playerCoins, setPlayerCoins] = useState(0)
+  const [sessionExpiresAtMs, setSessionExpiresAtMs] = useState(0)
+  const [shouldPersistSession, setShouldPersistSession] = useState(false)
   const [authIntent, setAuthIntent] = useState<ArenaAuthIntent | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
   const [authInfo, setAuthInfo] = useState<string | null>(null)
@@ -33,6 +37,33 @@ function App() {
   const [connError, setConnError] = useState<string | null>(null)
   const attemptedStoredSessionRef = useRef(false)
 
+  const applyAccountSnapshot = useCallback((payload: Pick<AuthSuccessPayload, 'user' | 'profile'>) => {
+    setPlayerName(payload.user.nickname || payload.user.username)
+    setPlayerCoins(payload.profile.coins ?? 0)
+    setAuthIntent(current => {
+      if (current?.mode !== 'session') {
+        return current
+      }
+
+      if (
+        current.username === payload.user.username &&
+        current.nickname === payload.user.nickname
+      ) {
+        return current
+      }
+
+      return {
+        ...current,
+        username: payload.user.username,
+        nickname: payload.user.nickname,
+      }
+    })
+  }, [])
+
+  const persistStoredSession = useCallback((session: StoredAuthSession) => {
+    localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(session))
+  }, [])
+
   const persistSession = useCallback((payload: AuthSuccessPayload) => {
     const session: StoredAuthSession = {
       token: payload.sessionToken,
@@ -40,8 +71,8 @@ function App() {
       username: payload.user.username,
       nickname: payload.user.nickname,
     }
-    localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(session))
-  }, [])
+    persistStoredSession(session)
+  }, [persistStoredSession])
 
   const clearPersistedSession = useCallback(() => {
     localStorage.removeItem(AUTH_SESSION_STORAGE_KEY)
@@ -76,8 +107,8 @@ function App() {
          })
          
          // SUCCESS!
-         setLoadingStatus('Success! Entering Arena...')
-         setTimeout(() => setScreen('select'), 500)
+         setLoadingStatus('Success! Preparing home...')
+         setTimeout(() => setScreen('home'), 500)
          return 
        } catch (err) {
          if (i === 6) {
@@ -181,25 +212,34 @@ function App() {
         return
       }
 
-      setPlayerName(payload.user.nickname || payload.user.username)
-      persistSession(payload)
+      applyAccountSnapshot(payload)
+      setSessionExpiresAtMs(payload.sessionExpiresAtMs)
+      const persistChoice = nextAuthIntent.mode === 'session' || Boolean(nextAuthIntent.rememberSession)
+      setShouldPersistSession(persistChoice)
+      if (persistChoice) {
+        persistSession(payload)
+      } else {
+        clearPersistedSession()
+      }
       setAuthIntent({
         mode: 'session',
         sessionToken: payload.sessionToken,
         username: payload.user.username,
         nickname: payload.user.nickname,
+        rememberSession: persistChoice,
         password: '',
       })
-      setScreen('select')
+      setScreen('home')
     } catch (error) {
       if (nextAuthIntent.mode === 'session') {
         clearPersistedSession()
         setAuthIntent(null)
       }
+      setShouldPersistSession(false)
       setAuthError(error instanceof Error ? error.message : 'Authentication failed')
       setScreen('name')
     }
-  }, [authenticate, clearPersistedSession, persistSession])
+  }, [applyAccountSnapshot, authenticate, clearPersistedSession, persistSession])
 
   // Called when the user picks a character
   const handleSelectCharacter = (id: string) => {
@@ -215,19 +255,24 @@ function App() {
     setScreen('select')
   }
 
-  const handleAuthFailure = (message: string) => {
+  const handleAuthFailure = useCallback((message: string) => {
     if (authIntent?.mode === 'session') {
       clearPersistedSession()
       setAuthIntent(null)
     }
+    setSessionExpiresAtMs(0)
+    setShouldPersistSession(false)
     setAuthError(message)
     setNameScreenMode('login')
     setScreen('name')
-  }
+  }, [authIntent?.mode, clearPersistedSession])
 
   const handleAuthenticated = useCallback((payload: AuthSuccessPayload) => {
-    setPlayerName(payload.user.nickname || payload.user.username)
-    persistSession(payload)
+    applyAccountSnapshot(payload)
+    setSessionExpiresAtMs(payload.sessionExpiresAtMs)
+    if (shouldPersistSession) {
+      persistSession(payload)
+    }
     setAuthIntent(current => {
       if (
         current?.mode === 'session' &&
@@ -243,10 +288,29 @@ function App() {
         sessionToken: payload.sessionToken,
         username: payload.user.username,
         nickname: payload.user.nickname,
+        rememberSession: current?.rememberSession ?? shouldPersistSession,
         password: '',
       }
     })
-  }, [persistSession])
+  }, [applyAccountSnapshot, persistSession, shouldPersistSession])
+
+  const handleEnterArena = useCallback(() => {
+    setScreen('select')
+  }, [])
+
+  const handleLogout = useCallback(() => {
+    clearPersistedSession()
+    setShouldPersistSession(false)
+    setSessionExpiresAtMs(0)
+    setAuthIntent(null)
+    setAuthError(null)
+    setAuthInfo(null)
+    setPlayerCoins(0)
+    setPlayerName('')
+    setSelectionLockedUntil(null)
+    setNameScreenMode('login')
+    setScreen('name')
+  }, [clearPersistedSession])
 
   useEffect(() => {
     if (attemptedStoredSessionRef.current) {
@@ -267,6 +331,9 @@ function App() {
       }
 
       setPlayerName(session.nickname || session.username || 'Player')
+      setPlayerCoins(0)
+      setSessionExpiresAtMs(session.expiresAtMs)
+      setShouldPersistSession(true)
       setAuthError(null)
       setAuthInfo(null)
       void handleNameEnter({
@@ -281,6 +348,103 @@ function App() {
     }
   }, [clearPersistedSession, handleNameEnter])
 
+  useEffect(() => {
+    if (authIntent?.mode !== 'session' || !authIntent.sessionToken) {
+      return
+    }
+
+    if (screen !== 'home' && screen !== 'select') {
+      return
+    }
+
+    const sessionToken = authIntent.sessionToken
+
+    let disposed = false
+    let syncInterval: number | null = null
+    let ws: WebSocket | null = new WebSocket(serverUrl)
+
+    const stopInterval = () => {
+      if (syncInterval !== null) {
+        window.clearInterval(syncInterval)
+        syncInterval = null
+      }
+    }
+
+    const requestSync = () => {
+      if (disposed || !ws || ws.readyState !== WebSocket.OPEN) {
+        return
+      }
+
+      ws.send(JSON.stringify({ event: 'profileSync' }))
+    }
+
+    ws.onopen = () => {
+      if (disposed || !ws) {
+        ws?.close()
+        return
+      }
+
+      ws.send(JSON.stringify({
+        event: 'authToken',
+        token: sessionToken,
+      }))
+    }
+
+    ws.onmessage = (event) => {
+      if (disposed || !ws) {
+        return
+      }
+
+      const data = JSON.parse(event.data)
+      if (data.event === 'authSuccess') {
+        requestSync()
+        stopInterval()
+        syncInterval = window.setInterval(requestSync, 5000)
+        return
+      }
+
+      if (data.event === 'profileSync') {
+        const payload = data as ProfileSyncPayload
+        applyAccountSnapshot(payload)
+        if (shouldPersistSession) {
+          persistStoredSession({
+            token: sessionToken,
+            expiresAtMs: sessionExpiresAtMs,
+            username: payload.user.username,
+            nickname: payload.user.nickname,
+          })
+        }
+        return
+      }
+
+      if (data.event === 'authError') {
+        stopInterval()
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close()
+        }
+        handleAuthFailure(data.reason || 'Authentication failed')
+      }
+    }
+
+    ws.onerror = () => {
+      stopInterval()
+    }
+
+    ws.onclose = () => {
+      stopInterval()
+      ws = null
+    }
+
+    return () => {
+      disposed = true
+      stopInterval()
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        ws.close()
+      }
+      ws = null
+    }
+  }, [applyAccountSnapshot, authIntent, handleAuthFailure, persistStoredSession, screen, serverUrl, sessionExpiresAtMs, shouldPersistSession])
+
   return (
     <>
       <TitleBar />
@@ -293,6 +457,14 @@ function App() {
           retryCount={retryCount} 
           error={connError} 
           onRetry={testConnection} 
+        />
+      )}
+      {screen === 'home' && (
+        <HomeScreen
+          nickname={playerName}
+          coins={playerCoins}
+          onEnterArena={handleEnterArena}
+          onLogout={handleLogout}
         />
       )}
       {screen === 'select' && (

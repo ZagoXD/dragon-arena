@@ -297,6 +297,7 @@ export function useArenaNetworkState({
         return {
           id: player.id,
           name: player.name,
+          role: player.role,
           character: resolvedCharacter,
           x: player.x,
           y: player.y,

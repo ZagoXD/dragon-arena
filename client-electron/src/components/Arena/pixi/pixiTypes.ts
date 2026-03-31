@@ -5,6 +5,7 @@ import { BurnStatusData, BurnZoneData, DummyData, ProjectileData } from '../../.
 export interface RemotePlayerView {
   id: string
   name: string
+  role?: string
   character: ResolvedCharacterConfig
   x: number
   y: number
@@ -18,6 +19,7 @@ export interface RemotePlayerView {
 export interface LocalPlayerView {
   id: string
   name: string
+  role?: string
   character: ResolvedCharacterConfig
   x: number
   y: number
