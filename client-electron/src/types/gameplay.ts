@@ -10,6 +10,15 @@ export interface AuthoritativeSpellDefinition {
   effectDurationMs: number
 }
 
+export interface AuthoritativePassiveDefinition {
+  id: string
+  name: string
+  durationMs: number
+  tickDamage: number
+  tickIntervalMs: number
+  applicationChances: Record<string, number>
+}
+
 export interface AuthoritativeCharacterDefinition {
   id: string
   name: string
@@ -19,6 +28,7 @@ export interface AuthoritativeCharacterDefinition {
   colliderHeight: number
   autoAttackSpellId: string
   skillIds: string[]
+  passiveId: string
 }
 
 export interface WorldGameplayDefinition {
@@ -48,6 +58,7 @@ export interface BootstrapPlayerState {
   colliderHeight: number
   autoAttackSpellId: string
   skillIds: string[]
+  passiveId: string
 }
 
 export interface GameplayBootstrap {
@@ -56,6 +67,7 @@ export interface GameplayBootstrap {
   characterId: string
   characters: Record<string, AuthoritativeCharacterDefinition>
   spells: Record<string, AuthoritativeSpellDefinition>
+  passives: Record<string, AuthoritativePassiveDefinition>
   player?: BootstrapPlayerState
 }
 
@@ -85,6 +97,25 @@ export interface WorldSnapshotState {
   players: Record<string, WorldSnapshotPlayerState>
   dummies: WorldSnapshotDummyState[]
   projectiles: WorldSnapshotProjectileState[]
+  burnStatuses: {
+    id: string
+    targetType: 'player' | 'dummy'
+    targetId: string
+    ownerId: string
+    passiveId: string
+    startTimeMs: number
+    endTimeMs: number
+  }[]
+  burnZones: {
+    id: string
+    ownerId: string
+    passiveId: string
+    x: number
+    y: number
+    size: number
+    startTimeMs: number
+    endTimeMs: number
+  }[]
 }
 
 export interface SessionInitPayload {

@@ -1,4 +1,5 @@
 #include "DashSystem.h"
+#include "BurnSystem.h"
 #include "CombatSystem.h"
 #include "NetworkHandler.h"
 #include "ServerDiagnostics.h"
@@ -8,6 +9,7 @@
 void DashSystem::updateDashes(
     std::map<std::string, Player>& players,
     std::map<std::string, DummyEntity>& dummies,
+    std::vector<ActiveBurnStatus>& activeBurnStatuses,
     const WorldDefinition& worldDefinition,
     unsigned long long worldTick,
     long long nowMs,
@@ -72,6 +74,7 @@ void DashSystem::updateDashes(
                         {"hp", damageResult.newHp}
                     }).dump());
                 }
+                BurnSystem::tryApplyToPlayer(target, player, "dragon_dive", activeBurnStatuses, worldTick, nowMs, network);
             }
         }
 
@@ -115,6 +118,7 @@ void DashSystem::updateDashes(
                         {"hp", damageResult.newHp}
                     }).dump());
                 }
+                BurnSystem::tryApplyToDummy(dummy, player, "dragon_dive", activeBurnStatuses, worldTick, nowMs, network);
             }
         }
 

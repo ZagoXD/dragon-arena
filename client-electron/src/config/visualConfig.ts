@@ -3,8 +3,10 @@ import emberSrc from '../assets/spells/ember.png'
 import dragonDiveSrc from '../assets/spells/dragon_dive.png'
 import flamethrowerSrc from '../assets/spells/flamethrower.png'
 import fireBlastSrc from '../assets/spells/fire_blast.png'
+import burnSrc from '../assets/spells/burn.png'
 import {
   AuthoritativeCharacterDefinition,
+  AuthoritativePassiveDefinition,
   AuthoritativeSpellDefinition,
 } from '../types/gameplay'
 
@@ -35,11 +37,24 @@ export interface VisualCharacterConfig {
   walkRows: number[]
 }
 
+export interface VisualPassiveConfig {
+  id: string
+  name: string
+  description: string
+  imageSrc: string
+  frameWidth: number
+  frameHeight: number
+  frameCount: number
+  iconMode?: 'single_fit'
+}
+
 export type ResolvedSpellConfig = AuthoritativeSpellDefinition & VisualSpellConfig
+export type ResolvedPassiveConfig = AuthoritativePassiveDefinition & VisualPassiveConfig
 
 export interface ResolvedCharacterConfig extends AuthoritativeCharacterDefinition, VisualCharacterConfig {
   autoAttack: ResolvedSpellConfig
   skills: ResolvedSpellConfig[]
+  passive: ResolvedPassiveConfig
 }
 
 export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
@@ -92,6 +107,36 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
   },
 }
 
+export const PASSIVE_VISUALS: Record<string, VisualPassiveConfig> = {
+  burn: {
+    id: 'burn',
+    name: 'Burn',
+    description: 'Queima o alvo por 3 segundos, causando dano periodico.',
+    imageSrc: burnSrc,
+    frameWidth: 64,
+    frameHeight: 64,
+    frameCount: 5,
+    iconMode: 'single_fit',
+  },
+}
+
+export function resolvePassiveConfig(
+  passiveId: string,
+  passives: Record<string, AuthoritativePassiveDefinition>
+): ResolvedPassiveConfig | null {
+  const gameplay = passives[passiveId]
+  const visual = PASSIVE_VISUALS[passiveId]
+
+  if (!gameplay || !visual) {
+    return null
+  }
+
+  return {
+    ...gameplay,
+    ...visual,
+  }
+}
+
 export const CHARACTER_VISUALS: Record<string, VisualCharacterConfig> = {
   charizard: {
     id: 'charizard',
@@ -125,7 +170,8 @@ export function resolveSpellConfig(
 export function resolveCharacterConfig(
   characterId: string,
   characters: Record<string, AuthoritativeCharacterDefinition>,
-  spells: Record<string, AuthoritativeSpellDefinition>
+  spells: Record<string, AuthoritativeSpellDefinition>,
+  passives: Record<string, AuthoritativePassiveDefinition>
 ): ResolvedCharacterConfig | null {
   const gameplay = characters[characterId]
   const visual = CHARACTER_VISUALS[characterId]
@@ -139,6 +185,11 @@ export function resolveCharacterConfig(
     return null
   }
 
+  const passive = resolvePassiveConfig(gameplay.passiveId, passives)
+  if (!passive) {
+    return null
+  }
+
   const skills = gameplay.skillIds
     .map(skillId => resolveSpellConfig(skillId, spells))
     .filter((skill): skill is ResolvedSpellConfig => skill !== null)
@@ -148,5 +199,6 @@ export function resolveCharacterConfig(
     ...visual,
     autoAttack,
     skills,
+    passive,
   }
 }

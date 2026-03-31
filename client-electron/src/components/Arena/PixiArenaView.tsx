@@ -8,17 +8,29 @@ import {
   type DestroyOptions,
 } from 'pixi.js'
 import { VIEWPORT_HEIGHT, VIEWPORT_WIDTH } from '../../config/spriteMap'
-import { buildAimingArrow, buildImpactEffect, buildSkillEffect } from './pixi/pixiEffects'
+import { buildAimingArrow, buildBurnEffect, buildImpactEffect, buildSkillEffect } from './pixi/pixiEffects'
 import { buildDummy, buildPlayer, buildProjectile, PIXI_STATIC_ASSET_URLS } from './pixi/pixiEntities'
 import { buildMapLayer, getTilesetInfo } from './pixi/pixiMap'
 import { destroyTextureCache } from './pixi/pixiTextureCache'
 import { PixiArenaViewProps, TilesetInfo } from './pixi/pixiTypes'
 import { getViewportBounds, isPointInsideViewport } from './pixi/pixiViewport'
 
-function destroyChildren(container: Container) {
-  const children = container.removeChildren()
-  children.forEach(child => child.destroy({ children: true } as DestroyOptions))
+function replaceChildren(container: Container, nextChildren: Container['children']) {
+  const previousChildren = container.removeChildren()
+
+  if (nextChildren.length > 0) {
+    container.addChild(...nextChildren)
+  }
+
+  previousChildren.forEach(child =>
+    child.destroy({
+      children: true,
+      texture: false,
+      textureSource: false,
+    } as DestroyOptions)
+  )
 }
+
 function collectAssetUrls(props: PixiArenaViewProps) {
   const urls = new Set<string>()
 
@@ -33,12 +45,14 @@ function collectAssetUrls(props: PixiArenaViewProps) {
     urls.add(props.localPlayer.character.imageSrc)
     urls.add(props.localPlayer.character.autoAttack.imageSrc)
     props.localPlayer.character.skills.forEach(skill => urls.add(skill.imageSrc))
+    urls.add(props.localPlayer.character.passive.imageSrc)
   }
 
   props.remotePlayers.forEach(player => {
     urls.add(player.character.imageSrc)
     urls.add(player.character.autoAttack.imageSrc)
     player.character.skills.forEach(skill => urls.add(skill.imageSrc))
+    urls.add(player.character.passive.imageSrc)
   })
 
   props.projectiles.forEach(projectile => urls.add(projectile.spell.imageSrc))
@@ -55,12 +69,17 @@ export function PixiArenaView(props: PixiArenaViewProps) {
   const foregroundRef = useRef<Container | null>(null)
   const overlayRef = useRef<Container | null>(null)
   const frameTextureCacheRef = useRef<Map<string, Texture>>(new Map())
+  const persistentAssetUrlsRef = useRef<Set<string>>(new Set(PIXI_STATIC_ASSET_URLS))
   const onReadyChangeRef = useRef(props.onReadyChange)
+  const [appReady, setAppReady] = useState(false)
   const [assetsReadyVersion, setAssetsReadyVersion] = useState(0)
 
   onReadyChangeRef.current = props.onReadyChange
 
-  const assetUrls = useMemo(() => collectAssetUrls(props), [
+  const assetUrls = useMemo(() => {
+    collectAssetUrls(props).forEach(url => persistentAssetUrlsRef.current.add(url))
+    return [...persistentAssetUrlsRef.current]
+  }, [
     props.mapData,
     props.localPlayer?.character.id,
     props.remotePlayers.map(player => player.character.id).join('|'),
@@ -113,6 +132,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       entitiesRef.current = entities
       foregroundRef.current = foreground
       overlayRef.current = overlay
+      setAppReady(true)
     }
 
     setup()
@@ -132,6 +152,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       entitiesRef.current = null
       foregroundRef.current = null
       overlayRef.current = null
+      setAppReady(false)
 
       if (hostRef.current) {
       hostRef.current.innerHTML = ''
@@ -142,6 +163,10 @@ export function PixiArenaView(props: PixiArenaViewProps) {
   }, [])
 
   useEffect(() => {
+    if (!appReady) {
+      return
+    }
+
     let cancelled = false
 
     const loadAssets = async () => {
@@ -168,7 +193,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       cancelled = true
     }
   }, [
-    assetUrls,
+    appReady,
     assetUrlsKey,
   ])
 
@@ -185,20 +210,19 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       return
     }
 
-    destroyChildren(backgroundRef.current)
-    destroyChildren(foregroundRef.current)
-
     const backgroundTint = new Graphics()
     backgroundTint.rect(0, 0, props.mapWidth, props.mapHeight)
     backgroundTint.fill(0x1c2614)
-    backgroundRef.current.addChild(backgroundTint)
-    backgroundRef.current.addChild(
+    const nextBackgroundChildren = [
+      backgroundTint,
       buildMapLayer(frameTextureCacheRef.current, props.mapData, props.tileSize, 'background')
-    )
-
-    foregroundRef.current.addChild(
+    ]
+    const nextForegroundChildren = [
       buildMapLayer(frameTextureCacheRef.current, props.mapData, props.tileSize, 'foreground')
-    )
+    ]
+
+    replaceChildren(backgroundRef.current, nextBackgroundChildren)
+    replaceChildren(foregroundRef.current, nextForegroundChildren)
   }, [props.mapData, props.mapHeight, props.mapWidth, props.tileSize, assetsReadyVersion])
 
   useEffect(() => {
@@ -209,23 +233,23 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       return
     }
 
-    destroyChildren(entities)
-    destroyChildren(overlay)
-    entities.sortableChildren = true
+    const nextEntities: Container['children'] = []
+    const nextOverlay: Container['children'] = []
     const viewportBounds = getViewportBounds(props.cameraX, props.cameraY, 160)
+    const fallbackBurnImage = props.localPlayer?.character.passive.imageSrc || props.remotePlayers[0]?.character.passive.imageSrc
 
     props.dummies.forEach(dummy => {
       if (!isPointInsideViewport(dummy.x, dummy.y, viewportBounds, props.dummyColliderSize)) {
         return
       }
-      entities.addChild(buildDummy(dummy, props.dummyMaxHp, props.dummyColliderSize))
+      nextEntities.push(buildDummy(dummy, props.dummyMaxHp, props.dummyColliderSize))
     })
 
     props.remotePlayers.forEach(player => {
       if (!isPointInsideViewport(player.x, player.y, viewportBounds, player.character.colliderWidth)) {
         return
       }
-      entities.addChild(
+      nextEntities.push(
         buildPlayer(
           frameTextureCacheRef.current,
           player.name,
@@ -235,6 +259,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
           player.direction,
           player.animRow,
           player.hp,
+          false,
           player.isDashing,
           player.dashAngle
         )
@@ -242,7 +267,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
     })
 
     if (props.localPlayer) {
-      entities.addChild(
+      nextEntities.push(
         buildPlayer(
           frameTextureCacheRef.current,
           props.localPlayer.name,
@@ -252,6 +277,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
           props.localPlayer.direction,
           props.localPlayer.animRow,
           props.localPlayer.hp,
+          true,
           props.localPlayer.isDashing,
           props.localPlayer.dashAngle
         )
@@ -262,14 +288,14 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       if (!isPointInsideViewport(projectile.x, projectile.y, viewportBounds, projectile.spell.frameSize)) {
         return
       }
-      entities.addChild(buildProjectile(frameTextureCacheRef.current, projectile))
+      nextEntities.push(buildProjectile(frameTextureCacheRef.current, projectile))
     })
 
     props.impactEffects.forEach(effect => {
       if (!isPointInsideViewport(effect.x, effect.y, viewportBounds, effect.radius)) {
         return
       }
-      entities.addChild(buildImpactEffect(effect))
+      nextEntities.push(buildImpactEffect(effect))
     })
 
     props.activeSkillEffects.forEach(effect => {
@@ -279,14 +305,81 @@ export function PixiArenaView(props: PixiArenaViewProps) {
 
       const skillEffect = buildSkillEffect(frameTextureCacheRef.current, effect)
       if (skillEffect) {
-        entities.addChild(skillEffect)
+        nextEntities.push(skillEffect)
+      }
+    })
+
+    props.burnZones.forEach(zone => {
+      if (!fallbackBurnImage || !isPointInsideViewport(zone.x, zone.y, viewportBounds, zone.size)) {
+        return
+      }
+
+      const burnEffect = buildBurnEffect(
+        frameTextureCacheRef.current,
+        fallbackBurnImage,
+        zone.x,
+        zone.y + zone.size / 2,
+        zone.size,
+        zone.y + zone.size - 12,
+        true
+      )
+      if (burnEffect) {
+        nextEntities.push(burnEffect)
+      }
+    })
+
+    props.burnStatuses.forEach(status => {
+      let burnEffect = null
+
+      if (status.targetType === 'player') {
+        const localTarget = props.localPlayer && status.targetId === props.localPlayer.id
+          ? props.localPlayer
+          : null
+        const remoteTarget = props.remotePlayers.find(player => player.id === status.targetId)
+        const target = localTarget || remoteTarget
+        if (!target) {
+          return
+        }
+        const feetX = target.x + target.character.colliderWidth / 2
+        const feetY = target.y + target.character.colliderHeight + 4
+        burnEffect = buildBurnEffect(
+          frameTextureCacheRef.current,
+          target.character.passive.imageSrc,
+          feetX,
+          feetY,
+          64,
+          feetY + 40,
+          true
+        )
+      } else {
+        const target = props.dummies.find(dummy => dummy.id === status.targetId)
+        if (!target || !fallbackBurnImage) {
+          return
+        }
+        burnEffect = buildBurnEffect(
+          frameTextureCacheRef.current,
+          fallbackBurnImage,
+          target.x,
+          target.y + props.dummyColliderSize / 2 + 4,
+          64,
+          target.y + props.dummyColliderSize + 40,
+          true
+        )
+      }
+
+      if (burnEffect) {
+        nextEntities.push(burnEffect)
       }
     })
 
     const aimingArrow = buildAimingArrow(props.aimingArrowData)
     if (aimingArrow) {
-      overlay.addChild(aimingArrow)
+      nextOverlay.push(aimingArrow)
     }
+
+    entities.sortableChildren = true
+    replaceChildren(entities, nextEntities)
+    replaceChildren(overlay, nextOverlay)
   }, [
     props.dummies,
     props.dummyColliderSize,
@@ -296,6 +389,8 @@ export function PixiArenaView(props: PixiArenaViewProps) {
     props.projectiles,
     props.impactEffects,
     props.activeSkillEffects,
+    props.burnStatuses,
+    props.burnZones,
     props.aimingArrowData,
     props.cameraX,
     props.cameraY,

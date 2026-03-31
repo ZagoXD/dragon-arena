@@ -219,6 +219,7 @@ bool SkillSystem::useSkill(
             originY,
             angle,
             0.0f,
+            0.0f,
             {},
             {}
         });

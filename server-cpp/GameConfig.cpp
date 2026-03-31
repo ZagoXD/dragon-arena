@@ -11,6 +11,7 @@
 namespace {
 struct LoadedGameplayConfig {
     std::map<std::string, SpellDefinition> spells;
+    std::map<std::string, PassiveDefinition> passives;
     std::map<std::string, CharacterDefinition> characters;
     WorldDefinition world{};
     std::string sourcePath;
@@ -51,7 +52,19 @@ CharacterDefinition parseCharacterDefinition(const json& node) {
         node.at("colliderWidth").get<float>(),
         node.at("colliderHeight").get<float>(),
         node.at("autoAttackSpellId").get<std::string>(),
-        node.at("skillIds").get<std::vector<std::string>>()
+        node.at("skillIds").get<std::vector<std::string>>(),
+        node.at("passiveId").get<std::string>()
+    };
+}
+
+PassiveDefinition parsePassiveDefinition(const json& node) {
+    return {
+        node.at("id").get<std::string>(),
+        node.at("name").get<std::string>(),
+        node.at("durationMs").get<int>(),
+        node.at("tickDamage").get<int>(),
+        node.at("tickIntervalMs").get<int>(),
+        node.value("applicationChances", std::map<std::string, float>{})
     };
 }
 
@@ -88,7 +101,23 @@ void validateSpellDefinition(const SpellDefinition& spell) {
     }
 }
 
-void validateCharacterDefinition(const CharacterDefinition& character, const std::map<std::string, SpellDefinition>& spells) {
+void validatePassiveDefinition(const PassiveDefinition& passive) {
+    if (passive.id.empty()) {
+        throw std::runtime_error("PassiveDefinition has empty id");
+    }
+    if (passive.name.empty()) {
+        throw std::runtime_error("PassiveDefinition '" + passive.id + "' has empty name");
+    }
+    if (passive.durationMs <= 0 || passive.tickDamage < 0 || passive.tickIntervalMs <= 0) {
+        throw std::runtime_error("PassiveDefinition '" + passive.id + "' has invalid timing or damage values");
+    }
+}
+
+void validateCharacterDefinition(
+    const CharacterDefinition& character,
+    const std::map<std::string, SpellDefinition>& spells,
+    const std::map<std::string, PassiveDefinition>& passives
+) {
     if (character.id.empty()) {
         throw std::runtime_error("CharacterDefinition has empty id");
     }
@@ -111,6 +140,9 @@ void validateCharacterDefinition(const CharacterDefinition& character, const std
         if (!spells.count(skillId)) {
             throw std::runtime_error("CharacterDefinition '" + character.id + "' references unknown skillId '" + skillId + "'");
         }
+    }
+    if (!passives.count(character.passiveId)) {
+        throw std::runtime_error("CharacterDefinition '" + character.id + "' references unknown passiveId '" + character.passiveId + "'");
     }
 }
 
@@ -160,6 +192,7 @@ std::vector<std::filesystem::path> getCandidateConfigRoots() {
 bool isSplitConfigRoot(const std::filesystem::path& root) {
     return std::filesystem::exists(root / "world.json")
         && std::filesystem::exists(root / "spells")
+        && std::filesystem::exists(root / "passives")
         && std::filesystem::exists(root / "characters");
 }
 
@@ -196,6 +229,20 @@ LoadedGameplayConfig loadSplitGameplayConfig(const std::filesystem::path& config
         SpellDefinition spell = parseSpellDefinition(readJsonFile(spellFile));
         loaded.spells[spell.id] = spell;
         contentFiles.push_back(spellFile);
+    }
+
+    std::vector<std::filesystem::path> passiveFiles;
+    for (const auto& entry : std::filesystem::directory_iterator(configRoot / "passives")) {
+        if (entry.is_regular_file() && entry.path().extension() == ".json") {
+            passiveFiles.push_back(std::filesystem::weakly_canonical(entry.path()));
+        }
+    }
+    std::sort(passiveFiles.begin(), passiveFiles.end());
+
+    for (const auto& passiveFile : passiveFiles) {
+        PassiveDefinition passive = parsePassiveDefinition(readJsonFile(passiveFile));
+        loaded.passives[passive.id] = passive;
+        contentFiles.push_back(passiveFile);
     }
 
     std::vector<std::filesystem::path> characterFiles;
@@ -259,11 +306,18 @@ LoadedGameplayConfig loadGameplayConfig() {
                 validateSpellDefinition(spell);
             }
 
+            for (const auto& [id, passive] : loaded.passives) {
+                if (id != passive.id) {
+                    throw std::runtime_error("PassiveDefinition key mismatch for '" + id + "'");
+                }
+                validatePassiveDefinition(passive);
+            }
+
             for (const auto& [id, character] : loaded.characters) {
                 if (id != character.id) {
                     throw std::runtime_error("CharacterDefinition key mismatch for '" + id + "'");
                 }
-                validateCharacterDefinition(character, loaded.spells);
+                validateCharacterDefinition(character, loaded.spells, loaded.passives);
             }
 
             validateWorldDefinition(loaded.world);
@@ -276,6 +330,9 @@ LoadedGameplayConfig loadGameplayConfig() {
             if (loaded.spells.empty()) {
                 throw std::runtime_error("GameConfig has no spell definitions");
             }
+            if (loaded.passives.empty()) {
+                throw std::runtime_error("GameConfig has no passive definitions");
+            }
             if (loaded.characters.empty()) {
                 throw std::runtime_error("GameConfig has no character definitions");
             }
@@ -287,11 +344,18 @@ LoadedGameplayConfig loadGameplayConfig() {
                 validateSpellDefinition(spell);
             }
 
+            for (const auto& [id, passive] : loaded.passives) {
+                if (id != passive.id) {
+                    throw std::runtime_error("PassiveDefinition key mismatch for '" + id + "'");
+                }
+                validatePassiveDefinition(passive);
+            }
+
             for (const auto& [id, character] : loaded.characters) {
                 if (id != character.id) {
                     throw std::runtime_error("CharacterDefinition key mismatch for '" + id + "'");
                 }
-                validateCharacterDefinition(character, loaded.spells);
+                validateCharacterDefinition(character, loaded.spells, loaded.passives);
             }
 
             validateWorldDefinition(loaded.world);
@@ -299,7 +363,7 @@ LoadedGameplayConfig loadGameplayConfig() {
         }
     }
 
-    throw std::runtime_error("Could not locate gameplay config. Expected split config at config/{world.json,spells/,characters/} or legacy gameplay.json");
+    throw std::runtime_error("Could not locate gameplay config. Expected split config at config/{world.json,spells/,passives/,characters/} or legacy gameplay.json");
 }
 
 const LoadedGameplayConfig& getLoadedGameplayConfig() {
@@ -310,6 +374,10 @@ const LoadedGameplayConfig& getLoadedGameplayConfig() {
 
 const std::map<std::string, SpellDefinition>& GameConfig::getSpellDefinitions() {
     return getLoadedGameplayConfig().spells;
+}
+
+const std::map<std::string, PassiveDefinition>& GameConfig::getPassiveDefinitions() {
+    return getLoadedGameplayConfig().passives;
 }
 
 const std::map<std::string, CharacterDefinition>& GameConfig::getCharacterDefinitions() {
@@ -328,6 +396,16 @@ const SpellDefinition& GameConfig::getSpellDefinition(const std::string& spellId
     }
 
     throw std::runtime_error("Unknown spell definition: " + spellId);
+}
+
+const PassiveDefinition& GameConfig::getPassiveDefinition(const std::string& passiveId) {
+    const auto& definitions = getPassiveDefinitions();
+    auto it = definitions.find(passiveId);
+    if (it != definitions.end()) {
+        return it->second;
+    }
+
+    throw std::runtime_error("Unknown passive definition: " + passiveId);
 }
 
 const CharacterDefinition& GameConfig::getCharacterDefinition(const std::string& characterId) {
@@ -355,6 +433,11 @@ json GameConfig::buildContentSummary() {
         spellIds.push_back(id);
     }
 
+    json passiveIds = json::array();
+    for (const auto& [id, definition] : getPassiveDefinitions()) {
+        passiveIds.push_back(id);
+    }
+
     return {
         {"configPath", getLoadedConfigPath()},
         {"contentHash", getContentHash()},
@@ -365,6 +448,10 @@ json GameConfig::buildContentSummary() {
         {"spells", {
             {"count", getSpellDefinitions().size()},
             {"ids", spellIds}
+        }},
+        {"passives", {
+            {"count", getPassiveDefinitions().size()},
+            {"ids", passiveIds}
         }},
         {"world", to_json(getWorldDefinition())}
     };
@@ -392,6 +479,17 @@ json GameConfig::to_json(const SpellDefinition& spell) {
     };
 }
 
+json GameConfig::to_json(const PassiveDefinition& passive) {
+    return {
+        {"id", passive.id},
+        {"name", passive.name},
+        {"durationMs", passive.durationMs},
+        {"tickDamage", passive.tickDamage},
+        {"tickIntervalMs", passive.tickIntervalMs},
+        {"applicationChances", passive.applicationChances}
+    };
+}
+
 json GameConfig::to_json(const CharacterDefinition& character) {
     return {
         {"id", character.id},
@@ -401,7 +499,8 @@ json GameConfig::to_json(const CharacterDefinition& character) {
         {"colliderWidth", character.colliderWidth},
         {"colliderHeight", character.colliderHeight},
         {"autoAttackSpellId", character.autoAttackSpellId},
-        {"skillIds", character.skillIds}
+        {"skillIds", character.skillIds},
+        {"passiveId", character.passiveId}
     };
 }
 

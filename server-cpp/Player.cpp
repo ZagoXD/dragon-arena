@@ -6,7 +6,7 @@ Player::Player(std::string id, std::string name, const CharacterDefinition& defi
       x(2048.0f), y(1280.0f), direction("down"), animRow(0), kills(0), deaths(0),
       movementSpeed(definition.movementSpeed), colliderWidth(definition.colliderWidth),
       colliderHeight(definition.colliderHeight), autoAttackSpellId(definition.autoAttackSpellId),
-      skillIds(definition.skillIds), isDashing(false) {}
+      skillIds(definition.skillIds), passiveId(definition.passiveId), isDashing(false) {}
 
 json Player::to_json() const {
     return {
@@ -18,7 +18,8 @@ json Player::to_json() const {
         {"colliderWidth", colliderWidth},
         {"colliderHeight", colliderHeight},
         {"autoAttackSpellId", autoAttackSpellId},
-        {"skillIds", skillIds}
+        {"skillIds", skillIds},
+        {"passiveId", passiveId}
     };
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { HUD } from '../HUD/HUD'
 import { AutoAttackStartedEvent, NetPlayer, SkillUsedEvent } from '../../hooks/useSocket'
 import { useArenaNetworkState } from '../../hooks/useArenaNetworkState'
@@ -17,9 +17,11 @@ interface Props {
 export function Arena({ playerName, characterId = 'charizard', onReturnToSelect }: Props) {
   const fallbackVisual = CHARACTER_VISUALS[characterId] || CHARACTER_VISUALS.charizard
   const [pixiReady, setPixiReady] = useState(false)
+  const [pixiInstanceKey, setPixiInstanceKey] = useState(0)
   const localPlayerIdRef = useRef<string | undefined>(undefined)
   const lockActionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left', durationMs: number) => void) | null>(null)
   const setDirectionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left') => void) | null>(null)
+  const previousHpRef = useRef<number | null>(null)
 
   const handleAutoAttackStarted = useCallback((event: AutoAttackStartedEvent) => {
     if (!localPlayerIdRef.current || event.playerId !== localPlayerIdRef.current) {
@@ -79,6 +81,8 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
     localDashState,
     impactEffects,
     activeSkillEffects,
+    burnStatuses,
+    burnZones,
     emitMove,
     emitRespawn,
     emitShoot,
@@ -115,6 +119,15 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
   lockActionRef.current = controller.player.lockAction
   setDirectionRef.current = controller.player.setDirection
 
+  useEffect(() => {
+    const previousHp = previousHpRef.current
+    if (previousHp !== null && previousHp <= 0 && hp > 0) {
+      setPixiReady(false)
+      setPixiInstanceKey(prev => prev + 1)
+    }
+    previousHpRef.current = hp
+  }, [hp])
+
   const arenaReady = Boolean(bootstrap && character && mapData && pixiReady)
 
   if (!bootstrap || !character || !mapData) {
@@ -139,6 +152,7 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
   const localPlayer =
     hp > 0
       ? {
+          id: socketId || 'local',
           name: playerName,
           character,
           x: controller.player.x,
@@ -159,6 +173,7 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
         style={{ width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT, transform: `scale(${controller.scale})` }}
       >
         <PixiArenaView
+          key={pixiInstanceKey}
           mapData={mapData}
           tileSize={tileSize}
           mapWidth={mapWidth}
@@ -173,6 +188,8 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
           projectiles={projectiles}
           impactEffects={impactEffects}
           activeSkillEffects={activeSkillEffects}
+          burnStatuses={burnStatuses}
+          burnZones={burnZones}
           aimingArrowData={controller.aimingArrowData}
           onReadyChange={setPixiReady}
         />

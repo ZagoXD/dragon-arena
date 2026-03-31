@@ -9,7 +9,7 @@ import {
   useSocket,
 } from './useSocket'
 import { GameplayBootstrap } from '../types/gameplay'
-import { DummyData, ProjectileData } from '../types/arenaWorld'
+import { BurnStatusData, BurnZoneData, DummyData, ProjectileData } from '../types/arenaWorld'
 import { ActiveSkillEffectView } from '../components/Arena/pixi/pixiTypes'
 
 interface UseArenaNetworkStateParams {
@@ -118,7 +118,7 @@ export function useArenaNetworkState({
         : otherPlayersRef.current[data.ownerId]
     if (!owner) return null
 
-    const ownerCharacter = resolveCharacterConfig(owner.characterId, currentBootstrap.characters, currentBootstrap.spells)
+    const ownerCharacter = resolveCharacterConfig(owner.characterId, currentBootstrap.characters, currentBootstrap.spells, currentBootstrap.passives)
     if (!ownerCharacter) return null
 
     const spell = data.spellId === ownerCharacter.autoAttack.id
@@ -193,7 +193,7 @@ export function useArenaNetworkState({
           : otherPlayersRef.current[event.id]
 
       if (owner) {
-        const resolvedCharacter = resolveCharacterConfig(owner.characterId, currentBootstrap.characters, currentBootstrap.spells)
+        const resolvedCharacter = resolveCharacterConfig(owner.characterId, currentBootstrap.characters, currentBootstrap.spells, currentBootstrap.passives)
         const resolvedSpell = resolvedCharacter?.skills.find(skill => skill.id === event.skillId)
 
         if (resolvedSpell?.effectKind === 'beam') {
@@ -247,6 +247,8 @@ export function useArenaNetworkState({
     mapData,
     bootstrap,
     otherPlayers,
+    burnStatuses,
+    burnZones,
     kills,
     deaths,
     emitMove,
@@ -271,7 +273,7 @@ export function useArenaNetworkState({
 
   const character = useMemo<ResolvedCharacterConfig | null>(() => {
     if (!bootstrap) return null
-    return resolveCharacterConfig(characterId, bootstrap.characters, bootstrap.spells)
+    return resolveCharacterConfig(characterId, bootstrap.characters, bootstrap.spells, bootstrap.passives)
   }, [bootstrap, characterId])
 
   const resolvedOtherPlayers = useMemo(() => {
@@ -279,7 +281,7 @@ export function useArenaNetworkState({
 
     return Object.values(renderOtherPlayers)
       .map(player => {
-        const resolvedCharacter = resolveCharacterConfig(player.characterId, bootstrap.characters, bootstrap.spells)
+        const resolvedCharacter = resolveCharacterConfig(player.characterId, bootstrap.characters, bootstrap.spells, bootstrap.passives)
         if (!resolvedCharacter || player.hp <= 0) {
           return null
         }
@@ -340,7 +342,17 @@ export function useArenaNetworkState({
     setRenderOtherPlayers(prev => {
       const next: Record<string, NetPlayer> = {}
       for (const [id, playerState] of Object.entries(otherPlayers)) {
-        next[id] = prev[id] ? { ...prev[id], ...playerState } : { ...playerState }
+        next[id] = prev[id]
+          ? {
+              ...prev[id],
+              ...playerState,
+              // Preserve the current rendered position so interpolation can
+              // move toward the new authoritative sample instead of snapping
+              // to it on every network update.
+              x: prev[id].x,
+              y: prev[id].y,
+            }
+          : { ...playerState }
       }
       return next
     })
@@ -499,6 +511,8 @@ export function useArenaNetworkState({
     localDashState,
     impactEffects,
     activeSkillEffects,
+    burnStatuses: burnStatuses as BurnStatusData[],
+    burnZones: burnZones as BurnZoneData[],
     emitMove,
     emitShoot,
     emitRespawn,

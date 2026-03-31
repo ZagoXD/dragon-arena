@@ -26,6 +26,7 @@ public:
     float inputY = 0.0f;
     std::string autoAttackSpellId;
     std::vector<std::string> skillIds;
+    std::string passiveId;
     long long deathTimeMs = 0;
 
     // Dash / Skill 1 State

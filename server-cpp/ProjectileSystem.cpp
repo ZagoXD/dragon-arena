@@ -1,4 +1,5 @@
 #include "ProjectileSystem.h"
+#include "BurnSystem.h"
 #include "CombatSystem.h"
 #include "GameConfig.h"
 #include "NetworkHandler.h"
@@ -77,6 +78,7 @@ void ProjectileSystem::releasePendingAutoAttacks(
             cast.originY,
             cast.angle,
             0.0f,
+            0.0f,
             {},
             {}
         });
@@ -110,6 +112,8 @@ void ProjectileSystem::updateProjectiles(
     std::map<std::string, Player>& players,
     std::map<std::string, DummyEntity>& dummies,
     std::vector<ActiveProjectile>& activeProjectiles,
+    std::vector<ActiveBurnStatus>& activeBurnStatuses,
+    std::vector<BurnZone>& burnZones,
     const MapLoader& mapLoader,
     const WorldDefinition& worldDefinition,
     unsigned long long worldTick,
@@ -137,6 +141,18 @@ void ProjectileSystem::updateProjectiles(
         projectile.x += std::cos(projectile.angle) * step;
         projectile.y += std::sin(projectile.angle) * step;
         projectile.distanceTravelled += step;
+
+        if (projectile.spellId == "fire_blast" && players.count(projectile.ownerId)) {
+            const auto& owner = players[projectile.ownerId];
+            if (!owner.passiveId.empty()) {
+                BurnSystem::spawnTrailZones(
+                    projectile,
+                    GameConfig::getPassiveDefinition(owner.passiveId),
+                    burnZones,
+                    nowMs
+                );
+            }
+        }
 
         bool removeProjectile = false;
 
@@ -194,6 +210,7 @@ void ProjectileSystem::updateProjectiles(
                             }).dump());
                         }
                     }
+                    BurnSystem::tryApplyToPlayer(target, players[projectile.ownerId], projectile.spellId, activeBurnStatuses, worldTick, nowMs, network);
                     if (removeProjectile) {
                         break;
                     }
@@ -231,6 +248,7 @@ void ProjectileSystem::updateProjectiles(
                     if (network) {
                         network->broadcast(json({{"event", "dummyDamaged"}, {"tick", worldTick}, {"id", dummyId}, {"hp", damageResult.newHp}}).dump());
                     }
+                    BurnSystem::tryApplyToDummy(dummy, players[projectile.ownerId], projectile.spellId, activeBurnStatuses, worldTick, nowMs, network);
                     if (removeProjectile) {
                         break;
                     }
@@ -255,6 +273,7 @@ void ProjectileSystem::updateAreaEffects(
     std::map<std::string, Player>& players,
     std::map<std::string, DummyEntity>& dummies,
     std::vector<ActiveAreaEffect>& activeAreaEffects,
+    std::vector<ActiveBurnStatus>& activeBurnStatuses,
     const WorldDefinition& worldDefinition,
     unsigned long long worldTick,
     long long nowMs,
@@ -319,6 +338,7 @@ void ProjectileSystem::updateAreaEffects(
                         }).dump());
                     }
                 }
+                BurnSystem::tryApplyToPlayer(target, players[effect.ownerId], effect.spellId, activeBurnStatuses, worldTick, nowMs, network);
             }
 
             for (auto& [dummyId, dummy] : dummies) {
@@ -345,6 +365,7 @@ void ProjectileSystem::updateAreaEffects(
                 if (network) {
                     network->broadcast(json({{"event", "dummyDamaged"}, {"tick", worldTick}, {"id", dummyId}, {"hp", damageResult.newHp}}).dump());
                 }
+                BurnSystem::tryApplyToDummy(dummy, players[effect.ownerId], effect.spellId, activeBurnStatuses, worldTick, nowMs, network);
             }
 
             effect.ticksApplied += 1;

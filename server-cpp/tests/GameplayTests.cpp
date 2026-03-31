@@ -32,6 +32,7 @@ void testGameConfigValidation() {
     const auto& charizard = GameConfig::getCharacterDefinition("charizard");
     assert(charizard.autoAttackSpellId == "ember");
     assert(charizard.skillIds.size() == 3);
+    assert(charizard.passiveId == "burn");
     assert(!GameConfig::getLoadedConfigPath().empty());
     assert(GameConfig::getLoadedConfigPath().find("config") != std::string::npos);
     assert(!GameConfig::getContentHash().empty());
@@ -39,6 +40,7 @@ void testGameConfigValidation() {
     json summary = GameConfig::buildContentSummary();
     assert(summary["characters"]["count"] == 1);
     assert(summary["spells"]["count"] == 4);
+    assert(summary["passives"]["count"] == 1);
 }
 
 void testMovementIntentAndBounds() {
@@ -125,11 +127,15 @@ void testAutoAttackCastAndProjectileLifecycle() {
     assert(activeProjectiles.size() == 1);
 
     std::map<std::string, DummyEntity> dummies;
+    std::vector<ActiveBurnStatus> activeBurnStatuses;
+    std::vector<BurnZone> burnZones;
     MapLoader unloadedMap;
     ProjectileSystem::updateProjectiles(
         players,
         dummies,
         activeProjectiles,
+        activeBurnStatuses,
+        burnZones,
         unloadedMap,
         GameConfig::getWorldDefinition(),
         12,
@@ -177,7 +183,16 @@ void testDashDamageAndRespawn() {
         {"dummy", {"dummy", 170.0f, 32.0f, 500, 0}}
     };
 
-    DashSystem::updateDashes(players, dummies, GameConfig::getWorldDefinition(), 30, 1150, nullptr);
+    std::vector<ActiveBurnStatus> activeBurnStatuses;
+    DashSystem::updateDashes(
+        players,
+        dummies,
+        activeBurnStatuses,
+        GameConfig::getWorldDefinition(),
+        30,
+        1150,
+        nullptr
+    );
     assert(players["target"].hp < players["target"].maxHp);
     assert(dummies["dummy"].hp < GameConfig::getWorldDefinition().dummyMaxHp);
 
@@ -204,10 +219,13 @@ void testWorldSetupAndProtocolPayloads() {
     assert(players["p"].y >= 0.0f);
 
     std::vector<ActiveProjectile> projectiles = {
-        {"proj_1", "p", "ember", 100.0f, 100.0f, 0.0f, 20.0f, {}, {}}
+        {"proj_1", "p", "ember", 100.0f, 100.0f, 0.0f, 20.0f, 0.0f, {}, {}}
     };
 
-    json snapshot = WorldSnapshotBuilder::buildWorldSnapshot(42, players, dummies, projectiles);
+    std::vector<ActiveBurnStatus> burnStatuses;
+    std::vector<BurnZone> burnZones;
+
+    json snapshot = WorldSnapshotBuilder::buildWorldSnapshot(42, players, dummies, projectiles, burnStatuses, burnZones);
     assert(snapshot["event"] == "worldSnapshot");
     assert(snapshot["tick"] == 42);
     assert(snapshot["projectiles"].size() == 1);
@@ -219,6 +237,8 @@ void testWorldSetupAndProtocolPayloads() {
         players,
         dummies,
         projectiles,
+        burnStatuses,
+        burnZones,
         json({{"width", 32}, {"height", 20}}),
         "p"
     );

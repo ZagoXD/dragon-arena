@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { CHARACTER_VISUALS, SPELL_VISUALS, VisualSpellConfig } from '../../config/visualConfig'
+import { CHARACTER_VISUALS, PASSIVE_VISUALS, SPELL_VISUALS, VisualPassiveConfig, VisualSpellConfig } from '../../config/visualConfig'
 import { ANIMATION_FPS } from '../../config/spriteMap'
 import './SelectScreen.css'
 
@@ -40,6 +40,15 @@ function getSpellIconStyle(spell: VisualSpellConfig): React.CSSProperties {
   }
 }
 
+function getPassiveIconStyle(passive: VisualPassiveConfig): React.CSSProperties {
+  return {
+    backgroundImage: `url(${passive.imageSrc})`,
+    backgroundSize: '100% 500%',
+    backgroundPosition: 'center top',
+    backgroundRepeat: 'no-repeat',
+  }
+}
+
 interface Props {
   playerName: string
   selectionLockedUntil: number | null
@@ -49,6 +58,7 @@ interface Props {
 export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Props) {
   const [animIndex, setAnimIndex] = useState(0)
   const [hoveredSkill, setHoveredSkill] = useState<VisualSpellConfig | null>(null)
+  const [hoveredPassive, setHoveredPassive] = useState<VisualPassiveConfig | null>(null)
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const [lockRemainingMs, setLockRemainingMs] = useState(0)
 
@@ -79,7 +89,10 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
   return (
     <div
       className="select-screen"
-      onMouseLeave={() => setHoveredSkill(null)}
+      onMouseLeave={() => {
+        setHoveredSkill(null)
+        setHoveredPassive(null)
+      }}
       onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
     >
       <h1>CHOOSE YOUR LEGEND</h1>
@@ -93,6 +106,7 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
           const bgPosX = -(2 * portraitSize)
           const bgPosY = -(currentRow * portraitSize)
           const allSkills = [SPELL_VISUALS.ember, SPELL_VISUALS.dragon_dive, SPELL_VISUALS.flamethrower, SPELL_VISUALS.fire_blast]
+          const passive = PASSIVE_VISUALS.burn
 
           return (
             <div
@@ -134,6 +148,15 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
                       style={getSpellIconStyle(skill)}
                     />
                   ))}
+                  <div
+                    className={`skill-icon-small ${hoveredPassive?.id === passive.id ? 'active' : ''}`}
+                    onMouseEnter={(e) => {
+                      e.stopPropagation()
+                      setHoveredPassive(passive)
+                    }}
+                    onMouseLeave={() => setHoveredPassive(null)}
+                    style={getPassiveIconStyle(passive)}
+                  />
                 </div>
 
                 <button className="select-btn" disabled={isSelectionLocked}>
@@ -177,6 +200,26 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
           <p className="tooltip-text">{hoveredSkill.description}</p>
           <div className="tooltip-footer">
             <span>Dados numericos autoritativos via bootstrap</span>
+          </div>
+        </div>
+      )}
+
+      {hoveredPassive && (
+        <div
+          className="skill-description-tooltip"
+          style={{
+            left: `${mousePos.x + 15}px`,
+            top: `${mousePos.y + 15}px`,
+            position: 'fixed',
+          }}
+        >
+          <div className="tooltip-header">
+            <span className="tooltip-name">{hoveredPassive.name}</span>
+            <span className="tooltip-type">Passive</span>
+          </div>
+          <p className="tooltip-text">{hoveredPassive.description}</p>
+          <div className="tooltip-footer">
+            <span>Aplicada autoritativamente pelo backend</span>
           </div>
         </div>
       )}

@@ -1,4 +1,5 @@
 #include "GameWorld.h"
+#include "BurnSystem.h"
 #include "DashSystem.h"
 #include "NetworkHandler.h"
 #include "ProtocolPayloadBuilder.h"
@@ -68,7 +69,7 @@ json GameWorld::getProjectilesJson() {
 
 json GameWorld::getWorldSnapshotJson() {
     std::lock_guard<std::mutex> lock(mtx);
-    return WorldSnapshotBuilder::buildWorldSnapshot(worldTick, players, dummies, activeProjectiles);
+    return WorldSnapshotBuilder::buildWorldSnapshot(worldTick, players, dummies, activeProjectiles, activeBurnStatuses, burnZones);
 }
 
 json GameWorld::getBootstrapJson(std::string playerId) {
@@ -90,6 +91,8 @@ json GameWorld::getSessionInitJson(std::string playerId) {
         players,
         dummies,
         activeProjectiles,
+        activeBurnStatuses,
+        burnZones,
         mapLoader.isLoaded() ? mapLoader.getRawMapData() : json(),
         playerId
     );
@@ -165,6 +168,7 @@ void GameWorld::updateSimulation(NetworkHandler* network, float deltaSeconds, lo
     updatePendingAutoAttacks(network, now_ms);
     updateProjectiles(network, deltaSeconds, now_ms);
     updateAreaEffects(network, now_ms);
+    updateBurns(network, now_ms);
     updateDummyRespawns(network, now_ms);
 }
 
@@ -183,11 +187,11 @@ void GameWorld::broadcastSnapshot(NetworkHandler* network, long long now_ms) {
         {"dummies", dummies.size()},
         {"projectiles", activeProjectiles.size()}
     });
-    network->broadcast(WorldSnapshotBuilder::buildWorldSnapshot(worldTick, players, dummies, activeProjectiles).dump());
+    network->broadcast(WorldSnapshotBuilder::buildWorldSnapshot(worldTick, players, dummies, activeProjectiles, activeBurnStatuses, burnZones).dump());
 }
 
 void GameWorld::updateDashes(NetworkHandler* network, long long now_ms) {
-    DashSystem::updateDashes(players, dummies, worldDefinition, worldTick, now_ms, network);
+    DashSystem::updateDashes(players, dummies, activeBurnStatuses, worldDefinition, worldTick, now_ms, network);
 }
 
 void GameWorld::updateDummyRespawns(NetworkHandler* network, long long now_ms) {
@@ -210,6 +214,8 @@ void GameWorld::updateProjectiles(NetworkHandler* network, float deltaSeconds, l
         players,
         dummies,
         activeProjectiles,
+        activeBurnStatuses,
+        burnZones,
         mapLoader,
         worldDefinition,
         worldTick,
@@ -224,11 +230,17 @@ void GameWorld::updateAreaEffects(NetworkHandler* network, long long now_ms) {
         players,
         dummies,
         activeAreaEffects,
+        activeBurnStatuses,
         worldDefinition,
         worldTick,
         now_ms,
         network
     );
+}
+
+void GameWorld::updateBurns(NetworkHandler* network, long long now_ms) {
+    BurnSystem::updateBurnStatuses(players, dummies, activeBurnStatuses, worldTick, now_ms, network);
+    BurnSystem::updateBurnZones(players, dummies, burnZones, worldTick, now_ms, network);
 }
 
 int GameWorld::takeDamage(std::string id, int amount) {

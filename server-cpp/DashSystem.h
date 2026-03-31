@@ -13,6 +13,7 @@ public:
     static void updateDashes(
         std::map<std::string, Player>& players,
         std::map<std::string, DummyEntity>& dummies,
+        std::vector<ActiveBurnStatus>& activeBurnStatuses,
         const WorldDefinition& worldDefinition,
         unsigned long long worldTick,
         long long nowMs,

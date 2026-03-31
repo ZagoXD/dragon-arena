@@ -12,6 +12,7 @@ public:
     static json buildCapabilities();
     static json buildCharactersJson();
     static json buildSpellsJson();
+    static json buildPassivesJson();
     static json buildBootstrap(
         const WorldDefinition& worldDefinition,
         const std::map<std::string, Player>& players,
@@ -24,6 +25,8 @@ public:
         const std::map<std::string, Player>& players,
         const std::map<std::string, DummyEntity>& dummies,
         const std::vector<ActiveProjectile>& activeProjectiles,
+        const std::vector<ActiveBurnStatus>& activeBurnStatuses,
+        const std::vector<BurnZone>& burnZones,
         const json& map,
         const std::string& playerId
     );

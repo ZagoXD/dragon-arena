@@ -1,0 +1,13 @@
+{
+  "id": "burn",
+  "name": "Burn",
+  "durationMs": 3000,
+  "tickDamage": 15,
+  "tickIntervalMs": 500,
+  "applicationChances": {
+    "ember": 10.0,
+    "dragon_dive": 10.0,
+    "flamethrower": 10.0,
+    "fire_blast": 100.0
+  }
+}

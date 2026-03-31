@@ -27,6 +27,14 @@ json ProtocolPayloadBuilder::buildSpellsJson() {
     return spellsJson;
 }
 
+json ProtocolPayloadBuilder::buildPassivesJson() {
+    json passivesJson = json::object();
+    for (const auto& [id, definition] : GameConfig::getPassiveDefinitions()) {
+        passivesJson[id] = GameConfig::to_json(definition);
+    }
+    return passivesJson;
+}
+
 json ProtocolPayloadBuilder::buildBootstrap(
     const WorldDefinition& worldDefinition,
     const std::map<std::string, Player>& players,
@@ -36,7 +44,8 @@ json ProtocolPayloadBuilder::buildBootstrap(
         {"contentHash", GameConfig::getContentHash()},
         {"world", GameConfig::to_json(worldDefinition)},
         {"characters", buildCharactersJson()},
-        {"spells", buildSpellsJson()}
+        {"spells", buildSpellsJson()},
+        {"passives", buildPassivesJson()}
     };
 
     auto it = players.find(playerId);
@@ -55,6 +64,8 @@ json ProtocolPayloadBuilder::buildSessionInit(
     const std::map<std::string, Player>& players,
     const std::map<std::string, DummyEntity>& dummies,
     const std::vector<ActiveProjectile>& activeProjectiles,
+    const std::vector<ActiveBurnStatus>& activeBurnStatuses,
+    const std::vector<BurnZone>& burnZones,
     const json& map,
     const std::string& playerId
 ) {
@@ -66,7 +77,7 @@ json ProtocolPayloadBuilder::buildSessionInit(
         {"selfId", playerId},
         {"bootstrap", buildBootstrap(worldDefinition, players, playerId)},
         {"map", map},
-        {"snapshot", WorldSnapshotBuilder::buildWorldState(worldTick, players, dummies, activeProjectiles)}
+        {"snapshot", WorldSnapshotBuilder::buildWorldState(worldTick, players, dummies, activeProjectiles, activeBurnStatuses, burnZones)}
     };
 }
 

@@ -3,6 +3,15 @@ import { ResolvedCharacterConfig } from '../../config/visualConfig'
 import { ANIMATION_FPS } from '../../config/spriteMap'
 import './HUD.css'
 
+function getPassiveIconStyle(passive: ResolvedCharacterConfig['passive']): React.CSSProperties {
+  return {
+    backgroundImage: `url(${passive.imageSrc})`,
+    backgroundSize: '100% 500%',
+    backgroundPosition: 'center top',
+    backgroundRepeat: 'no-repeat',
+  }
+}
+
 function getSpellIconStyle(spell: ResolvedCharacterConfig['autoAttack']): React.CSSProperties {
   if (spell.id === 'flamethrower') {
     return {
@@ -91,7 +100,7 @@ export function HUD({
           />
           <div 
             className="hud-portrait-hp-ring"
-            style={{ borderColor: hpPct < 30 ? '#ef4444' : 'transparent' }}
+            style={{ borderColor: hpPct < 30 ? '#22c55e' : 'transparent' }}
           />
         </div>
         <div className="hud-stats">
@@ -99,7 +108,7 @@ export function HUD({
           <div className="hud-char-name">{character.name}</div>
           <div className="hud-stats-grid">
             <div className="hud-stat-item">
-               <span style={{ color: '#ef4444' }}>HP</span> {Math.ceil(hp)}
+               <span style={{ color: '#22c55e' }}>HP</span> {Math.ceil(hp)}
             </div>
             <div className="hud-stat-item">
                <span style={{ color: '#fbbf24' }}>SPD</span> {character.movementSpeed}
@@ -116,7 +125,14 @@ export function HUD({
              <span className="hud-hp-val" style={{ color: '#fff' }}>{Math.ceil(hp)} / {character.maxHp}</span>
            </div>
            <div className="hud-hp-bar">
-             <div className="hud-hp-fill" style={{ width: `${hpPct}%` }}></div>
+             <div
+               className="hud-hp-fill"
+               style={{
+                 width: `${hpPct}%`,
+                 background: 'linear-gradient(90deg, #22c55e, #4ade80)',
+                 boxShadow: '0 0 10px rgba(34, 197, 94, 0.45)',
+               }}
+             ></div>
            </div>
         </div>
 
@@ -160,6 +176,14 @@ export function HUD({
               </div>
             )
           })}
+
+          <div
+            className="hud-spell"
+            title={character.passive.name}
+          >
+            <div className="hud-spell-icon" style={getPassiveIconStyle(character.passive)}></div>
+            <span className="hud-spell-hotkey">P</span>
+          </div>
         </div>
       </div>
 

@@ -190,3 +190,45 @@ export function buildImpactEffect(effect: ImpactEffectView) {
   container.addChild(core, ring, sparks)
   return container
 }
+
+export function buildBurnEffect(
+  frameTextureCache: Map<string, Texture>,
+  imageSrc: string,
+  x: number,
+  y: number,
+  size: number,
+  zIndex: number,
+  anchoredToFeet = true
+) {
+  let texture = getResolvedTexture(imageSrc)
+  if (!texture) {
+    return null
+  }
+
+  const frameCount = 5
+  const frameSize = 64
+  const frameIndex = Math.floor(performance.now() / 120) % frameCount
+  texture = getCachedFrameTexture(
+    frameTextureCache,
+    `burn:${imageSrc}:${frameIndex}`,
+    texture,
+    0,
+    frameIndex * frameSize,
+    frameSize,
+    frameSize
+  )
+  if (!texture) {
+    return null
+  }
+
+  const sprite = new Sprite(texture)
+  sprite.anchor.set(0.5, anchoredToFeet ? 1 : 0.5)
+  sprite.x = x
+  sprite.y = y
+  sprite.width = size
+  sprite.height = size
+  sprite.alpha = 0.96
+  sprite.roundPixels = true
+  sprite.zIndex = zIndex
+  return sprite
+}

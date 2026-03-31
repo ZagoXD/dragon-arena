@@ -6,5 +6,6 @@
   "colliderWidth": 64.0,
   "colliderHeight": 64.0,
   "autoAttackSpellId": "ember",
-  "skillIds": ["dragon_dive", "flamethrower", "fire_blast"]
+  "skillIds": ["dragon_dive", "flamethrower", "fire_blast"],
+  "passiveId": "burn"
 }

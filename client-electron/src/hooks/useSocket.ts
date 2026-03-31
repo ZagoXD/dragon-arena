@@ -77,6 +77,8 @@ export function useSocket(
   const [mapData, setMapData] = useState<any | null>(null)
   const [bootstrap, setBootstrap] = useState<GameplayBootstrap | null>(null)
   const [otherPlayers, setOtherPlayers] = useState<Record<string, NetPlayer>>({})
+  const [burnStatuses, setBurnStatuses] = useState<WorldSnapshotState['burnStatuses']>([])
+  const [burnZones, setBurnZones] = useState<WorldSnapshotState['burnZones']>([])
   const [kills, setKills] = useState(0)
   const [deaths, setDeaths] = useState(0)
   const wsRef = useRef<WebSocket | null>(null)
@@ -166,6 +168,8 @@ export function useSocket(
           setOtherPlayers(players)
           onCurrentDummies(session.snapshot.dummies)
           onProjectilesSnapshotRef.current?.(session.snapshot.projectiles || [])
+          setBurnStatuses(session.snapshot.burnStatuses || [])
+          setBurnZones(session.snapshot.burnZones || [])
           break
         }
 
@@ -276,6 +280,8 @@ export function useSocket(
           setOtherPlayers(players)
           onCurrentDummies(snapshot.dummies)
           onProjectilesSnapshotRef.current?.(snapshot.projectiles || [])
+          setBurnStatuses(snapshot.burnStatuses || [])
+          setBurnZones(snapshot.burnZones || [])
           break
         }
 
@@ -364,6 +370,8 @@ export function useSocket(
     mapData,
     bootstrap,
     otherPlayers,
+    burnStatuses,
+    burnZones,
     kills,
     deaths,
     emitMove,

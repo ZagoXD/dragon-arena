@@ -32,6 +32,7 @@ export function buildPlayer(
   direction: NetPlayer['direction'],
   animRow: number,
   hp: number,
+  isLocalPlayer: boolean,
   isDashing?: boolean,
   dashAngle?: number
 ) {
@@ -117,10 +118,7 @@ export function buildPlayer(
   }
 
   const hpPercentage = Math.max(0, hp / character.maxHp)
-  const barColor =
-    hpPercentage > 0.6 ? 0x4caf50 :
-    hpPercentage > 0.3 ? 0xff9800 :
-    0xf44336
+  const barColor = isLocalPlayer ? 0x4caf50 : 0xf44336
 
   const overheadY = -verticalOffset - 28
   const hpWidth = 88
@@ -162,10 +160,7 @@ export function buildDummy(dummy: DummyView, maxHp: number, size: number) {
   container.zIndex = dummy.y + size / 2
 
   const pct = Math.max(0, dummy.hp / maxHp)
-  const barColor =
-    pct > 0.6 ? 0x4caf50 :
-    pct > 0.3 ? 0xff9800 :
-    0xf44336
+  const barColor = 0xf44336
   const hpWidth = 88
 
   const nameLabel = new Text({

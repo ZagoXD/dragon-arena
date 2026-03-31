@@ -20,6 +20,15 @@ struct SpellDefinition {
     int effectDurationMs;
 };
 
+struct PassiveDefinition {
+    std::string id;
+    std::string name;
+    int durationMs;
+    int tickDamage;
+    int tickIntervalMs;
+    std::map<std::string, float> applicationChances;
+};
+
 struct CharacterDefinition {
     std::string id;
     std::string name;
@@ -29,6 +38,7 @@ struct CharacterDefinition {
     float colliderHeight;
     std::string autoAttackSpellId;
     std::vector<std::string> skillIds;
+    std::string passiveId;
 };
 
 struct WorldDefinition {
@@ -44,15 +54,18 @@ struct WorldDefinition {
 class GameConfig {
 public:
     static const std::map<std::string, SpellDefinition>& getSpellDefinitions();
+    static const std::map<std::string, PassiveDefinition>& getPassiveDefinitions();
     static const std::map<std::string, CharacterDefinition>& getCharacterDefinitions();
     static const WorldDefinition& getWorldDefinition();
     static const SpellDefinition& getSpellDefinition(const std::string& spellId);
+    static const PassiveDefinition& getPassiveDefinition(const std::string& passiveId);
     static const CharacterDefinition& getCharacterDefinition(const std::string& characterId);
     static void validateDefinitions();
     static json buildContentSummary();
     static std::string getLoadedConfigPath();
     static std::string getContentHash();
     static json to_json(const SpellDefinition& spell);
+    static json to_json(const PassiveDefinition& passive);
     static json to_json(const CharacterDefinition& character);
     static json to_json(const WorldDefinition& world);
 };

@@ -92,6 +92,8 @@ export function useArenaController({
   const hpRef = useRef(hp)
   const aimingSkillRef = useRef(aimingSkill)
   const hasAppliedBootstrapPositionRef = useRef(false)
+  const previousHpRef = useRef(hp)
+  const respawnRequestedRef = useRef(false)
   playerRef.current = player
   hpRef.current = hp
   aimingSkillRef.current = aimingSkill
@@ -114,32 +116,53 @@ export function useArenaController({
 
   useEffect(() => {
     if (!authoritativePosition) return
-    player.reconcilePosition(authoritativePosition.x, authoritativePosition.y)
-  }, [authoritativePosition, player.reconcilePosition])
+    if (hp > 0 && previousHpRef.current <= 0) {
+      player.setPosition(authoritativePosition.x, authoritativePosition.y)
+    } else {
+      player.reconcilePosition(authoritativePosition.x, authoritativePosition.y)
+    }
+  }, [authoritativePosition, hp, player.reconcilePosition, player.setPosition])
 
   useEffect(() => {
     if (!hasAuthoritativePlayerState) return
     if (hp > 0) {
       setRespawnTimer(null)
       setRespawnAvailableAt(null)
+      respawnRequestedRef.current = false
+      previousHpRef.current = hp
       return
     }
-    if (respawnTimer === null) {
+    if (respawnTimer === null && !respawnRequestedRef.current) {
       setRespawnTimer(respawnSeconds)
       setRespawnAvailableAt(Date.now() + respawnSeconds * 1000)
     }
+    previousHpRef.current = hp
   }, [hasAuthoritativePlayerState, hp, respawnSeconds, respawnTimer])
 
   useEffect(() => {
-    if (respawnTimer === null) return
-    if (respawnTimer === 0) {
-      setRespawnTimer(null)
-      emitRespawn()
+    if (hp > 0 || respawnAvailableAt === null) {
       return
     }
-    const id = setInterval(() => setRespawnTimer(t => (t !== null ? t - 1 : null)), 1000)
-    return () => clearInterval(id)
-  }, [respawnTimer, emitRespawn])
+
+    const updateTimer = () => {
+      const remainingMs = Math.max(0, respawnAvailableAt - Date.now())
+      setRespawnTimer(Math.ceil(remainingMs / 1000))
+    }
+
+    updateTimer()
+    const intervalId = setInterval(updateTimer, 250)
+    const timeoutId = window.setTimeout(() => {
+      if (!respawnRequestedRef.current) {
+        respawnRequestedRef.current = true
+        emitRespawn()
+      }
+    }, Math.max(0, respawnAvailableAt - Date.now()))
+
+    return () => {
+      clearInterval(intervalId)
+      window.clearTimeout(timeoutId)
+    }
+  }, [hp, respawnAvailableAt, emitRespawn])
 
   const camera = useMemo(() => {
     const px = player.x + (character?.colliderWidth ?? 64) / 2
