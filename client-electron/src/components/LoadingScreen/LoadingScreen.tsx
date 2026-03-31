@@ -23,15 +23,15 @@ export function LoadingScreen({ status, retryCount, error, onRetry }: Props) {
             <>
               <div className="loading-screen__spinner" />
               <p className="loading-screen__status">{status}</p>
-              <p className="loading-screen__retry">Attempt {retryCount}/6</p>
+              <p className="loading-screen__retry">Tentativa {retryCount}/6</p>
             </>
           ) : (
             <>
               <div className="loading-screen__error-icon">⚠️</div>
-              <p className="loading-screen__error-title">Connection Failed</p>
+              <p className="loading-screen__error-title">Falha na conexao</p>
               <p className="loading-screen__error-msg">{error}</p>
               <button className="loading-screen__retry-btn" onClick={onRetry}>
-                Try Again
+                Tentar novamente
               </button>
             </>
           )}

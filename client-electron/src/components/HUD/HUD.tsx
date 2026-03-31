@@ -140,7 +140,7 @@ export function HUD({
           {/* Auto Attack (LMB) */}
           <div 
             className="hud-spell" 
-            title="Auto Attack"
+            title="Ataque basico"
           >
              <div 
                className="hud-spell-icon" 

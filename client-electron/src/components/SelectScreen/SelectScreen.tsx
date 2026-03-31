@@ -95,8 +95,8 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
       }}
       onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
     >
-      <h1>CHOOSE YOUR LEGEND</h1>
-      <p>Master the battlefield, {playerName}</p>
+      <h1>ESCOLHA SUA LENDA</h1>
+      <p>Domine o campo de batalha, {playerName}</p>
 
       <div className="character-list">
         {Object.values(CHARACTER_VISUALS).map(char => {
@@ -132,7 +132,7 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
                 <h3>{char.name}</h3>
 
                 <div className="character-stats-summary">
-                  <span>Gameplay stats carregados do backend ao entrar na arena</span>
+                  <span>Atributos de gameplay carregados do backend ao entrar na arena</span>
                 </div>
 
                 <div className="character-skills-container">
@@ -161,8 +161,8 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
 
                 <button className="select-btn" disabled={isSelectionLocked}>
                   {isSelectionLocked
-                    ? `Respawn Lock ${Math.ceil(lockRemainingMs / 1000)}s`
-                    : 'Select Legend'}
+                    ? `Bloqueio de respawn ${Math.ceil(lockRemainingMs / 1000)}s`
+                    : 'Selecionar lenda'}
                 </button>
               </div>
             </div>
@@ -172,7 +172,7 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
 
       {isSelectionLocked && (
         <p style={{ marginTop: '18px', color: '#ffcc88', fontFamily: 'monospace', letterSpacing: '0.04em' }}>
-          You can change your next character now, but re-entry stays locked until the respawn cooldown ends.
+          Voce pode escolher seu proximo personagem agora, mas o retorno continua bloqueado ate o fim do cooldown de respawn.
         </p>
       )}
 
@@ -195,7 +195,7 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
                     ? 'Fire Blast'
                   : 'Ember'}
             </span>
-            <span className="tooltip-type">{hoveredSkill.id === 'ember' ? 'Basic' : 'Skill'}</span>
+            <span className="tooltip-type">{hoveredSkill.id === 'ember' ? 'Basico' : 'Habilidade'}</span>
           </div>
           <p className="tooltip-text">{hoveredSkill.description}</p>
           <div className="tooltip-footer">
@@ -215,7 +215,7 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
         >
           <div className="tooltip-header">
             <span className="tooltip-name">{hoveredPassive.name}</span>
-            <span className="tooltip-type">Passive</span>
+            <span className="tooltip-type">Passiva</span>
           </div>
           <p className="tooltip-text">{hoveredPassive.description}</p>
           <div className="tooltip-footer">

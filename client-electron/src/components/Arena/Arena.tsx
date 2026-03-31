@@ -72,7 +72,7 @@ export function Arena({
   }, [onAuthenticated])
 
   const handleAuthFailed = useCallback((code: string, reason: string) => {
-    onAuthFailure(reason || code || 'Authentication failed')
+    onAuthFailure(reason || code || 'Falha na autenticacao')
   }, [onAuthFailure])
 
   const {
@@ -164,8 +164,8 @@ export function Arena({
           <div className="arena-loading-overlay">
             <div className="arena-loading-card">
               <div className="arena-loading-spinner" />
-              <h2>Preparing Arena</h2>
-              <p>Receiving authoritative world state and map data...</p>
+              <h2>Preparando arena</h2>
+              <p>Recebendo o estado autoritativo do mundo e os dados do mapa...</p>
             </div>
           </div>
         </div>
@@ -223,8 +223,8 @@ export function Arena({
           <div className="arena-loading-overlay">
             <div className="arena-loading-card">
               <div className="arena-loading-spinner" />
-              <h2>Loading Arena</h2>
-              <p>Loading sprites, tiles and world layers...</p>
+              <h2>Carregando arena</h2>
+              <p>Carregando sprites, tiles e camadas do mundo...</p>
             </div>
           </div>
         )}
@@ -247,16 +247,16 @@ export function Arena({
         {controller.respawnTimer !== null && (
           <div className="death-overlay">
             <div className="death-content">
-              <h1>YOU DIED</h1>
-              <p>Respawning in {controller.respawnTimer}s...</p>
+              <h1>VOCE MORREU</h1>
+              <p>Retornando em {controller.respawnTimer}s...</p>
               <button
                 type="button"
                 className="death-return-button"
                 onClick={() => onReturnToSelect(controller.respawnAvailableAt ?? undefined)}
               >
-                Back To Character Select
+                Voltar para selecao de personagem
               </button>
-              <p className="death-hint">Press ESC while dead to change character</p>
+              <p className="death-hint">Pressione ESC enquanto estiver morto para trocar de personagem</p>
             </div>
           </div>
         )}
@@ -264,20 +264,20 @@ export function Arena({
         {controller.showScoreboard && (
           <div className="scoreboard-overlay">
             <div className="scoreboard-content">
-              <h2>Dragon Arena - Scoreboard</h2>
+              <h2>Dragon Arena - Placar</h2>
               <table className="scoreboard-table">
                 <thead>
                   <tr>
-                    <th>Player</th>
-                    <th>Dragon</th>
-                    <th>Kills</th>
-                    <th>Deaths</th>
+                    <th>Jogador</th>
+                    <th>Dragao</th>
+                    <th>Abates</th>
+                    <th>Mortes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {scoreboardEntries.map(score => (
                     <tr key={score.id} className={score.isLocal ? 'local-player' : ''}>
-                      <td>{score.name} {score.isLocal ? '(You)' : ''}</td>
+                      <td>{score.name} {score.isLocal ? '(Voce)' : ''}</td>
                       <td>{bootstrap.characters[score.characterId]?.name || score.characterId}</td>
                       <td>{score.kills}</td>
                       <td>{score.deaths}</td>
@@ -285,7 +285,7 @@ export function Arena({
                   ))}
                 </tbody>
               </table>
-              <p className="scoreboard-hint">Release TAB to close</p>
+              <p className="scoreboard-hint">Solte TAB para fechar</p>
             </div>
           </div>
         )}

@@ -32,7 +32,7 @@ function App() {
   const [selectionLockedUntil, setSelectionLockedUntil] = useState<number | null>(null)
   
   // Connectivity Test State
-  const [loadingStatus, setLoadingStatus] = useState('Initializing...')
+  const [loadingStatus, setLoadingStatus] = useState('Inicializando...')
   const [retryCount, setRetryCount] = useState(0)
   const [connError, setConnError] = useState<string | null>(null)
   const attemptedStoredSessionRef = useRef(false)
@@ -86,14 +86,14 @@ function App() {
     
     for (let i = 1; i <= 6; i++) {
        setRetryCount(i)
-       setLoadingStatus(`Connecting to Dragon Arena Server...`)
+       setLoadingStatus('Conectando ao servidor Dragon Arena...')
        
        try {
          await new Promise((resolve, reject) => {
            const ws = new WebSocket(serverUrl)
            const timeout = setTimeout(() => {
              ws.close()
-             reject(new Error('Connection timeout'))
+             reject(new Error('Tempo limite de conexao'))
            }, 3500)
 
            ws.onopen = () => {
@@ -102,17 +102,17 @@ function App() {
            }
            ws.onerror = () => {
              clearTimeout(timeout)
-             reject(new Error('Server unreachable'))
+             reject(new Error('Servidor indisponivel'))
            }
          })
          
          // SUCCESS!
-         setLoadingStatus('Success! Preparing home...')
+         setLoadingStatus('Sucesso! Preparando tela inicial...')
          setTimeout(() => setScreen('home'), 500)
          return 
        } catch (err) {
          if (i === 6) {
-           setConnError('Could not establish connection to the Dragon Arena C++ server. Please check if the backend is running and reachable.')
+           setConnError('Nao foi possivel estabelecer conexao com o servidor C++ do Dragon Arena. Verifique se o backend esta em execucao e acessivel.')
          } else {
            await new Promise(r => setTimeout(r, i * 500)) // Exponential-ish backoff
          }
@@ -124,13 +124,13 @@ function App() {
     setScreen('loading')
     setConnError(null)
     setRetryCount(1)
-    setLoadingStatus(nextAuthIntent.mode === 'register' ? 'Creating account...' : 'Authenticating...')
+    setLoadingStatus(nextAuthIntent.mode === 'register' ? 'Criando conta...' : 'Autenticando...')
 
     return new Promise<AuthSuccessPayload>((resolve, reject) => {
       const ws = new WebSocket(serverUrl)
       const timeout = window.setTimeout(() => {
         ws.close()
-        reject(new Error('Authentication timeout'))
+        reject(new Error('Tempo limite de autenticacao'))
       }, 6000)
 
       const cleanup = () => {
@@ -180,14 +180,14 @@ function App() {
         if (data.event === 'authError') {
           cleanup()
           ws.close()
-          reject(new Error(data.reason || 'Authentication failed'))
+          reject(new Error(data.reason || 'Falha na autenticacao'))
         }
       }
 
       ws.onerror = () => {
         cleanup()
         ws.close()
-        reject(new Error('Could not reach the Dragon Arena server'))
+        reject(new Error('Nao foi possivel acessar o servidor Dragon Arena'))
       }
 
       ws.onclose = () => {
@@ -236,7 +236,7 @@ function App() {
         setAuthIntent(null)
       }
       setShouldPersistSession(false)
-      setAuthError(error instanceof Error ? error.message : 'Authentication failed')
+      setAuthError(error instanceof Error ? error.message : 'Falha na autenticacao')
       setScreen('name')
     }
   }, [applyAccountSnapshot, authenticate, clearPersistedSession, persistSession])
@@ -422,7 +422,7 @@ function App() {
         if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
           ws.close()
         }
-        handleAuthFailure(data.reason || 'Authentication failed')
+        handleAuthFailure(data.reason || 'Falha na autenticacao')
       }
     }
 

@@ -88,7 +88,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
           <span className="name-screen__title-arena"> Arena</span>
         </h1>
 
-        <p className="name-screen__subtitle">Authenticate to enter the battlefield</p>
+        <p className="name-screen__subtitle">Autentique-se para entrar no campo de batalha</p>
 
         <div className="name-screen__tabs">
           <button
@@ -96,14 +96,14 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
             className={`name-screen__tab ${mode === 'login' ? 'is-active' : ''}`}
             onClick={() => setMode('login')}
           >
-            Login
+            Entrar
           </button>
           <button
             type="button"
             className={`name-screen__tab ${mode === 'register' ? 'is-active' : ''}`}
             onClick={() => setMode('register')}
           >
-            Register
+            Cadastro
           </button>
         </div>
 
@@ -118,7 +118,6 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
                 className="name-screen__input"
                 type="email"
                 value={email}
-                placeholder="you@example.com"
                 autoFocus
                 onChange={e => setEmail(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -133,7 +132,6 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
                 type="text"
                 value={username}
                 maxLength={20}
-                placeholder="DragonTrainer"
                 onChange={e => setUsername(e.target.value)}
                 onKeyDown={handleKeyDown}
               />
@@ -147,7 +145,6 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
                 type="text"
                 value={nickname}
                 maxLength={20}
-                placeholder="Visible in arena"
                 onChange={e => setNickname(e.target.value)}
                 onKeyDown={handleKeyDown}
               />
@@ -157,14 +154,13 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
           {mode === 'login' && (
             <>
               <label className="name-screen__label" htmlFor="login-identifier">
-                Email or username
+                Email ou username
               </label>
               <input
                 id="login-identifier"
                 className="name-screen__input"
                 type="text"
                 value={identifier}
-                placeholder="you@example.com or DragonTrainer"
                 autoFocus
                 onChange={e => setIdentifier(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -173,14 +169,13 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
           )}
 
           <label className="name-screen__label" htmlFor="auth-password">
-            Password
+            Senha
           </label>
           <input
             id="auth-password"
             className="name-screen__input"
             type="password"
             value={password}
-            placeholder="********"
             onChange={e => setPassword(e.target.value)}
             onKeyDown={handleKeyDown}
           />
@@ -193,7 +188,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
                 checked={rememberSession}
                 onChange={e => setRememberSession(e.target.checked)}
               />
-              <span className="name-screen__checkbox-label">Permanecer logado</span>
+              <span className="name-screen__checkbox-label">Manter conectado</span>
             </label>
           )}
 
@@ -202,7 +197,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
 
           {mode === 'register' && (
             <p className="name-screen__hint">
-              Password: 8+ chars, uppercase, lowercase and number.
+              Senha: 8+ caracteres, com maiuscula, minuscula e numero.
             </p>
           )}
 
@@ -211,7 +206,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
             className="name-screen__btn"
             onClick={handleSubmit}
           >
-            {mode === 'register' ? 'Create Account' : 'Login'} - Continue
+            {mode === 'register' ? 'Criar conta' : 'Entrar'} - Continuar
           </button>
         </div>
       </div>
