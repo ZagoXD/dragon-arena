@@ -1,39 +1,40 @@
 .title-bar {
-  height: 32px;
-  background-color: rgba(10, 10, 15, 0.95);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  user-select: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
+  z-index: 30;
   width: 100%;
-  z-index: 10000;
-  backdrop-filter: blur(12px);
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  border-bottom: 1px solid rgba(255, 209, 138, 0.12);
+  background: linear-gradient(180deg, rgba(10, 11, 18, 0.96) 0%, rgba(7, 8, 14, 0.96) 100%);
+  backdrop-filter: blur(18px);
 }
 
 .title-bar__drag-area {
   flex: 1;
   height: 100%;
-  -webkit-app-region: drag;
   display: flex;
   align-items: center;
-  padding-left: 16px;
+  padding-left: 18px;
+  -webkit-app-region: drag;
 }
 
 .title-bar__logo {
+  color: #f6efe2;
   font-family: 'Inter', sans-serif;
+  font-size: 0.76rem;
   font-weight: 900;
-  font-size: 0.75rem;
-  letter-spacing: 0.15em;
-  color: #e8e8f0;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
 }
 
 .title-bar__logo .highlight {
-  color: #ff5a20;
-  margin-left: 2px;
+  margin-left: 4px;
+  color: #ffb24f;
 }
 
 .title-bar__controls {
@@ -43,31 +44,25 @@
 }
 
 .title-bar__button {
-  width: 46px;
+  width: 52px;
   height: 100%;
   display: flex;
-  justify-content: center;
   align-items: center;
-  background: transparent;
+  justify-content: center;
   border: none;
-  color: #94a3b8;
-  transition: background-color 0.2s, color 0.2s;
+  background: transparent;
+  color: #c9c0b2;
   cursor: default;
   outline: none;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 .title-bar__button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 214, 143, 0.08);
   color: #fff;
 }
 
 .title-bar__button--close:hover {
   background-color: #e81123;
   color: #fff;
-}
-
-/* Adjust root to account for title bar */
-#root {
-  padding-top: 32px;
-  box-sizing: border-box;
 }

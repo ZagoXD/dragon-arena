@@ -451,51 +451,56 @@ function App() {
   }, [applyAccountSnapshot, authIntent, handleAuthFailure, persistStoredSession, screen, serverUrl, sessionExpiresAtMs, shouldPersistSession])
 
   return (
-    <>
-      <TitleBar />
-      {screen === 'name' && (
-        <NameScreen
-          authError={authError}
-          authInfo={authInfo}
-          initialMode={nameScreenMode}
-          onLanguageChange={handleLanguageChange}
-          onStart={handleNameEnter}
-        />
-      )}
-      {screen === 'loading' && (
-        <LoadingScreen
-          status={loadingStatus}
-          retryCount={retryCount}
-          error={connError}
-          onRetry={testConnection}
-        />
-      )}
-      {screen === 'home' && (
-        <HomeScreen
-          nickname={playerName}
-          coins={playerCoins}
-          onEnterArena={handleEnterArena}
-          onLogout={handleLogout}
-        />
-      )}
-      {screen === 'select' && (
-        <SelectScreen
-          playerName={playerName}
-          selectionLockedUntil={selectionLockedUntil}
-          onSelect={handleSelectCharacter}
-        />
-      )}
-      {screen === 'arena' && (
-        <Arena
-          playerName={playerName}
-          authIntent={authIntent}
-          characterId={characterId}
-          onAuthenticated={handleAuthenticated}
-          onAuthFailure={handleAuthFailure}
-          onReturnToSelect={handleReturnToSelect}
-        />
-      )}
-    </>
+    <div className={`app-shell app-shell--${screen}`}>
+      <div className="app-shell__backdrop" />
+      <div className="app-shell__frame">
+        <TitleBar />
+        <main className="app-shell__viewport">
+          {screen === 'name' && (
+            <NameScreen
+              authError={authError}
+              authInfo={authInfo}
+              initialMode={nameScreenMode}
+              onLanguageChange={handleLanguageChange}
+              onStart={handleNameEnter}
+            />
+          )}
+          {screen === 'loading' && (
+            <LoadingScreen
+              status={loadingStatus}
+              retryCount={retryCount}
+              error={connError}
+              onRetry={testConnection}
+            />
+          )}
+          {screen === 'home' && (
+            <HomeScreen
+              nickname={playerName}
+              coins={playerCoins}
+              onEnterArena={handleEnterArena}
+              onLogout={handleLogout}
+            />
+          )}
+          {screen === 'select' && (
+            <SelectScreen
+              playerName={playerName}
+              selectionLockedUntil={selectionLockedUntil}
+              onSelect={handleSelectCharacter}
+            />
+          )}
+          {screen === 'arena' && (
+            <Arena
+              playerName={playerName}
+              authIntent={authIntent}
+              characterId={characterId}
+              onAuthenticated={handleAuthenticated}
+              onAuthFailure={handleAuthFailure}
+              onReturnToSelect={handleReturnToSelect}
+            />
+          )}
+        </main>
+      </div>
+    </div>
   )
 }
 
