@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { HUD } from '../HUD/HUD'
-import { AutoAttackStartedEvent, NetPlayer, SkillUsedEvent } from '../../hooks/useSocket'
+import { ArenaAuthIntent, AuthSuccessPayload, AutoAttackStartedEvent, NetPlayer, SkillUsedEvent } from '../../hooks/useSocket'
 import { useArenaNetworkState } from '../../hooks/useArenaNetworkState'
 import { CHARACTER_VISUALS } from '../../config/visualConfig'
 import { getClosest4WayDirection, VIEWPORT_HEIGHT, VIEWPORT_WIDTH } from '../../config/spriteMap'
@@ -10,11 +10,21 @@ import './Arena.css'
 
 interface Props {
   playerName: string
+  authIntent: ArenaAuthIntent | null
   characterId?: string
+  onAuthenticated: (payload: AuthSuccessPayload) => void
+  onAuthFailure: (message: string) => void
   onReturnToSelect: (respawnAvailableAt?: number) => void
 }
 
-export function Arena({ playerName, characterId = 'charizard', onReturnToSelect }: Props) {
+export function Arena({
+  playerName,
+  authIntent,
+  characterId = 'charizard',
+  onAuthenticated,
+  onAuthFailure,
+  onReturnToSelect,
+}: Props) {
   const fallbackVisual = CHARACTER_VISUALS[characterId] || CHARACTER_VISUALS.charizard
   const [pixiReady, setPixiReady] = useState(false)
   const [pixiInstanceKey, setPixiInstanceKey] = useState(0)
@@ -57,6 +67,14 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
     }
   }, [])
 
+  const handleAuthSucceeded = useCallback((payload: AuthSuccessPayload) => {
+    onAuthenticated(payload)
+  }, [onAuthenticated])
+
+  const handleAuthFailed = useCallback((code: string, reason: string) => {
+    onAuthFailure(reason || code || 'Authentication failed')
+  }, [onAuthFailure])
+
   const {
     socketId,
     mapData,
@@ -87,11 +105,19 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
     emitShoot,
     emitUseSkill,
   } = useArenaNetworkState({
-    playerName,
+    authIntent: authIntent ?? {
+      mode: 'login',
+      identifier: playerName,
+      password: '',
+    },
     characterId,
     onAutoAttackStarted: handleAutoAttackStarted,
     onSkillUsed: handleSkillUsed,
+    onAuthSucceeded: handleAuthSucceeded,
+    onAuthFailed: handleAuthFailed,
   })
+
+  const displayPlayerName = bootstrap?.player?.name || playerName
 
   const controller = useArenaController({
     inputEnabled: pixiReady && Boolean(bootstrap && character && mapData),
@@ -151,7 +177,7 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
     hp > 0
       ? {
           id: socketId || 'local',
-          name: playerName,
+          name: displayPlayerName,
           character,
           x: controller.player.x,
           y: controller.player.y,
@@ -204,7 +230,7 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
 
         {arenaReady && (
           <HUD
-            playerName={playerName}
+            playerName={displayPlayerName}
             character={character}
             hp={hp}
             playerPos={{ x: controller.player.x, y: controller.player.y }}

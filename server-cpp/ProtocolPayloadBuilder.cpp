@@ -112,3 +112,40 @@ json ProtocolPayloadBuilder::buildProtocolError(const std::string& code, const s
         {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
     };
 }
+
+json ProtocolPayloadBuilder::buildAuthSuccess(
+    const std::string& mode,
+    const AuthenticatedUser& authenticatedUser,
+    const std::string& sessionToken,
+    long long sessionExpiresAtMs
+) {
+    return {
+        {"event", "authSuccess"},
+        {"mode", mode},
+        {"user", {
+            {"id", authenticatedUser.user.id},
+            {"email", authenticatedUser.user.email},
+            {"username", authenticatedUser.user.username},
+            {"nickname", authenticatedUser.user.nickname},
+            {"createdAt", authenticatedUser.user.createdAt}
+        }},
+        {"profile", {
+            {"userId", authenticatedUser.profile.userId},
+            {"level", authenticatedUser.profile.level},
+            {"xp", authenticatedUser.profile.xp},
+            {"coins", authenticatedUser.profile.coins}
+        }},
+        {"sessionToken", sessionToken},
+        {"sessionExpiresAtMs", sessionExpiresAtMs},
+        {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+    };
+}
+
+json ProtocolPayloadBuilder::buildAuthError(const std::string& code, const std::string& reason) {
+    return {
+        {"event", "authError"},
+        {"code", code},
+        {"reason", reason},
+        {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+    };
+}

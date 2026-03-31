@@ -62,6 +62,50 @@ Responsabilidades do cliente:
 
 O cliente **não decide gameplay crítico**.
 
+## PersistÃªncia
+
+O backend agora tem uma camada inicial de banco em `server-cpp/database/`:
+
+- [Database.h](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/database/Database.h)
+- [Database.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/database/Database.cpp)
+- [UserRepository.h](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/database/UserRepository.h)
+- [UserRepository.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/database/UserRepository.cpp)
+
+Essa base usa o cliente nativo do PostgreSQL (`libpq`) e prepara o servidor para `register/login` sem espalhar SQL pelo resto do projeto.
+
+Hoje ela cobre:
+
+- conexÃ£o com PostgreSQL
+- `SELECT 1` de validaÃ§Ã£o no startup
+- busca de usuÃ¡rio por email
+- busca de usuÃ¡rio por username
+- busca por email ou username
+- criaÃ§Ã£o de usuÃ¡rio
+- criaÃ§Ã£o de perfil inicial
+- transaÃ§Ã£o para criar usuÃ¡rio + perfil
+
+VariÃ¡veis de ambiente aceitas:
+
+- `DRAGON_DB_URL` ou `DATABASE_URL`
+- `DRAGON_DB_HOST` ou `PGHOST`
+- `DRAGON_DB_PORT` ou `PGPORT`
+- `DRAGON_DB_NAME` ou `PGDATABASE`
+- `DRAGON_DB_USER` ou `PGUSER`
+- `DRAGON_DB_PASSWORD` ou `PGPASSWORD`
+
+Defaults do projeto quando nenhuma env Ã© informada:
+
+- host: `127.0.0.1`
+- port: `5432`
+- database: `dragon_arena`
+- user: `dragon_app`
+
+No startup, o servidor tenta:
+
+1. abrir conexÃ£o com o banco
+2. executar `SELECT 1`
+3. contar usuÃ¡rios da tabela `users`
+
 ## Fluxo de Rede
 
 Fluxo principal:

@@ -20,6 +20,61 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
+set(POSTGRESQL_ROOT_HINTS
+    $ENV{PGROOT}
+    $ENV{PostgreSQL_ROOT}
+    "C:/Program Files/PostgreSQL/18"
+    "C:/Program Files/PostgreSQL/17"
+    "C:/Program Files/PostgreSQL/16"
+    "C:/Program Files/PostgreSQL/15"
+)
+
+find_path(PostgreSQL_INCLUDE_DIR
+    NAMES libpq-fe.h
+    HINTS ${POSTGRESQL_ROOT_HINTS}
+    PATH_SUFFIXES include
+)
+
+find_library(PostgreSQL_LIBRARY
+    NAMES libpq
+    HINTS ${POSTGRESQL_ROOT_HINTS}
+    PATH_SUFFIXES lib
+)
+
+find_file(PostgreSQL_DLL
+    NAMES libpq.dll
+    HINTS ${POSTGRESQL_ROOT_HINTS}
+    PATH_SUFFIXES bin
+)
+
+find_path(PostgreSQL_BIN_DIR
+    NAMES libpq.dll
+    HINTS ${POSTGRESQL_ROOT_HINTS}
+    PATH_SUFFIXES bin
+)
+
+if(NOT PostgreSQL_INCLUDE_DIR OR NOT PostgreSQL_LIBRARY)
+    message(FATAL_ERROR "PostgreSQL client files not found. Set PGROOT or install PostgreSQL locally.")
+endif()
+
+set(POSTGRESQL_RUNTIME_DLL_NAMES
+    libpq.dll
+    libssl-3-x64.dll
+    libcrypto-3-x64.dll
+    libintl-9.dll
+    libiconv-2.dll
+    libwinpthread-1.dll
+)
+
+set(POSTGRESQL_RUNTIME_DLLS "")
+if(PostgreSQL_BIN_DIR)
+    foreach(runtime_dll_name IN LISTS POSTGRESQL_RUNTIME_DLL_NAMES)
+        if(EXISTS "${PostgreSQL_BIN_DIR}/${runtime_dll_name}")
+            list(APPEND POSTGRESQL_RUNTIME_DLLS "${PostgreSQL_BIN_DIR}/${runtime_dll_name}")
+        endif()
+    endforeach()
+endif()
+
 # 1. nlohmann_json
 FetchContent_Declare(
   json
@@ -69,6 +124,11 @@ set(US_SOURCES
 # Adicionar o executavel
 add_executable(DragonArenaServer 
     main.cpp 
+    auth/AuthService.cpp
+    auth/PasswordHasher.cpp
+    auth/SessionService.cpp
+    database/Database.cpp
+    database/UserRepository.cpp
     GameConfig.cpp
     Player.cpp
     CombatSystem.cpp
@@ -91,6 +151,7 @@ add_executable(DragonArenaServer
 
 # Incluir os diretorios
 target_include_directories(DragonArenaServer PRIVATE 
+    ${PostgreSQL_INCLUDE_DIR}
     ${json_SOURCE_DIR}/single_include
     ${uwebsockets_SOURCE_DIR}/src
     ${usockets_SOURCE_DIR}/src
@@ -99,13 +160,14 @@ target_include_directories(DragonArenaServer PRIVATE
 
 # Linkar as bibliotecas
 target_link_libraries(DragonArenaServer PRIVATE 
+    ${PostgreSQL_LIBRARY}
     nlohmann_json::nlohmann_json
     uv_a
 )
 
 # No Windows, precisamos linkar as bibliotecas de sistema para rede
 if(WIN32)
-    target_link_libraries(DragonArenaServer PRIVATE ws2_32 iphlpapi)
+    target_link_libraries(DragonArenaServer PRIVATE ws2_32 iphlpapi bcrypt)
 endif()
 
 # Nota: uWebSockets e apenas headers, mas o uSockets pode precisar ser 
@@ -117,6 +179,11 @@ set_target_properties(DragonArenaServer PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${C
 add_executable(DragonArenaGameplayTests
     tests/GameplayTests.cpp
     tests/NetworkHandlerStub.cpp
+    auth/AuthService.cpp
+    auth/PasswordHasher.cpp
+    auth/SessionService.cpp
+    database/Database.cpp
+    database/UserRepository.cpp
     GameConfig.cpp
     Player.cpp
     CombatSystem.cpp
@@ -134,6 +201,7 @@ add_executable(DragonArenaGameplayTests
 )
 
 target_include_directories(DragonArenaGameplayTests PRIVATE 
+    ${PostgreSQL_INCLUDE_DIR}
     ${json_SOURCE_DIR}/single_include
     ${uwebsockets_SOURCE_DIR}/src
     ${usockets_SOURCE_DIR}/src
@@ -141,7 +209,28 @@ target_include_directories(DragonArenaGameplayTests PRIVATE
 )
 
 target_link_libraries(DragonArenaGameplayTests PRIVATE 
+    ${PostgreSQL_LIBRARY}
     nlohmann_json::nlohmann_json
 )
+
+if(WIN32)
+    target_link_libraries(DragonArenaGameplayTests PRIVATE bcrypt)
+endif()
+
+if(WIN32 AND POSTGRESQL_RUNTIME_DLLS)
+    foreach(runtime_dll IN LISTS POSTGRESQL_RUNTIME_DLLS)
+        add_custom_command(TARGET DragonArenaServer POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${runtime_dll}"
+            $<TARGET_FILE_DIR:DragonArenaServer>
+        )
+
+        add_custom_command(TARGET DragonArenaGameplayTests POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${runtime_dll}"
+            $<TARGET_FILE_DIR:DragonArenaGameplayTests>
+        )
+    endforeach()
+endif()
 
 add_test(NAME DragonArenaGameplayTests COMMAND DragonArenaGameplayTests)

@@ -1,6 +1,12 @@
 #include "../NetworkHandler.h"
 
-NetworkHandler::NetworkHandler(GameWorld& world, int port) : world(world), port(port) {}
+NetworkHandler::NetworkHandler(GameWorld& world, int port, Database& database)
+    : world(world),
+      port(port),
+      database(database),
+      userRepository(database),
+      authService(userRepository),
+      sessionService(userRepository) {}
 
 void NetworkHandler::start() {}
 

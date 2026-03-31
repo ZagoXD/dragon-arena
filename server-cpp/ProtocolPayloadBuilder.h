@@ -6,6 +6,7 @@
 #include "GameConfig.h"
 #include "GameState.h"
 #include "Player.h"
+#include "auth/AuthService.h"
 
 class ProtocolPayloadBuilder {
 public:
@@ -38,6 +39,16 @@ public:
         const json& extras = json::object()
     );
     static json buildProtocolError(
+        const std::string& code,
+        const std::string& reason
+    );
+    static json buildAuthSuccess(
+        const std::string& mode,
+        const AuthenticatedUser& authenticatedUser,
+        const std::string& sessionToken,
+        long long sessionExpiresAtMs
+    );
+    static json buildAuthError(
         const std::string& code,
         const std::string& reason
     );

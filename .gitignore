@@ -32,6 +32,7 @@ server-cpp/Release/
 .env.*
 !.env.example
 *.local
+server-cpp/config/database.json
 
 # Editor directories and files
 .vscode/*

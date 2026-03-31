@@ -3,6 +3,8 @@ import { resolveCharacterConfig, ResolvedCharacterConfig } from '../config/visua
 import { useGameLoop } from './useGameLoop'
 import {
   AutoAttackStartedEvent,
+  AuthSuccessPayload,
+  ArenaAuthIntent,
   NetPlayer,
   ProjectileSpawnEvent,
   SkillUsedEvent,
@@ -13,12 +15,14 @@ import { BurnStatusData, BurnZoneData, DummyData, ProjectileData } from '../type
 import { ActiveSkillEffectView } from '../components/Arena/pixi/pixiTypes'
 
 interface UseArenaNetworkStateParams {
-  playerName: string
+  authIntent: ArenaAuthIntent
   characterId: string
   onAutoAttackStarted?: (event: AutoAttackStartedEvent) => void
   onAutoAttackRejected?: () => void
   onSkillUsed?: (event: SkillUsedEvent) => void
   onSkillRejected?: (skillId: string) => void
+  onAuthSucceeded?: (payload: AuthSuccessPayload) => void
+  onAuthFailed?: (code: string, reason: string) => void
 }
 
 interface RemotePlayerSample {
@@ -65,12 +69,14 @@ function getRemoteDashAngle(
 }
 
 export function useArenaNetworkState({
-  playerName,
+  authIntent,
   characterId,
   onAutoAttackStarted,
   onAutoAttackRejected,
   onSkillUsed,
   onSkillRejected,
+  onAuthSucceeded,
+  onAuthFailed,
 }: UseArenaNetworkStateParams) {
   const [hp, setHp] = useState(0)
   const [hasAuthoritativePlayerState, setHasAuthoritativePlayerState] = useState(false)
@@ -256,7 +262,7 @@ export function useArenaNetworkState({
     emitRespawn,
     emitUseSkill,
   } = useSocket(
-    playerName,
+    authIntent,
     characterId,
     onCurrentDummies,
     onDummyDamaged,
@@ -269,6 +275,8 @@ export function useArenaNetworkState({
     onAutoAttackRejected,
     handleSkillUsed,
     onSkillRejected,
+    onAuthSucceeded,
+    onAuthFailed,
   )
 
   const character = useMemo<ResolvedCharacterConfig | null>(() => {
@@ -304,7 +312,14 @@ export function useArenaNetworkState({
 
   const scoreboardEntries = useMemo(() => {
     return [
-      { id: socketId || 'local', name: playerName, characterId, kills, deaths, isLocal: true },
+      {
+        id: socketId || 'local',
+        name: bootstrap?.player?.name || authIntent.nickname || authIntent.username || authIntent.identifier || 'Player',
+        characterId,
+        kills,
+        deaths,
+        isLocal: true,
+      },
       ...Object.values(otherPlayers).map(player => ({
         id: player.id,
         name: player.name,
@@ -314,7 +329,7 @@ export function useArenaNetworkState({
         isLocal: false,
       })),
     ].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths)
-  }, [socketId, playerName, characterId, kills, deaths, otherPlayers])
+  }, [socketId, bootstrap?.player?.name, authIntent.nickname, authIntent.username, authIntent.identifier, characterId, kills, deaths, otherPlayers])
 
   const tileSize = bootstrap?.world.tileSize ?? 64
   const mapWidth = mapData ? mapData.width * tileSize : (bootstrap?.world.mapWidth ?? 2048)

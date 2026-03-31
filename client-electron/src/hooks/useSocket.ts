@@ -57,8 +57,40 @@ export interface SkillUsedEvent {
   effectDurationMs: number
 }
 
+export type AuthMode = 'login' | 'register' | 'session'
+
+export interface ArenaAuthIntent {
+  mode: AuthMode
+  email?: string
+  username?: string
+  nickname?: string
+  identifier?: string
+  sessionToken?: string
+  password: string
+}
+
+export interface AuthSuccessPayload {
+  event: 'authSuccess'
+  mode: AuthMode
+  user: {
+    id: number
+    email: string
+    username: string
+    nickname: string
+    createdAt: string
+  }
+  sessionToken: string
+  sessionExpiresAtMs: number
+  profile: {
+    userId: number
+    level: number
+    xp: number
+    coins: number
+  }
+}
+
 export function useSocket(
-  playerName: string,
+  authIntent: ArenaAuthIntent,
   characterId: string,
   onCurrentDummies: (dummies: any[]) => void,
   onDummyDamaged: (id: string, hp: number) => void,
@@ -70,7 +102,9 @@ export function useSocket(
   onAutoAttackStarted?: (event: AutoAttackStartedEvent) => void,
   onAutoAttackRejected?: () => void,
   onSkillUsed?: (event: SkillUsedEvent) => void,
-  onSkillRejected?: (skillId: string) => void
+  onSkillRejected?: (skillId: string) => void,
+  onAuthSucceeded?: (payload: AuthSuccessPayload) => void,
+  onAuthFailed?: (code: string, reason: string) => void
 ) {
   const socketIdRef = useRef<string | undefined>(undefined)
   const [socketId, setSocketId] = useState<string | undefined>(undefined)
@@ -121,11 +155,26 @@ export function useSocket(
           return
         }
 
-        socket.send(JSON.stringify({
-          event: 'join',
-          name: playerName,
-          characterId,
-        }))
+        if (authIntent.mode === 'register') {
+          socket.send(JSON.stringify({
+            event: 'register',
+            email: authIntent.email,
+            username: authIntent.username,
+            nickname: authIntent.nickname,
+            password: authIntent.password,
+          }))
+        } else if (authIntent.mode === 'login') {
+          socket.send(JSON.stringify({
+            event: 'login',
+            identifier: authIntent.identifier,
+            password: authIntent.password,
+          }))
+        } else {
+          socket.send(JSON.stringify({
+            event: 'authToken',
+            token: authIntent.sessionToken,
+          }))
+        }
       }
 
       socket.onmessage = (msgEvent) => {
@@ -135,6 +184,22 @@ export function useSocket(
         const { event: eventName } = data
 
         switch (eventName) {
+        case 'authSuccess': {
+          const authPayload = data as AuthSuccessPayload
+          onAuthSucceeded?.(authPayload)
+          socket.send(JSON.stringify({
+            event: 'join',
+            characterId,
+          }))
+          break
+        }
+
+        case 'authError':
+          console.error('Authentication error:', data.code || 'unknown', data.reason || '')
+          onAuthFailed?.(data.code || 'auth_error', data.reason || 'Authentication failed')
+          socket.close()
+          break
+
         case 'sessionInit': {
           const session = data as SessionInitPayload
           if (session.protocolVersion !== EXPECTED_PROTOCOL_VERSION) {
@@ -339,7 +404,7 @@ export function useSocket(
         wsRef.current = null
       }
     }
-  }, [playerName, characterId, serverUrl, onCurrentDummies, onDummyDamaged, onSelfDamaged, onSelfMoved])
+  }, [authIntent, characterId, serverUrl, onAuthFailed, onAuthSucceeded, onCurrentDummies, onDummyDamaged, onSelfDamaged, onSelfMoved])
 
   const emitMove = (inputX: number, inputY: number, direction: Direction, animRow: number) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

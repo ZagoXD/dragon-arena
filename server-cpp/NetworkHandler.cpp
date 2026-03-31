@@ -14,7 +14,13 @@ bool hasNumber(const json& payload, const char* key) {
 }
 }
 
-NetworkHandler::NetworkHandler(GameWorld &world, int port) : world(world), port(port) {}
+NetworkHandler::NetworkHandler(GameWorld &world, int port, Database& database)
+    : world(world),
+      port(port),
+      database(database),
+      userRepository(database),
+      authService(userRepository),
+      sessionService(userRepository) {}
 
 void NetworkHandler::start() {
     uWS::App().ws<PerSocketData>("/*", {
@@ -74,9 +80,101 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             {"hasSession", userData != nullptr && !userData->id.empty()}
         });
         
-        if (event == "join") {
-            if (!hasString(data, "name") || !hasString(data, "characterId")) {
-                ws->send(ProtocolPayloadBuilder::buildActionRejected("join", "invalid_payload", "join requires string name and characterId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+        if (event == "register") {
+            if (!hasString(data, "email") || !hasString(data, "username") || !hasString(data, "nickname") || !hasString(data, "password")) {
+                ws->send(ProtocolPayloadBuilder::buildAuthError("invalid_payload", "register requires string email, username, nickname and password").dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            AuthResult auth = authService.registerUser(data["email"], data["username"], data["nickname"], data["password"]);
+            if (!auth.ok || !auth.authenticatedUser.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildAuthError(auth.code, auth.message).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            SessionAuthResult session = sessionService.createSession(*auth.authenticatedUser);
+            if (!session.ok || !session.authenticatedSession.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildAuthError(session.code, session.message).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            userData->authenticated = true;
+            userData->userId = session.authenticatedSession->authenticatedUser.user.id;
+            userData->email = session.authenticatedSession->authenticatedUser.user.email;
+            userData->username = session.authenticatedSession->authenticatedUser.user.username;
+            userData->nickname = session.authenticatedSession->authenticatedUser.user.nickname;
+            ws->send(ProtocolPayloadBuilder::buildAuthSuccess(
+                "register",
+                session.authenticatedSession->authenticatedUser,
+                session.authenticatedSession->session.token,
+                session.authenticatedSession->session.expiresAtMs
+            ).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "login") {
+            if (!hasString(data, "identifier") || !hasString(data, "password")) {
+                ws->send(ProtocolPayloadBuilder::buildAuthError("invalid_payload", "login requires string identifier and password").dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            AuthResult auth = authService.loginUser(data["identifier"], data["password"]);
+            if (!auth.ok || !auth.authenticatedUser.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildAuthError(auth.code, auth.message).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            SessionAuthResult session = sessionService.createSession(*auth.authenticatedUser);
+            if (!session.ok || !session.authenticatedSession.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildAuthError(session.code, session.message).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            userData->authenticated = true;
+            userData->userId = session.authenticatedSession->authenticatedUser.user.id;
+            userData->email = session.authenticatedSession->authenticatedUser.user.email;
+            userData->username = session.authenticatedSession->authenticatedUser.user.username;
+            userData->nickname = session.authenticatedSession->authenticatedUser.user.nickname;
+            ws->send(ProtocolPayloadBuilder::buildAuthSuccess(
+                "login",
+                session.authenticatedSession->authenticatedUser,
+                session.authenticatedSession->session.token,
+                session.authenticatedSession->session.expiresAtMs
+            ).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "authToken") {
+            if (!hasString(data, "token")) {
+                ws->send(ProtocolPayloadBuilder::buildAuthError("invalid_payload", "authToken requires string token").dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            SessionAuthResult session = sessionService.authenticateToken(data["token"]);
+            if (!session.ok || !session.authenticatedSession.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildAuthError(session.code, session.message).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            userData->authenticated = true;
+            userData->userId = session.authenticatedSession->authenticatedUser.user.id;
+            userData->email = session.authenticatedSession->authenticatedUser.user.email;
+            userData->username = session.authenticatedSession->authenticatedUser.user.username;
+            userData->nickname = session.authenticatedSession->authenticatedUser.user.nickname;
+            ws->send(ProtocolPayloadBuilder::buildAuthSuccess(
+                "session",
+                session.authenticatedSession->authenticatedUser,
+                session.authenticatedSession->session.token,
+                session.authenticatedSession->session.expiresAtMs
+            ).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "join") {
+            if (!userData->authenticated) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("join", "not_authenticated", "Client must authenticate before joining the arena", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!hasString(data, "characterId")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("join", "invalid_payload", "join requires string characterId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!userData->id.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("join", "already_joined", "Client is already joined in the arena", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
                 return;
             }
 
@@ -87,7 +185,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 clients[id] = ws;
             }
 
-            world.addPlayer(id, data["name"], data["characterId"]);
+            world.addPlayer(id, userData->nickname.empty() ? userData->username : userData->nickname, data["characterId"]);
             ws->send(world.getSessionInitJson(id).dump(), uWS::OpCode::TEXT);
             
             std::string joinMsg = json({{"event", "playerJoined"}, {"player", world.getPlayerJson(id)}}).dump();
