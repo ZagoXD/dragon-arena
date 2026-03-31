@@ -35,6 +35,7 @@ export interface TilesetInfo {
   firstgid: number
   src: string
   cols: number
+  order: number
 }
 
 export interface AimingArrowView {
