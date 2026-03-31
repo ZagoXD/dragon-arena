@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { HUD } from '../HUD/HUD'
 import { ArenaAuthIntent, AuthSuccessPayload, AutoAttackStartedEvent, NetPlayer, SkillUsedEvent } from '../../hooks/useSocket'
 import { useArenaNetworkState } from '../../hooks/useArenaNetworkState'
@@ -25,6 +26,7 @@ export function Arena({
   onAuthFailure,
   onReturnToSelect,
 }: Props) {
+  const { t } = useTranslation()
   const fallbackVisual = CHARACTER_VISUALS[characterId] || CHARACTER_VISUALS.charizard
   const [pixiReady, setPixiReady] = useState(false)
   const [pixiInstanceKey, setPixiInstanceKey] = useState(0)
@@ -72,8 +74,8 @@ export function Arena({
   }, [onAuthenticated])
 
   const handleAuthFailed = useCallback((code: string, reason: string) => {
-    onAuthFailure(reason || code || 'Falha na autenticacao')
-  }, [onAuthFailure])
+    onAuthFailure(reason || code || t('app.authFailed'))
+  }, [onAuthFailure, t])
 
   const {
     socketId,
@@ -164,8 +166,8 @@ export function Arena({
           <div className="arena-loading-overlay">
             <div className="arena-loading-card">
               <div className="arena-loading-spinner" />
-              <h2>Preparando arena</h2>
-              <p>Recebendo o estado autoritativo do mundo e os dados do mapa...</p>
+              <h2>{t('arena.preparingTitle')}</h2>
+              <p>{t('arena.preparingDesc')}</p>
             </div>
           </div>
         </div>
@@ -223,8 +225,8 @@ export function Arena({
           <div className="arena-loading-overlay">
             <div className="arena-loading-card">
               <div className="arena-loading-spinner" />
-              <h2>Carregando arena</h2>
-              <p>Carregando sprites, tiles e camadas do mundo...</p>
+              <h2>{t('arena.loadingTitle')}</h2>
+              <p>{t('arena.loadingDesc')}</p>
             </div>
           </div>
         )}
@@ -247,16 +249,16 @@ export function Arena({
         {controller.respawnTimer !== null && (
           <div className="death-overlay">
             <div className="death-content">
-              <h1>VOCE MORREU</h1>
-              <p>Retornando em {controller.respawnTimer}s...</p>
+              <h1>{t('arena.diedTitle')}</h1>
+              <p>{t('arena.respawningIn', { seconds: controller.respawnTimer })}</p>
               <button
                 type="button"
                 className="death-return-button"
                 onClick={() => onReturnToSelect(controller.respawnAvailableAt ?? undefined)}
               >
-                Voltar para selecao de personagem
+                {t('arena.backToSelect')}
               </button>
-              <p className="death-hint">Pressione ESC enquanto estiver morto para trocar de personagem</p>
+              <p className="death-hint">{t('arena.deadHint')}</p>
             </div>
           </div>
         )}
@@ -264,20 +266,20 @@ export function Arena({
         {controller.showScoreboard && (
           <div className="scoreboard-overlay">
             <div className="scoreboard-content">
-              <h2>Dragon Arena - Placar</h2>
+              <h2>{t('arena.scoreboardTitle')}</h2>
               <table className="scoreboard-table">
                 <thead>
                   <tr>
-                    <th>Jogador</th>
-                    <th>Dragao</th>
-                    <th>Abates</th>
-                    <th>Mortes</th>
+                    <th>{t('arena.player')}</th>
+                    <th>{t('arena.dragon')}</th>
+                    <th>{t('arena.kills')}</th>
+                    <th>{t('arena.deaths')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {scoreboardEntries.map(score => (
                     <tr key={score.id} className={score.isLocal ? 'local-player' : ''}>
-                      <td>{score.name} {score.isLocal ? '(Voce)' : ''}</td>
+                      <td>{score.name} {score.isLocal ? t('arena.you') : ''}</td>
                       <td>{bootstrap.characters[score.characterId]?.name || score.characterId}</td>
                       <td>{score.kills}</td>
                       <td>{score.deaths}</td>
@@ -285,7 +287,7 @@ export function Arena({
                   ))}
                 </tbody>
               </table>
-              <p className="scoreboard-hint">Solte TAB para fechar</p>
+              <p className="scoreboard-hint">{t('arena.releaseTab')}</p>
             </div>
           </div>
         )}

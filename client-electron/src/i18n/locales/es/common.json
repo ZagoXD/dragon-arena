@@ -1,0 +1,141 @@
+{
+  "language": {
+    "label": "Idioma",
+    "pt-BR": "Português (BR)",
+    "en": "English",
+    "es": "Español"
+  },
+  "app": {
+    "initializing": "Inicializando...",
+    "connectingServer": "Conectando al servidor de Dragon Arena...",
+    "successPreparingHome": "¡Éxito! Preparando la pantalla inicial...",
+    "connectionTimeout": "Tiempo de espera de conexión agotado",
+    "serverUnreachable": "Servidor no disponible",
+    "connectionError": "No se pudo establecer conexión con el servidor C++ de Dragon Arena. Verifica que el backend esté ejecutándose y accesible.",
+    "creatingAccount": "Creando cuenta...",
+    "authenticating": "Autenticando...",
+    "authTimeout": "Tiempo de espera de autenticación agotado",
+    "authFailed": "Falló la autenticación",
+    "authServerError": "No se pudo acceder al servidor de Dragon Arena",
+    "accountCreated": "Cuenta creada con éxito. Ahora inicia sesión."
+  },
+  "loading": {
+    "attempt": "Intento {{count}}/6",
+    "connectionFailed": "Falló la conexión",
+    "tryAgain": "Intentar de nuevo"
+  },
+  "auth": {
+    "subtitle": "Autentícate para entrar al campo de batalla",
+    "login": "Entrar",
+    "register": "Registro",
+    "email": "Email",
+    "username": "Username",
+    "nickname": "Nickname",
+    "identifier": "Email o username",
+    "password": "Contraseña",
+    "remember": "Mantener sesión iniciada",
+    "emailPlaceholder": "tu@ejemplo.com",
+    "usernamePlaceholder": "EntrenadorDragon",
+    "nicknamePlaceholder": "Nombre mostrado en la arena",
+    "identifierPlaceholder": "tu@ejemplo.com o EntrenadorDragon",
+    "passwordPlaceholder": "Ingresa tu contraseña",
+    "passwordHint": "Contraseña: 8+ caracteres, con mayúscula, minúscula y número.",
+    "submitLogin": "Entrar - Continuar",
+    "submitRegister": "Crear cuenta - Continuar",
+    "errors": {
+      "invalidEmail": "Usa un email válido.",
+      "invalidUsername": "El username debe tener entre 3 y 20 caracteres usando solo letras, números o _.",
+      "invalidNickname": "El nickname debe tener entre 3 y 20 caracteres usando solo letras, números o _.",
+      "invalidPassword": "La contraseña debe tener 8+ caracteres, con mayúscula, minúscula y número."
+    }
+  },
+  "home": {
+    "profileLabel": "Invocador",
+    "coinsLabel": "Coins",
+    "eyebrow": "Dragon Arena",
+    "title": "Tu portal hacia la batalla está listo",
+    "subtitle": "Revisa tu perfil, acompaña tus recursos y entra cuando quieras.",
+    "enterArena": "Entrar a la arena",
+    "logout": "Salir"
+  },
+  "select": {
+    "title": "Elige tu leyenda",
+    "subtitle": "Domina el campo de batalla, {{playerName}}",
+    "statsSummary": "Los atributos de gameplay se cargan desde el backend al entrar a la arena",
+    "selectLegend": "Seleccionar leyenda",
+    "respawnLock": "Bloqueo de respawn {{seconds}}s",
+    "respawnHint": "Ya puedes elegir tu próximo personaje, pero el regreso seguirá bloqueado hasta que termine el cooldown de respawn.",
+    "tooltipBasic": "Básico",
+    "tooltipSkill": "Habilidad",
+    "tooltipPassive": "Pasiva",
+    "bootstrapFooter": "Datos numéricos autoritativos vía bootstrap",
+    "backendFooter": "Aplicada autoritativamente por el backend",
+    "spellNames": {
+      "dragon_dive": "Dragon Dive",
+      "flamethrower": "Flamethrower",
+      "fire_blast": "Fire Blast",
+      "ember": "Ember"
+    }
+  },
+  "arena": {
+    "preparingTitle": "Preparando arena",
+    "preparingDesc": "Recibiendo el estado autoritativo del mundo y los datos del mapa...",
+    "loadingTitle": "Cargando arena",
+    "loadingDesc": "Cargando sprites, tiles y capas del mundo...",
+    "diedTitle": "Has muerto",
+    "respawningIn": "Reapareciendo en {{seconds}}s...",
+    "backToSelect": "Volver a la selección de personaje",
+    "deadHint": "Presiona ESC mientras estés muerto para cambiar de personaje",
+    "scoreboardTitle": "Dragon Arena - Marcador",
+    "player": "Jugador",
+    "dragon": "Dragón",
+    "kills": "Bajas",
+    "deaths": "Muertes",
+    "you": "(Tú)",
+    "releaseTab": "Suelta TAB para cerrar"
+  },
+  "hud": {
+    "hpShort": "HP",
+    "spdShort": "SPD",
+    "vitality": "Vitalidad",
+    "basicAttack": "Ataque básico"
+  },
+  "window": {
+    "minimize": "Minimizar",
+    "maximize": "Maximizar",
+    "close": "Cerrar"
+  },
+  "errors": {
+    "auth": {
+      "invalid_email": "Usa un email válido.",
+      "invalid_username": "El username debe tener entre 3 y 20 caracteres usando solo letras, números o _.",
+      "invalid_nickname": "El nickname debe tener entre 3 y 20 caracteres usando solo letras, números o _.",
+      "invalid_password": "Verifica la contraseña informada.",
+      "email_taken": "Este email ya está registrado.",
+      "username_taken": "Este username ya está en uso.",
+      "nickname_taken": "Este nickname ya está en uso.",
+      "invalid_identifier": "Email o username es obligatorio.",
+      "invalid_credentials": "Email/username o contraseña inválidos.",
+      "invalid_payload": "Los datos enviados no son válidos.",
+      "password_hash_failed": "No fue posible procesar la contraseña.",
+      "password_verification_failed": "No fue posible validar la contraseña.",
+      "database_error": "Ocurrió un error al acceder a la base de datos.",
+      "auth_error": "Falló la autenticación."
+    },
+    "generic": {
+      "not_authenticated": "Debes autenticarte primero.",
+      "not_joined": "Debes entrar a la arena antes de realizar esta acción.",
+      "already_joined": "Ya estás dentro de la arena.",
+      "move_rejected": "Tu movimiento no pudo ejecutarse ahora.",
+      "cooldown_or_state": "La acción fue rechazada por cooldown o estado actual.",
+      "respawn_locked": "Aún no puedes reaparecer.",
+      "invalid_json": "Los datos enviados tienen un formato inválido.",
+      "invalid_payload": "Los datos enviados no son válidos.",
+      "unknown_event": "El evento enviado no es reconocido.",
+      "unknown_error": "Ocurrió un error inesperado.",
+      "missing_event": "El evento del mensaje es obligatorio.",
+      "user_not_found": "Usuario autenticado no encontrado.",
+      "profile_not_found": "Perfil del jugador no encontrado."
+    }
+  }
+}

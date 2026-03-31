@@ -1,0 +1,141 @@
+{
+  "language": {
+    "label": "Idioma",
+    "pt-BR": "Português (BR)",
+    "en": "English",
+    "es": "Español"
+  },
+  "app": {
+    "initializing": "Inicializando...",
+    "connectingServer": "Conectando ao servidor Dragon Arena...",
+    "successPreparingHome": "Sucesso! Preparando tela inicial...",
+    "connectionTimeout": "Tempo limite de conexão",
+    "serverUnreachable": "Servidor indisponível",
+    "connectionError": "Não foi possível estabelecer conexão com o servidor C++ do Dragon Arena. Verifique se o backend está em execução e acessível.",
+    "creatingAccount": "Criando conta...",
+    "authenticating": "Autenticando...",
+    "authTimeout": "Tempo limite de autenticação",
+    "authFailed": "Falha na autenticação",
+    "authServerError": "Não foi possível acessar o servidor Dragon Arena",
+    "accountCreated": "Conta criada com sucesso. Agora faça login."
+  },
+  "loading": {
+    "attempt": "Tentativa {{count}}/6",
+    "connectionFailed": "Falha na conexão",
+    "tryAgain": "Tentar novamente"
+  },
+  "auth": {
+    "subtitle": "Autentique-se para entrar no campo de batalha",
+    "login": "Entrar",
+    "register": "Cadastro",
+    "email": "Email",
+    "username": "Username",
+    "nickname": "Nickname",
+    "identifier": "Email ou username",
+    "password": "Senha",
+    "remember": "Manter conectado",
+    "emailPlaceholder": "voce@exemplo.com",
+    "usernamePlaceholder": "TreinadorDragon",
+    "nicknamePlaceholder": "Nome exibido na arena",
+    "identifierPlaceholder": "voce@exemplo.com ou TreinadorDragon",
+    "passwordPlaceholder": "Digite sua senha",
+    "passwordHint": "Senha: 8+ caracteres, com maiúscula, minúscula e número.",
+    "submitLogin": "Entrar - Continuar",
+    "submitRegister": "Criar conta - Continuar",
+    "errors": {
+      "invalidEmail": "Use um email válido.",
+      "invalidUsername": "Username precisa ter 3-20 caracteres usando apenas letras, números ou _.",
+      "invalidNickname": "Nickname precisa ter 3-20 caracteres usando apenas letras, números ou _.",
+      "invalidPassword": "Senha precisa ter 8+ caracteres, com maiúscula, minúscula e número."
+    }
+  },
+  "home": {
+    "profileLabel": "Invocador",
+    "coinsLabel": "Coins",
+    "eyebrow": "Dragon Arena",
+    "title": "Seu portal para a batalha está pronto",
+    "subtitle": "Revise seu perfil, acompanhe seus recursos e entre quando quiser.",
+    "enterArena": "Entrar na arena",
+    "logout": "Sair"
+  },
+  "select": {
+    "title": "Escolha sua lenda",
+    "subtitle": "Domine o campo de batalha, {{playerName}}",
+    "statsSummary": "Atributos de gameplay carregados do backend ao entrar na arena",
+    "selectLegend": "Selecionar lenda",
+    "respawnLock": "Bloqueio de respawn {{seconds}}s",
+    "respawnHint": "Você pode escolher seu próximo personagem agora, mas o retorno continua bloqueado até o fim do cooldown de respawn.",
+    "tooltipBasic": "Básico",
+    "tooltipSkill": "Habilidade",
+    "tooltipPassive": "Passiva",
+    "bootstrapFooter": "Dados numéricos autoritativos via bootstrap",
+    "backendFooter": "Aplicada autoritativamente pelo backend",
+    "spellNames": {
+      "dragon_dive": "Dragon Dive",
+      "flamethrower": "Flamethrower",
+      "fire_blast": "Fire Blast",
+      "ember": "Ember"
+    }
+  },
+  "arena": {
+    "preparingTitle": "Preparando arena",
+    "preparingDesc": "Recebendo o estado autoritativo do mundo e os dados do mapa...",
+    "loadingTitle": "Carregando arena",
+    "loadingDesc": "Carregando sprites, tiles e camadas do mundo...",
+    "diedTitle": "Você morreu",
+    "respawningIn": "Retornando em {{seconds}}s...",
+    "backToSelect": "Voltar para seleção de personagem",
+    "deadHint": "Pressione ESC enquanto estiver morto para trocar de personagem",
+    "scoreboardTitle": "Dragon Arena - Placar",
+    "player": "Jogador",
+    "dragon": "Dragão",
+    "kills": "Abates",
+    "deaths": "Mortes",
+    "you": "(Você)",
+    "releaseTab": "Solte TAB para fechar"
+  },
+  "hud": {
+    "hpShort": "HP",
+    "spdShort": "SPD",
+    "vitality": "Vitalidade",
+    "basicAttack": "Ataque básico"
+  },
+  "window": {
+    "minimize": "Minimizar",
+    "maximize": "Maximizar",
+    "close": "Fechar"
+  },
+  "errors": {
+    "auth": {
+      "invalid_email": "Use um email válido.",
+      "invalid_username": "Username precisa ter 3-20 caracteres usando apenas letras, números ou _.",
+      "invalid_nickname": "Nickname precisa ter 3-20 caracteres usando apenas letras, números ou _.",
+      "invalid_password": "Verifique a senha informada.",
+      "email_taken": "Este email já está cadastrado.",
+      "username_taken": "Este username já está em uso.",
+      "nickname_taken": "Este nickname já está em uso.",
+      "invalid_identifier": "Email ou username é obrigatório.",
+      "invalid_credentials": "Email/username ou senha inválidos.",
+      "invalid_payload": "Os dados enviados são inválidos.",
+      "password_hash_failed": "Não foi possível processar a senha.",
+      "password_verification_failed": "Não foi possível validar a senha.",
+      "database_error": "Ocorreu um erro ao acessar o banco de dados.",
+      "auth_error": "Falha na autenticação."
+    },
+    "generic": {
+      "not_authenticated": "Você precisa se autenticar primeiro.",
+      "not_joined": "Você precisa entrar na arena antes de fazer essa ação.",
+      "already_joined": "Você já está dentro da arena.",
+      "move_rejected": "Seu movimento não pôde ser executado agora.",
+      "cooldown_or_state": "A ação foi recusada por cooldown ou estado atual.",
+      "respawn_locked": "Você ainda não pode renascer.",
+      "invalid_json": "Os dados enviados estão em formato inválido.",
+      "invalid_payload": "Os dados enviados são inválidos.",
+      "unknown_event": "O evento enviado não é reconhecido.",
+      "unknown_error": "Ocorreu um erro inesperado.",
+      "missing_event": "O evento da mensagem é obrigatório.",
+      "user_not_found": "Usuário autenticado não encontrado.",
+      "profile_not_found": "Perfil do jogador não encontrado."
+    }
+  }
+}

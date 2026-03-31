@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import './HomeScreen.css'
 
 interface Props {
@@ -8,6 +9,8 @@ interface Props {
 }
 
 export function HomeScreen({ nickname, coins, onEnterArena, onLogout }: Props) {
+  const { t } = useTranslation()
+
   return (
     <div className="home-screen">
       <div className="home-screen__glow home-screen__glow--left" />
@@ -15,26 +18,24 @@ export function HomeScreen({ nickname, coins, onEnterArena, onLogout }: Props) {
 
       <aside className="home-screen__profile">
         <button type="button" className="home-screen__logout" onClick={onLogout}>
-          Sair
+          {t('home.logout')}
         </button>
-        <span className="home-screen__profile-label">Invocador</span>
+        <span className="home-screen__profile-label">{t('home.profileLabel')}</span>
         <strong className="home-screen__profile-name">{nickname}</strong>
 
         <div className="home-screen__coins">
-          <span className="home-screen__coins-label">Coins</span>
+          <span className="home-screen__coins-label">{t('home.coinsLabel')}</span>
           <strong className="home-screen__coins-value">{coins}</strong>
         </div>
       </aside>
 
       <main className="home-screen__center">
-        <span className="home-screen__eyebrow">Dragon Arena</span>
-        <h1 className="home-screen__title">Seu portal para a batalha esta pronto</h1>
-        <p className="home-screen__subtitle">
-          Revise seu perfil, junte suas moedas e entre quando quiser.
-        </p>
+        <span className="home-screen__eyebrow">{t('home.eyebrow')}</span>
+        <h1 className="home-screen__title">{t('home.title')}</h1>
+        <p className="home-screen__subtitle">{t('home.subtitle')}</p>
 
         <button type="button" className="home-screen__cta" onClick={onEnterArena}>
-          Entrar na arena
+          {t('home.enterArena')}
         </button>
       </main>
     </div>

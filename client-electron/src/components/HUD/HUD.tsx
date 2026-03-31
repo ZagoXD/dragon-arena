@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ResolvedCharacterConfig } from '../../config/visualConfig'
 import { ANIMATION_FPS } from '../../config/spriteMap'
 import './HUD.css'
@@ -66,6 +67,7 @@ export function HUD({
   playerName, character, hp, playerPos, dummies, otherPlayers = [], 
   mapWidth, mapHeight, skillCooldowns = {}, autoAttackCooldown = 0 
 }: Props) {
+  const { t } = useTranslation()
   const hpPct = Math.max(0, (hp / character.maxHp) * 100)
   
   // Adjusted scaling for 80px container
@@ -108,10 +110,10 @@ export function HUD({
           <div className="hud-char-name">{character.name}</div>
           <div className="hud-stats-grid">
             <div className="hud-stat-item">
-               <span style={{ color: '#22c55e' }}>HP</span> {Math.ceil(hp)}
+               <span style={{ color: '#22c55e' }}>{t('hud.hpShort')}</span> {Math.ceil(hp)}
             </div>
             <div className="hud-stat-item">
-               <span style={{ color: '#fbbf24' }}>SPD</span> {character.movementSpeed}
+               <span style={{ color: '#fbbf24' }}>{t('hud.spdShort')}</span> {character.movementSpeed}
             </div>
           </div>
         </div>
@@ -121,7 +123,7 @@ export function HUD({
       <div className="hud-panel hud-center">
         <div className="hud-hp-container">
            <div className="hud-hp-labels">
-             <span className="hud-hp-val">Vitality</span>
+             <span className="hud-hp-val">{t('hud.vitality')}</span>
              <span className="hud-hp-val" style={{ color: '#fff' }}>{Math.ceil(hp)} / {character.maxHp}</span>
            </div>
            <div className="hud-hp-bar">
@@ -140,7 +142,7 @@ export function HUD({
           {/* Auto Attack (LMB) */}
           <div 
             className="hud-spell" 
-            title="Ataque basico"
+            title={t('hud.basicAttack')}
           >
              <div 
                className="hud-spell-icon" 

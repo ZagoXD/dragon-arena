@@ -1,15 +1,28 @@
 import { KeyboardEvent, useEffect, useState } from 'react'
+import { BR } from 'country-flag-icons/react/3x2'
+import { ES } from 'country-flag-icons/react/3x2'
+import { US } from 'country-flag-icons/react/3x2'
+import { useTranslation } from 'react-i18next'
 import { ArenaAuthIntent, AuthMode } from '../../hooks/useSocket'
+import { AppLanguage, supportedLanguages } from '../../i18n'
 import './NameScreen.css'
 
 interface Props {
   authError?: string | null
   authInfo?: string | null
   initialMode?: AuthMode
+  onLanguageChange: (language: AppLanguage) => void
   onStart: (authIntent: ArenaAuthIntent) => void
 }
 
-export function NameScreen({ authError, authInfo, initialMode = 'login', onStart }: Props) {
+const languageFlags = {
+  'pt-BR': BR,
+  en: US,
+  es: ES,
+} as const
+
+export function NameScreen({ authError, authInfo, initialMode = 'login', onLanguageChange, onStart }: Props) {
+  const { t, i18n } = useTranslation()
   const [mode, setMode] = useState<AuthMode>(initialMode)
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
@@ -18,6 +31,12 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
   const [password, setPassword] = useState('')
   const [rememberSession, setRememberSession] = useState(true)
   const [localError, setLocalError] = useState<string | null>(null)
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false)
+
+  const currentLanguage = (supportedLanguages.includes(i18n.language as AppLanguage)
+    ? i18n.language
+    : 'pt-BR') as AppLanguage
+  const CurrentFlag = languageFlags[currentLanguage]
 
   useEffect(() => {
     setMode(initialMode)
@@ -29,19 +48,19 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
     const trimmedNickname = nickname.trim()
 
     if (!trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
-      return 'Use um email valido.'
+      return t('auth.errors.invalidEmail')
     }
 
     if (!/^[A-Za-z0-9_]{3,20}$/.test(trimmedUsername)) {
-      return 'Username precisa ter 3-20 caracteres usando apenas letras, numeros ou _.'
+      return t('auth.errors.invalidUsername')
     }
 
     if (!/^[A-Za-z0-9_]{3,20}$/.test(trimmedNickname)) {
-      return 'Nickname precisa ter 3-20 caracteres usando apenas letras, numeros ou _.'
+      return t('auth.errors.invalidNickname')
     }
 
     if (password.length < 8 || /\s/.test(password) || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-      return 'Senha precisa ter 8+ caracteres, com maiuscula, minuscula e numero.'
+      return t('auth.errors.invalidPassword')
     }
 
     return null
@@ -88,7 +107,43 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
           <span className="name-screen__title-arena"> Arena</span>
         </h1>
 
-        <p className="name-screen__subtitle">Autentique-se para entrar no campo de batalha</p>
+        <div className="name-screen__topbar">
+          <p className="name-screen__subtitle">{t('auth.subtitle')}</p>
+
+          <div className="name-screen__language">
+            <span className="name-screen__language-label">{t('language.label')}</span>
+            <button
+              type="button"
+              className="name-screen__language-trigger"
+              onClick={() => setLanguageMenuOpen(open => !open)}
+            >
+              <CurrentFlag className="name-screen__language-flag" />
+              <span>{t(`language.${currentLanguage}`)}</span>
+            </button>
+
+            {languageMenuOpen && (
+              <div className="name-screen__language-menu">
+                {supportedLanguages.map(language => {
+                  const Flag = languageFlags[language]
+                  return (
+                    <button
+                      key={language}
+                      type="button"
+                      className={`name-screen__language-option ${language === currentLanguage ? 'is-active' : ''}`}
+                      onClick={() => {
+                        setLanguageMenuOpen(false)
+                        onLanguageChange(language)
+                      }}
+                    >
+                      <Flag className="name-screen__language-flag" />
+                      <span>{t(`language.${language}`)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="name-screen__tabs">
           <button
@@ -96,14 +151,14 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
             className={`name-screen__tab ${mode === 'login' ? 'is-active' : ''}`}
             onClick={() => setMode('login')}
           >
-            Entrar
+            {t('auth.login')}
           </button>
           <button
             type="button"
             className={`name-screen__tab ${mode === 'register' ? 'is-active' : ''}`}
             onClick={() => setMode('register')}
           >
-            Cadastro
+            {t('auth.register')}
           </button>
         </div>
 
@@ -111,7 +166,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
           {mode === 'register' && (
             <>
               <label className="name-screen__label" htmlFor="register-email">
-                Email
+                {t('auth.email')}
               </label>
               <input
                 id="register-email"
@@ -124,7 +179,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
               />
 
               <label className="name-screen__label" htmlFor="register-username">
-                Username
+                {t('auth.username')}
               </label>
               <input
                 id="register-username"
@@ -137,7 +192,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
               />
 
               <label className="name-screen__label" htmlFor="register-nickname">
-                Nickname
+                {t('auth.nickname')}
               </label>
               <input
                 id="register-nickname"
@@ -154,7 +209,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
           {mode === 'login' && (
             <>
               <label className="name-screen__label" htmlFor="login-identifier">
-                Email ou username
+                {t('auth.identifier')}
               </label>
               <input
                 id="login-identifier"
@@ -169,7 +224,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
           )}
 
           <label className="name-screen__label" htmlFor="auth-password">
-            Senha
+            {t('auth.password')}
           </label>
           <input
             id="auth-password"
@@ -188,7 +243,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
                 checked={rememberSession}
                 onChange={e => setRememberSession(e.target.checked)}
               />
-              <span className="name-screen__checkbox-label">Manter conectado</span>
+              <span className="name-screen__checkbox-label">{t('auth.remember')}</span>
             </label>
           )}
 
@@ -197,7 +252,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
 
           {mode === 'register' && (
             <p className="name-screen__hint">
-              Senha: 8+ caracteres, com maiuscula, minuscula e numero.
+              {t('auth.passwordHint')}
             </p>
           )}
 
@@ -206,7 +261,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onStart
             className="name-screen__btn"
             onClick={handleSubmit}
           >
-            {mode === 'register' ? 'Criar conta' : 'Entrar'} - Continuar
+            {mode === 'register' ? t('auth.submitRegister') : t('auth.submitLogin')}
           </button>
         </div>
       </div>

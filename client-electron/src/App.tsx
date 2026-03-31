@@ -6,6 +6,8 @@ import { Arena } from './components/Arena/Arena'
 import { LoadingScreen } from './components/LoadingScreen/LoadingScreen'
 import { TitleBar } from './components/TitleBar/TitleBar'
 import { ArenaAuthIntent, AuthSuccessPayload, ProfileSyncPayload } from './hooks/useSocket'
+import i18n, { AppLanguage } from './i18n'
+import { translateBackendError } from './i18n/translateBackendError'
 import './App.css'
 
 type Screen = 'name' | 'loading' | 'home' | 'select' | 'arena'
@@ -30,9 +32,7 @@ function App() {
   const [nameScreenMode, setNameScreenMode] = useState<'login' | 'register'>('login')
   const [characterId, setCharacterId] = useState<string>('charizard')
   const [selectionLockedUntil, setSelectionLockedUntil] = useState<number | null>(null)
-  
-  // Connectivity Test State
-  const [loadingStatus, setLoadingStatus] = useState('Inicializando...')
+  const [loadingStatus, setLoadingStatus] = useState(() => i18n.t('app.initializing'))
   const [retryCount, setRetryCount] = useState(0)
   const [connError, setConnError] = useState<string | null>(null)
   const attemptedStoredSessionRef = useRef(false)
@@ -83,40 +83,39 @@ function App() {
   const testConnection = useCallback(async () => {
     setScreen('loading')
     setConnError(null)
-    
-    for (let i = 1; i <= 6; i++) {
-       setRetryCount(i)
-       setLoadingStatus('Conectando ao servidor Dragon Arena...')
-       
-       try {
-         await new Promise((resolve, reject) => {
-           const ws = new WebSocket(serverUrl)
-           const timeout = setTimeout(() => {
-             ws.close()
-             reject(new Error('Tempo limite de conexao'))
-           }, 3500)
 
-           ws.onopen = () => {
-             clearTimeout(timeout)
-             setTimeout(() => { ws.close(); resolve(true); }, 100)
-           }
-           ws.onerror = () => {
-             clearTimeout(timeout)
-             reject(new Error('Servidor indisponivel'))
-           }
-         })
-         
-         // SUCCESS!
-         setLoadingStatus('Sucesso! Preparando tela inicial...')
-         setTimeout(() => setScreen('home'), 500)
-         return 
-       } catch (err) {
-         if (i === 6) {
-           setConnError('Nao foi possivel estabelecer conexao com o servidor C++ do Dragon Arena. Verifique se o backend esta em execucao e acessivel.')
-         } else {
-           await new Promise(r => setTimeout(r, i * 500)) // Exponential-ish backoff
-         }
-       }
+    for (let i = 1; i <= 6; i++) {
+      setRetryCount(i)
+      setLoadingStatus(i18n.t('app.connectingServer'))
+
+      try {
+        await new Promise((resolve, reject) => {
+          const ws = new WebSocket(serverUrl)
+          const timeout = setTimeout(() => {
+            ws.close()
+            reject(new Error(i18n.t('app.connectionTimeout')))
+          }, 3500)
+
+          ws.onopen = () => {
+            clearTimeout(timeout)
+            setTimeout(() => { ws.close(); resolve(true) }, 100)
+          }
+          ws.onerror = () => {
+            clearTimeout(timeout)
+            reject(new Error(i18n.t('app.serverUnreachable')))
+          }
+        })
+
+        setLoadingStatus(i18n.t('app.successPreparingHome'))
+        setTimeout(() => setScreen('home'), 500)
+        return
+      } catch {
+        if (i === 6) {
+          setConnError(i18n.t('app.connectionError'))
+        } else {
+          await new Promise(r => setTimeout(r, i * 500))
+        }
+      }
     }
   }, [serverUrl])
 
@@ -124,13 +123,13 @@ function App() {
     setScreen('loading')
     setConnError(null)
     setRetryCount(1)
-    setLoadingStatus(nextAuthIntent.mode === 'register' ? 'Criando conta...' : 'Autenticando...')
+    setLoadingStatus(i18n.t(nextAuthIntent.mode === 'register' ? 'app.creatingAccount' : 'app.authenticating'))
 
     return new Promise<AuthSuccessPayload>((resolve, reject) => {
       const ws = new WebSocket(serverUrl)
       const timeout = window.setTimeout(() => {
         ws.close()
-        reject(new Error('Tempo limite de autenticacao'))
+        reject(new Error(i18n.t('app.authTimeout')))
       }, 6000)
 
       const cleanup = () => {
@@ -180,14 +179,14 @@ function App() {
         if (data.event === 'authError') {
           cleanup()
           ws.close()
-          reject(new Error(data.reason || 'Falha na autenticacao'))
+          reject(new Error(translateBackendError(i18n.t.bind(i18n), data.code, data.reason)))
         }
       }
 
       ws.onerror = () => {
         cleanup()
         ws.close()
-        reject(new Error('Nao foi possivel acessar o servidor Dragon Arena'))
+        reject(new Error(i18n.t('app.authServerError')))
       }
 
       ws.onclose = () => {
@@ -196,7 +195,6 @@ function App() {
     })
   }, [serverUrl])
 
-  // Called when the user submits their name
   const handleNameEnter = useCallback(async (nextAuthIntent: ArenaAuthIntent) => {
     setAuthError(null)
     setAuthInfo(null)
@@ -206,7 +204,7 @@ function App() {
       const payload = await authenticate(nextAuthIntent)
 
       if (nextAuthIntent.mode === 'register') {
-        setAuthInfo('Conta criada com sucesso. Agora faca login.')
+        setAuthInfo(i18n.t('app.accountCreated'))
         setNameScreenMode('login')
         setScreen('name')
         return
@@ -236,12 +234,11 @@ function App() {
         setAuthIntent(null)
       }
       setShouldPersistSession(false)
-      setAuthError(error instanceof Error ? error.message : 'Falha na autenticacao')
+      setAuthError(error instanceof Error ? error.message : i18n.t('app.authFailed'))
       setScreen('name')
     }
   }, [applyAccountSnapshot, authenticate, clearPersistedSession, persistSession])
 
-  // Called when the user picks a character
   const handleSelectCharacter = (id: string) => {
     if (selectionLockedUntil !== null && Date.now() < selectionLockedUntil) {
       return
@@ -311,6 +308,14 @@ function App() {
     setNameScreenMode('login')
     setScreen('name')
   }, [clearPersistedSession])
+
+  const handleLanguageChange = useCallback(async (language: AppLanguage) => {
+    await i18n.changeLanguage(language)
+    setLoadingStatus(i18n.t('app.initializing'))
+    if (screen !== 'name' && screen !== 'loading') {
+      handleLogout()
+    }
+  }, [handleLogout, screen])
 
   useEffect(() => {
     if (attemptedStoredSessionRef.current) {
@@ -422,7 +427,7 @@ function App() {
         if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
           ws.close()
         }
-        handleAuthFailure(data.reason || 'Falha na autenticacao')
+        handleAuthFailure(translateBackendError(i18n.t.bind(i18n), data.code, data.reason))
       }
     }
 
@@ -449,14 +454,20 @@ function App() {
     <>
       <TitleBar />
       {screen === 'name' && (
-        <NameScreen authError={authError} authInfo={authInfo} initialMode={nameScreenMode} onStart={handleNameEnter} />
+        <NameScreen
+          authError={authError}
+          authInfo={authInfo}
+          initialMode={nameScreenMode}
+          onLanguageChange={handleLanguageChange}
+          onStart={handleNameEnter}
+        />
       )}
       {screen === 'loading' && (
-        <LoadingScreen 
-          status={loadingStatus} 
-          retryCount={retryCount} 
-          error={connError} 
-          onRetry={testConnection} 
+        <LoadingScreen
+          status={loadingStatus}
+          retryCount={retryCount}
+          error={connError}
+          onRetry={testConnection}
         />
       )}
       {screen === 'home' && (
@@ -468,14 +479,14 @@ function App() {
         />
       )}
       {screen === 'select' && (
-        <SelectScreen 
-          playerName={playerName} 
+        <SelectScreen
+          playerName={playerName}
           selectionLockedUntil={selectionLockedUntil}
-          onSelect={handleSelectCharacter} 
+          onSelect={handleSelectCharacter}
         />
       )}
       {screen === 'arena' && (
-        <Arena 
+        <Arena
           playerName={playerName}
           authIntent={authIntent}
           characterId={characterId}

@@ -1,0 +1,141 @@
+{
+  "language": {
+    "label": "Language",
+    "pt-BR": "Português (BR)",
+    "en": "English",
+    "es": "Español"
+  },
+  "app": {
+    "initializing": "Initializing...",
+    "connectingServer": "Connecting to the Dragon Arena server...",
+    "successPreparingHome": "Success! Preparing home screen...",
+    "connectionTimeout": "Connection timeout",
+    "serverUnreachable": "Server unreachable",
+    "connectionError": "Could not establish a connection to the Dragon Arena C++ server. Please verify that the backend is running and reachable.",
+    "creatingAccount": "Creating account...",
+    "authenticating": "Authenticating...",
+    "authTimeout": "Authentication timeout",
+    "authFailed": "Authentication failed",
+    "authServerError": "Could not reach the Dragon Arena server",
+    "accountCreated": "Account created successfully. Now log in."
+  },
+  "loading": {
+    "attempt": "Attempt {{count}}/6",
+    "connectionFailed": "Connection failed",
+    "tryAgain": "Try again"
+  },
+  "auth": {
+    "subtitle": "Authenticate to enter the battlefield",
+    "login": "Login",
+    "register": "Register",
+    "email": "Email",
+    "username": "Username",
+    "nickname": "Nickname",
+    "identifier": "Email or username",
+    "password": "Password",
+    "remember": "Keep me signed in",
+    "emailPlaceholder": "you@example.com",
+    "usernamePlaceholder": "DragonTrainer",
+    "nicknamePlaceholder": "Name shown in the arena",
+    "identifierPlaceholder": "you@example.com or DragonTrainer",
+    "passwordPlaceholder": "Enter your password",
+    "passwordHint": "Password: 8+ characters, with uppercase, lowercase and a number.",
+    "submitLogin": "Login - Continue",
+    "submitRegister": "Create account - Continue",
+    "errors": {
+      "invalidEmail": "Use a valid email address.",
+      "invalidUsername": "Username must have 3-20 characters using only letters, numbers or _.",
+      "invalidNickname": "Nickname must have 3-20 characters using only letters, numbers or _.",
+      "invalidPassword": "Password must have 8+ characters, with uppercase, lowercase and a number."
+    }
+  },
+  "home": {
+    "profileLabel": "Summoner",
+    "coinsLabel": "Coins",
+    "eyebrow": "Dragon Arena",
+    "title": "Your gateway to battle is ready",
+    "subtitle": "Review your profile, track your resources and enter whenever you want.",
+    "enterArena": "Enter the arena",
+    "logout": "Logout"
+  },
+  "select": {
+    "title": "Choose your legend",
+    "subtitle": "Master the battlefield, {{playerName}}",
+    "statsSummary": "Gameplay stats are loaded from the backend when entering the arena",
+    "selectLegend": "Select legend",
+    "respawnLock": "Respawn lock {{seconds}}s",
+    "respawnHint": "You can choose your next character now, but re-entry remains locked until the respawn cooldown ends.",
+    "tooltipBasic": "Basic",
+    "tooltipSkill": "Skill",
+    "tooltipPassive": "Passive",
+    "bootstrapFooter": "Authoritative numeric data via bootstrap",
+    "backendFooter": "Applied authoritatively by the backend",
+    "spellNames": {
+      "dragon_dive": "Dragon Dive",
+      "flamethrower": "Flamethrower",
+      "fire_blast": "Fire Blast",
+      "ember": "Ember"
+    }
+  },
+  "arena": {
+    "preparingTitle": "Preparing arena",
+    "preparingDesc": "Receiving the authoritative world state and map data...",
+    "loadingTitle": "Loading arena",
+    "loadingDesc": "Loading sprites, tiles and world layers...",
+    "diedTitle": "You died",
+    "respawningIn": "Respawning in {{seconds}}s...",
+    "backToSelect": "Back to character select",
+    "deadHint": "Press ESC while dead to change character",
+    "scoreboardTitle": "Dragon Arena - Scoreboard",
+    "player": "Player",
+    "dragon": "Dragon",
+    "kills": "Kills",
+    "deaths": "Deaths",
+    "you": "(You)",
+    "releaseTab": "Release TAB to close"
+  },
+  "hud": {
+    "hpShort": "HP",
+    "spdShort": "SPD",
+    "vitality": "Vitality",
+    "basicAttack": "Basic attack"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "close": "Close"
+  },
+  "errors": {
+    "auth": {
+      "invalid_email": "Use a valid email address.",
+      "invalid_username": "Username must have 3-20 characters using only letters, numbers or _.",
+      "invalid_nickname": "Nickname must have 3-20 characters using only letters, numbers or _.",
+      "invalid_password": "Please check the password you entered.",
+      "email_taken": "This email is already registered.",
+      "username_taken": "This username is already in use.",
+      "nickname_taken": "This nickname is already in use.",
+      "invalid_identifier": "Email or username is required.",
+      "invalid_credentials": "Invalid email/username or password.",
+      "invalid_payload": "The submitted data is invalid.",
+      "password_hash_failed": "Could not process the password.",
+      "password_verification_failed": "Could not verify the password.",
+      "database_error": "A database error occurred.",
+      "auth_error": "Authentication failed."
+    },
+    "generic": {
+      "not_authenticated": "You must authenticate first.",
+      "not_joined": "You must join the arena before performing this action.",
+      "already_joined": "You are already inside the arena.",
+      "move_rejected": "Your movement could not be processed right now.",
+      "cooldown_or_state": "The action was rejected due to cooldown or current state.",
+      "respawn_locked": "You cannot respawn yet.",
+      "invalid_json": "The submitted data has an invalid format.",
+      "invalid_payload": "The submitted data is invalid.",
+      "unknown_event": "The submitted event is not recognized.",
+      "unknown_error": "An unexpected error occurred.",
+      "missing_event": "The message event is required.",
+      "user_not_found": "Authenticated user not found.",
+      "profile_not_found": "Player profile not found."
+    }
+  }
+}

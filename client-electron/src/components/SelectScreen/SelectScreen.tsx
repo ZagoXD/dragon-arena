@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CHARACTER_VISUALS, PASSIVE_VISUALS, SPELL_VISUALS, VisualPassiveConfig, VisualSpellConfig } from '../../config/visualConfig'
 import { ANIMATION_FPS } from '../../config/spriteMap'
 import './SelectScreen.css'
@@ -56,6 +57,7 @@ interface Props {
 }
 
 export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Props) {
+  const { t } = useTranslation()
   const [animIndex, setAnimIndex] = useState(0)
   const [hoveredSkill, setHoveredSkill] = useState<VisualSpellConfig | null>(null)
   const [hoveredPassive, setHoveredPassive] = useState<VisualPassiveConfig | null>(null)
@@ -95,8 +97,8 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
       }}
       onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
     >
-      <h1>ESCOLHA SUA LENDA</h1>
-      <p>Domine o campo de batalha, {playerName}</p>
+      <h1>{t('select.title')}</h1>
+      <p>{t('select.subtitle', { playerName })}</p>
 
       <div className="character-list">
         {Object.values(CHARACTER_VISUALS).map(char => {
@@ -132,7 +134,7 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
                 <h3>{char.name}</h3>
 
                 <div className="character-stats-summary">
-                  <span>Atributos de gameplay carregados do backend ao entrar na arena</span>
+                  <span>{t('select.statsSummary')}</span>
                 </div>
 
                 <div className="character-skills-container">
@@ -161,8 +163,8 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
 
                 <button className="select-btn" disabled={isSelectionLocked}>
                   {isSelectionLocked
-                    ? `Bloqueio de respawn ${Math.ceil(lockRemainingMs / 1000)}s`
-                    : 'Selecionar lenda'}
+                    ? t('select.respawnLock', { seconds: Math.ceil(lockRemainingMs / 1000) })
+                    : t('select.selectLegend')}
                 </button>
               </div>
             </div>
@@ -172,7 +174,7 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
 
       {isSelectionLocked && (
         <p style={{ marginTop: '18px', color: '#ffcc88', fontFamily: 'monospace', letterSpacing: '0.04em' }}>
-          Voce pode escolher seu proximo personagem agora, mas o retorno continua bloqueado ate o fim do cooldown de respawn.
+          {t('select.respawnHint')}
         </p>
       )}
 
@@ -186,20 +188,12 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
           }}
         >
           <div className="tooltip-header">
-            <span className="tooltip-name">
-              {hoveredSkill.id === 'dragon_dive'
-                ? 'Dragon Dive'
-                : hoveredSkill.id === 'flamethrower'
-                  ? 'Flamethrower'
-                  : hoveredSkill.id === 'fire_blast'
-                    ? 'Fire Blast'
-                  : 'Ember'}
-            </span>
-            <span className="tooltip-type">{hoveredSkill.id === 'ember' ? 'Basico' : 'Habilidade'}</span>
+            <span className="tooltip-name">{t(`select.spellNames.${hoveredSkill.id}`)}</span>
+            <span className="tooltip-type">{hoveredSkill.id === 'ember' ? t('select.tooltipBasic') : t('select.tooltipSkill')}</span>
           </div>
           <p className="tooltip-text">{hoveredSkill.description}</p>
           <div className="tooltip-footer">
-            <span>Dados numericos autoritativos via bootstrap</span>
+            <span>{t('select.bootstrapFooter')}</span>
           </div>
         </div>
       )}
@@ -215,11 +209,11 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
         >
           <div className="tooltip-header">
             <span className="tooltip-name">{hoveredPassive.name}</span>
-            <span className="tooltip-type">Passiva</span>
+            <span className="tooltip-type">{t('select.tooltipPassive')}</span>
           </div>
           <p className="tooltip-text">{hoveredPassive.description}</p>
           <div className="tooltip-footer">
-            <span>Aplicada autoritativamente pelo backend</span>
+            <span>{t('select.backendFooter')}</span>
           </div>
         </div>
       )}
