@@ -1,6 +1,6 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { HUD } from '../HUD/HUD'
-import { AutoAttackStartedEvent, NetPlayer } from '../../hooks/useSocket'
+import { AutoAttackStartedEvent, NetPlayer, SkillUsedEvent } from '../../hooks/useSocket'
 import { useArenaNetworkState } from '../../hooks/useArenaNetworkState'
 import { CHARACTER_VISUALS } from '../../config/visualConfig'
 import { getClosest4WayDirection, VIEWPORT_HEIGHT, VIEWPORT_WIDTH } from '../../config/spriteMap'
@@ -16,6 +16,7 @@ interface Props {
 
 export function Arena({ playerName, characterId = 'charizard', onReturnToSelect }: Props) {
   const fallbackVisual = CHARACTER_VISUALS[characterId] || CHARACTER_VISUALS.charizard
+  const [pixiReady, setPixiReady] = useState(false)
   const localPlayerIdRef = useRef<string | undefined>(undefined)
   const lockActionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left', durationMs: number) => void) | null>(null)
   const setDirectionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left') => void) | null>(null)
@@ -29,6 +30,28 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
     setDirectionRef.current?.(direction)
     if (event.castTimeMs > 0) {
       lockActionRef.current?.(direction, event.castTimeMs)
+    }
+  }, [])
+
+  const handleSkillUsed = useCallback((event: SkillUsedEvent) => {
+    if (!localPlayerIdRef.current || event.id !== localPlayerIdRef.current) {
+      return
+    }
+
+    if (typeof event.angle !== 'number') {
+      return
+    }
+
+    const angle = event.angle
+    const direction = getClosest4WayDirection(angle)
+    setDirectionRef.current?.(direction)
+    const totalLockMs =
+      event.skillId === 'flamethrower'
+        ? event.castTimeMs + event.effectDurationMs
+        : event.castTimeMs
+
+    if (totalLockMs > 0) {
+      lockActionRef.current?.(direction, totalLockMs)
     }
   }, [])
 
@@ -55,6 +78,7 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
     authoritativePosition,
     localDashState,
     impactEffects,
+    activeSkillEffects,
     emitMove,
     emitRespawn,
     emitShoot,
@@ -63,9 +87,11 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
     playerName,
     characterId,
     onAutoAttackStarted: handleAutoAttackStarted,
+    onSkillUsed: handleSkillUsed,
   })
 
   const controller = useArenaController({
+    inputEnabled: pixiReady && Boolean(bootstrap && character && mapData),
     character,
     fallbackVisual,
     bootstrapPlayer: bootstrap?.player,
@@ -89,18 +115,23 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
   lockActionRef.current = controller.player.lockAction
   setDirectionRef.current = controller.player.setDirection
 
-  if (!bootstrap || !character) {
-    return (
-      <div className="arena-shell" style={{ color: '#ffcc00', fontSize: '1.5rem', fontFamily: 'monospace' }}>
-        Awaiting authoritative gameplay bootstrap...
-      </div>
-    )
-  }
+  const arenaReady = Boolean(bootstrap && character && mapData && pixiReady)
 
-  if (!mapData) {
+  if (!bootstrap || !character || !mapData) {
     return (
-      <div className="arena-shell" style={{ color: '#ffcc00', fontSize: '1.5rem', fontFamily: 'monospace' }}>
-        Awaiting map data from server...
+      <div className="arena-shell">
+        <div
+          className="arena-viewport"
+          style={{ width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT, transform: `scale(${controller.scale})` }}
+        >
+          <div className="arena-loading-overlay">
+            <div className="arena-loading-card">
+              <div className="arena-loading-spinner" />
+              <h2>Preparing Arena</h2>
+              <p>Receiving authoritative world state and map data...</p>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -141,21 +172,35 @@ export function Arena({ playerName, characterId = 'charizard', onReturnToSelect 
           localPlayer={localPlayer}
           projectiles={projectiles}
           impactEffects={impactEffects}
+          activeSkillEffects={activeSkillEffects}
           aimingArrowData={controller.aimingArrowData}
+          onReadyChange={setPixiReady}
         />
 
-        <HUD
-          playerName={playerName}
-          character={character}
-          hp={hp}
-          playerPos={{ x: controller.player.x, y: controller.player.y }}
-          dummies={dummies}
-          otherPlayers={Object.values(otherPlayers) as NetPlayer[]}
-          mapWidth={mapWidth}
-          mapHeight={mapHeight}
-          skillCooldowns={skillCooldowns}
-          autoAttackCooldown={autoAttackCD}
-        />
+        {!arenaReady && (
+          <div className="arena-loading-overlay">
+            <div className="arena-loading-card">
+              <div className="arena-loading-spinner" />
+              <h2>Loading Arena</h2>
+              <p>Loading sprites, tiles and world layers...</p>
+            </div>
+          </div>
+        )}
+
+        {arenaReady && (
+          <HUD
+            playerName={playerName}
+            character={character}
+            hp={hp}
+            playerPos={{ x: controller.player.x, y: controller.player.y }}
+            dummies={dummies}
+            otherPlayers={Object.values(otherPlayers) as NetPlayer[]}
+            mapWidth={mapWidth}
+            mapHeight={mapHeight}
+            skillCooldowns={skillCooldowns}
+            autoAttackCooldown={autoAttackCD}
+          />
+        )}
 
         {controller.respawnTimer !== null && (
           <div className="death-overlay">

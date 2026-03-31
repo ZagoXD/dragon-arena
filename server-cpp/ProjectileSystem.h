@@ -32,6 +32,16 @@ public:
         long long nowMs,
         NetworkHandler* network
     );
+
+    static void updateAreaEffects(
+        std::map<std::string, Player>& players,
+        std::map<std::string, DummyEntity>& dummies,
+        std::vector<ActiveAreaEffect>& activeAreaEffects,
+        const WorldDefinition& worldDefinition,
+        unsigned long long worldTick,
+        long long nowMs,
+        NetworkHandler* network
+    );
 };
 
 #endif

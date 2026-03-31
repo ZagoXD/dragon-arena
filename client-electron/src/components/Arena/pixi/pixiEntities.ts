@@ -19,6 +19,10 @@ function buildShadow(width: number, height: number, alpha = 0.22) {
   return shadow
 }
 
+function getVerticalRelativeRotation(angle: number) {
+  return Math.atan2(Math.abs(Math.cos(angle)), Math.abs(Math.sin(angle)))
+}
+
 export function buildPlayer(
   frameTextureCache: Map<string, Texture>,
   playerName: string,
@@ -231,6 +235,9 @@ export function buildProjectile(frameTextureCache: Map<string, Texture>, project
     return new Container()
   }
   const usesDirectionalSheet = projectile.spell.renderMode !== 'single_rotated'
+  const frameWidth = projectile.spell.frameWidth || projectile.spell.frameSize
+  const frameHeight = projectile.spell.frameHeight || projectile.spell.frameSize
+  const frameCount = projectile.spell.frameCount || 1
 
   if (usesDirectionalSheet) {
     const { col, row } = getSpellFrame(projectile.angle)
@@ -246,31 +253,53 @@ export function buildProjectile(frameTextureCache: Map<string, Texture>, project
     if (!texture) {
       return new Container()
     }
+  } else if (frameCount > 1) {
+    const frameIndex = Math.floor(performance.now() / 120) % frameCount
+    texture = getCachedFrameTexture(
+      frameTextureCache,
+      `projectile:${projectile.spell.imageSrc}:frame:${frameIndex}:${frameWidth}:${frameHeight}`,
+      texture,
+      0,
+      frameIndex * frameHeight,
+      frameWidth,
+      frameHeight
+    )
+    if (!texture) {
+      return new Container()
+    }
   }
 
   const sprite = new Sprite(texture)
   sprite.anchor.set(0.5)
   sprite.x = projectile.x
   sprite.y = projectile.y
-  sprite.width = projectile.spell.frameSize
-  sprite.height = projectile.spell.frameSize
+  sprite.width = frameWidth
+  sprite.height = frameHeight
   sprite.roundPixels = true
-  sprite.zIndex = projectile.y + projectile.spell.frameSize / 2 + 80
+  sprite.zIndex = projectile.y + frameHeight / 2 + 80
   if (!usesDirectionalSheet) {
-    sprite.rotation = projectile.angle
+    sprite.rotation = projectile.spell.id === 'fire_blast'
+      ? getVerticalRelativeRotation(projectile.angle)
+      : projectile.angle + (projectile.spell.rotationOffsetRad || 0)
+    if (projectile.spell.id === 'fire_blast') {
+      sprite.scale.x = Math.cos(projectile.angle) < 0 ? -1 : 1
+    }
   }
   sprite.alpha = 0.98
 
   const container = new Container()
   const trail = new Graphics()
-  const trailColor = projectile.spell.id === 'ember' ? 0xff7a00 : 0xffd166
+  const trailColor =
+    projectile.spell.id === 'ember' ? 0xff7a00 :
+    projectile.spell.id === 'fire_blast' ? 0xff9432 :
+    0xffd166
   for (let index = 1; index <= 2; index += 1) {
-    const distanceBack = index * projectile.spell.frameSize * 0.22
+    const distanceBack = index * frameWidth * 0.22
     trail.ellipse(
       -Math.cos(projectile.angle) * distanceBack,
       -Math.sin(projectile.angle) * distanceBack,
-      projectile.spell.frameSize * (0.16 - index * 0.03),
-      projectile.spell.frameSize * (0.1 - index * 0.02)
+      frameWidth * (0.16 - index * 0.03),
+      frameHeight * (0.1 - index * 0.02)
     )
     trail.fill({ color: trailColor, alpha: 0.18 / index })
   }
@@ -278,13 +307,16 @@ export function buildProjectile(frameTextureCache: Map<string, Texture>, project
   trail.y = projectile.y
 
   const glow = new Graphics()
-  glow.ellipse(0, 0, projectile.spell.frameSize * 0.22, projectile.spell.frameSize * 0.12)
+  glow.ellipse(0, 0, frameWidth * 0.22, frameHeight * 0.12)
   glow.fill({
-    color: projectile.spell.id === 'ember' ? 0xff8a00 : 0xffd166,
+    color:
+      projectile.spell.id === 'ember' ? 0xff8a00 :
+      projectile.spell.id === 'fire_blast' ? 0xff9c3f :
+      0xffd166,
     alpha: projectile.spell.id === 'dragon_dive' ? 0.16 : 0.22,
   })
   glow.x = projectile.x
-  glow.y = projectile.y + projectile.spell.frameSize * 0.18
+  glow.y = projectile.y + frameHeight * 0.18
   glow.rotation = projectile.angle
 
   container.zIndex = sprite.zIndex

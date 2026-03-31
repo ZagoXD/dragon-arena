@@ -1,5 +1,6 @@
 #include "GameConfig.h"
 #include <cstdlib>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -15,6 +16,17 @@ struct LoadedGameplayConfig {
     std::string sourcePath;
     std::string contentHash;
 };
+
+json readJsonFile(const std::filesystem::path& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        throw std::runtime_error("Could not open config file: " + path.string());
+    }
+
+    json document;
+    file >> document;
+    return document;
+}
 
 SpellDefinition parseSpellDefinition(const json& node) {
     return {
@@ -118,21 +130,24 @@ std::string makeContentHash(const std::string& rawContent) {
     return stream.str();
 }
 
-std::vector<std::filesystem::path> getCandidateConfigPaths() {
+std::vector<std::filesystem::path> getCandidateConfigRoots() {
     std::vector<std::filesystem::path> candidates;
 
     if (const char* envPath = std::getenv("DRAGON_ARENA_GAMEPLAY_CONFIG")) {
         candidates.emplace_back(envPath);
     }
+    if (const char* envDir = std::getenv("DRAGON_ARENA_GAMEPLAY_CONFIG_DIR")) {
+        candidates.emplace_back(envDir);
+    }
 
     const std::filesystem::path current = std::filesystem::current_path();
-    candidates.push_back(current / "config" / "gameplay.json");
-    candidates.push_back(current / "server-cpp" / "config" / "gameplay.json");
+    candidates.push_back(current / "config");
+    candidates.push_back(current / "server-cpp" / "config");
 
     std::filesystem::path cursor = current;
     for (int i = 0; i < 6; ++i) {
-        candidates.push_back(cursor / "server-cpp" / "config" / "gameplay.json");
-        candidates.push_back(cursor / "config" / "gameplay.json");
+        candidates.push_back(cursor / "server-cpp" / "config");
+        candidates.push_back(cursor / "config");
         if (!cursor.has_parent_path()) {
             break;
         }
@@ -142,66 +157,149 @@ std::vector<std::filesystem::path> getCandidateConfigPaths() {
     return candidates;
 }
 
-LoadedGameplayConfig loadGameplayConfig() {
-    std::ifstream file;
-    std::filesystem::path resolvedPath;
+bool isSplitConfigRoot(const std::filesystem::path& root) {
+    return std::filesystem::exists(root / "world.json")
+        && std::filesystem::exists(root / "spells")
+        && std::filesystem::exists(root / "characters");
+}
 
-    for (const auto& candidate : getCandidateConfigPaths()) {
-        file.open(candidate);
-        if (file.is_open()) {
-            resolvedPath = std::filesystem::weakly_canonical(candidate);
-            break;
-        }
-        file.clear();
+std::string buildDirectoryContentHash(const std::vector<std::filesystem::path>& files) {
+    std::ostringstream raw;
+
+    for (const auto& path : files) {
+        raw << path.generic_string() << '\n';
+        std::ifstream file(path);
+        raw << file.rdbuf() << '\n';
     }
 
-    if (!file.is_open()) {
-        throw std::runtime_error("Could not locate gameplay config file. Expected config/gameplay.json or server-cpp/config/gameplay.json");
-    }
+    return makeContentHash(raw.str());
+}
 
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    const std::string rawConfig = buffer.str();
-    const json document = json::parse(rawConfig);
-
+LoadedGameplayConfig loadSplitGameplayConfig(const std::filesystem::path& configRoot) {
     LoadedGameplayConfig loaded;
-    loaded.sourcePath = resolvedPath.string();
-    loaded.contentHash = makeContentHash(rawConfig);
-    loaded.world = parseWorldDefinition(document.at("world"));
+    loaded.sourcePath = std::filesystem::weakly_canonical(configRoot).string();
+    loaded.world = parseWorldDefinition(readJsonFile(configRoot / "world.json"));
 
-    for (const auto& node : document.at("spells")) {
-        SpellDefinition spell = parseSpellDefinition(node);
+    std::vector<std::filesystem::path> contentFiles = {
+        std::filesystem::weakly_canonical(configRoot / "world.json")
+    };
+
+    std::vector<std::filesystem::path> spellFiles;
+    for (const auto& entry : std::filesystem::directory_iterator(configRoot / "spells")) {
+        if (entry.is_regular_file() && entry.path().extension() == ".json") {
+            spellFiles.push_back(std::filesystem::weakly_canonical(entry.path()));
+        }
+    }
+    std::sort(spellFiles.begin(), spellFiles.end());
+
+    for (const auto& spellFile : spellFiles) {
+        SpellDefinition spell = parseSpellDefinition(readJsonFile(spellFile));
         loaded.spells[spell.id] = spell;
+        contentFiles.push_back(spellFile);
     }
 
-    for (const auto& node : document.at("characters")) {
-        CharacterDefinition character = parseCharacterDefinition(node);
+    std::vector<std::filesystem::path> characterFiles;
+    for (const auto& entry : std::filesystem::directory_iterator(configRoot / "characters")) {
+        if (entry.is_regular_file() && entry.path().extension() == ".json") {
+            characterFiles.push_back(std::filesystem::weakly_canonical(entry.path()));
+        }
+    }
+    std::sort(characterFiles.begin(), characterFiles.end());
+
+    for (const auto& characterFile : characterFiles) {
+        CharacterDefinition character = parseCharacterDefinition(readJsonFile(characterFile));
         loaded.characters[character.id] = character;
+        contentFiles.push_back(characterFile);
     }
 
-    if (loaded.spells.empty()) {
-        throw std::runtime_error("GameConfig has no spell definitions");
-    }
-    if (loaded.characters.empty()) {
-        throw std::runtime_error("GameConfig has no character definitions");
-    }
-
-    for (const auto& [id, spell] : loaded.spells) {
-        if (id != spell.id) {
-            throw std::runtime_error("SpellDefinition key mismatch for '" + id + "'");
-        }
-        validateSpellDefinition(spell);
-    }
-
-    for (const auto& [id, character] : loaded.characters) {
-        if (id != character.id) {
-            throw std::runtime_error("CharacterDefinition key mismatch for '" + id + "'");
-        }
-        validateCharacterDefinition(character, loaded.spells);
-    }
-
-    validateWorldDefinition(loaded.world);
+    loaded.contentHash = buildDirectoryContentHash(contentFiles);
     return loaded;
+}
+
+LoadedGameplayConfig loadGameplayConfig() {
+    for (const auto& candidate : getCandidateConfigRoots()) {
+        if (!std::filesystem::exists(candidate)) {
+            continue;
+        }
+
+        std::filesystem::path resolvedPath = std::filesystem::weakly_canonical(candidate);
+        if (std::filesystem::is_regular_file(resolvedPath) && resolvedPath.filename() == "gameplay.json") {
+            std::stringstream buffer;
+            std::ifstream file(resolvedPath);
+            buffer << file.rdbuf();
+            const std::string rawConfig = buffer.str();
+            const json document = json::parse(rawConfig);
+
+            LoadedGameplayConfig loaded;
+            loaded.sourcePath = resolvedPath.string();
+            loaded.contentHash = makeContentHash(rawConfig);
+            loaded.world = parseWorldDefinition(document.at("world"));
+
+            for (const auto& node : document.at("spells")) {
+                SpellDefinition spell = parseSpellDefinition(node);
+                loaded.spells[spell.id] = spell;
+            }
+
+            for (const auto& node : document.at("characters")) {
+                CharacterDefinition character = parseCharacterDefinition(node);
+                loaded.characters[character.id] = character;
+            }
+
+            if (loaded.spells.empty()) {
+                throw std::runtime_error("GameConfig has no spell definitions");
+            }
+            if (loaded.characters.empty()) {
+                throw std::runtime_error("GameConfig has no character definitions");
+            }
+
+            for (const auto& [id, spell] : loaded.spells) {
+                if (id != spell.id) {
+                    throw std::runtime_error("SpellDefinition key mismatch for '" + id + "'");
+                }
+                validateSpellDefinition(spell);
+            }
+
+            for (const auto& [id, character] : loaded.characters) {
+                if (id != character.id) {
+                    throw std::runtime_error("CharacterDefinition key mismatch for '" + id + "'");
+                }
+                validateCharacterDefinition(character, loaded.spells);
+            }
+
+            validateWorldDefinition(loaded.world);
+            return loaded;
+        }
+
+        if (std::filesystem::is_directory(resolvedPath) && isSplitConfigRoot(resolvedPath)) {
+            LoadedGameplayConfig loaded = loadSplitGameplayConfig(resolvedPath);
+
+            if (loaded.spells.empty()) {
+                throw std::runtime_error("GameConfig has no spell definitions");
+            }
+            if (loaded.characters.empty()) {
+                throw std::runtime_error("GameConfig has no character definitions");
+            }
+
+            for (const auto& [id, spell] : loaded.spells) {
+                if (id != spell.id) {
+                    throw std::runtime_error("SpellDefinition key mismatch for '" + id + "'");
+                }
+                validateSpellDefinition(spell);
+            }
+
+            for (const auto& [id, character] : loaded.characters) {
+                if (id != character.id) {
+                    throw std::runtime_error("CharacterDefinition key mismatch for '" + id + "'");
+                }
+                validateCharacterDefinition(character, loaded.spells);
+            }
+
+            validateWorldDefinition(loaded.world);
+            return loaded;
+        }
+    }
+
+    throw std::runtime_error("Could not locate gameplay config. Expected split config at config/{world.json,spells/,characters/} or legacy gameplay.json");
 }
 
 const LoadedGameplayConfig& getLoadedGameplayConfig() {

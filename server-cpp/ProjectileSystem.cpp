@@ -6,6 +6,48 @@
 #include <algorithm>
 #include <cmath>
 
+namespace {
+constexpr int FLAMETHROWER_TICK_COUNT = 6;
+constexpr long long FIRE_BLAST_REHIT_INTERVAL_MS = 1000;
+
+float getFlamethrowerHalfWidthAtDistance(float axialDistance, float maxRange, float maxHalfWidth) {
+    if (maxRange <= 0.0f) {
+        return maxHalfWidth;
+    }
+
+    const float t = std::clamp(axialDistance / maxRange, 0.0f, 1.0f);
+    return 0.5f + (maxHalfWidth - 0.5f) * t;
+}
+
+bool isInsideFlamethrower(
+    float targetCenterX,
+    float targetCenterY,
+    float targetRadius,
+    const ActiveAreaEffect& effect,
+    const SpellDefinition& spell
+) {
+    const float dx = targetCenterX - effect.originX;
+    const float dy = targetCenterY - effect.originY;
+    const float forwardX = std::cos(effect.angle);
+    const float forwardY = std::sin(effect.angle);
+    const float rightX = -forwardY;
+    const float rightY = forwardX;
+
+    const float axial = dx * forwardX + dy * forwardY;
+    if (axial < -targetRadius || axial > spell.range + targetRadius) {
+        return false;
+    }
+
+    const float lateral = std::abs(dx * rightX + dy * rightY);
+    const float maxHalfWidth = getFlamethrowerHalfWidthAtDistance(std::max(0.0f, axial), spell.range, spell.projectileRadius);
+    return lateral <= maxHalfWidth + targetRadius;
+}
+
+bool isPersistentProjectile(const std::string& spellId) {
+    return spellId == "fire_blast";
+}
+}
+
 void ProjectileSystem::releasePendingAutoAttacks(
     std::map<std::string, Player>& players,
     std::vector<PendingAutoAttack>& pendingAutoAttacks,
@@ -34,7 +76,9 @@ void ProjectileSystem::releasePendingAutoAttacks(
             cast.originX,
             cast.originY,
             cast.angle,
-            0.0f
+            0.0f,
+            {},
+            {}
         });
 
         if (network) {
@@ -116,8 +160,18 @@ void ProjectileSystem::updateProjectiles(
                 float distance = std::hypot(targetCenterX - projectile.x, targetCenterY - projectile.y);
 
                 if (distance <= targetRadius + spell.projectileRadius) {
+                    if (isPersistentProjectile(projectile.spellId)) {
+                        const long long lastHit = projectile.playerHitTimes.count(targetId)
+                            ? projectile.playerHitTimes[targetId]
+                            : (nowMs - FIRE_BLAST_REHIT_INTERVAL_MS);
+                        if (nowMs - lastHit < FIRE_BLAST_REHIT_INTERVAL_MS) {
+                            continue;
+                        }
+                        projectile.playerHitTimes[targetId] = nowMs;
+                    }
+
                     PlayerDamageResult damageResult = CombatSystem::applyAttackToPlayer(target, &players[projectile.ownerId], spell.damage, true);
-                    removeProjectile = true;
+                    removeProjectile = !isPersistentProjectile(projectile.spellId);
                     ServerDiagnostics::logCombatEvent("projectileHitPlayer", {
                         {"tick", worldTick},
                         {"projectileId", projectile.id},
@@ -140,7 +194,9 @@ void ProjectileSystem::updateProjectiles(
                             }).dump());
                         }
                     }
-                    break;
+                    if (removeProjectile) {
+                        break;
+                    }
                 }
             }
         }
@@ -151,8 +207,18 @@ void ProjectileSystem::updateProjectiles(
 
                 float distance = std::hypot(dummy.x - projectile.x, dummy.y - projectile.y);
                 if (distance <= (worldDefinition.dummyColliderSize / 2.0f) + spell.projectileRadius) {
+                    if (isPersistentProjectile(projectile.spellId)) {
+                        const long long lastHit = projectile.dummyHitTimes.count(dummyId)
+                            ? projectile.dummyHitTimes[dummyId]
+                            : (nowMs - FIRE_BLAST_REHIT_INTERVAL_MS);
+                        if (nowMs - lastHit < FIRE_BLAST_REHIT_INTERVAL_MS) {
+                            continue;
+                        }
+                        projectile.dummyHitTimes[dummyId] = nowMs;
+                    }
+
                     DummyDamageResult damageResult = CombatSystem::applyDamageToDummy(dummy, spell.damage, nowMs);
-                    removeProjectile = true;
+                    removeProjectile = !isPersistentProjectile(projectile.spellId);
                     ServerDiagnostics::logCombatEvent("projectileHitDummy", {
                         {"tick", worldTick},
                         {"projectileId", projectile.id},
@@ -165,7 +231,9 @@ void ProjectileSystem::updateProjectiles(
                     if (network) {
                         network->broadcast(json({{"event", "dummyDamaged"}, {"tick", worldTick}, {"id", dummyId}, {"hp", damageResult.newHp}}).dump());
                     }
-                    break;
+                    if (removeProjectile) {
+                        break;
+                    }
                 }
             }
         }
@@ -181,4 +249,112 @@ void ProjectileSystem::updateProjectiles(
     }
 
     activeProjectiles = std::move(remaining);
+}
+
+void ProjectileSystem::updateAreaEffects(
+    std::map<std::string, Player>& players,
+    std::map<std::string, DummyEntity>& dummies,
+    std::vector<ActiveAreaEffect>& activeAreaEffects,
+    const WorldDefinition& worldDefinition,
+    unsigned long long worldTick,
+    long long nowMs,
+    NetworkHandler* network
+) {
+    std::vector<ActiveAreaEffect> remaining;
+    remaining.reserve(activeAreaEffects.size());
+
+    for (auto effect : activeAreaEffects) {
+        if (!players.count(effect.ownerId) || players[effect.ownerId].hp <= 0) {
+            continue;
+        }
+
+        const auto& spell = GameConfig::getSpellDefinition(effect.spellId);
+        if (nowMs >= effect.endTimeMs) {
+            continue;
+        }
+
+        if (nowMs < effect.startTimeMs) {
+            remaining.push_back(effect);
+            continue;
+        }
+
+        const int tickDamage = std::max(1, spell.damage / FLAMETHROWER_TICK_COUNT);
+        const int tickIntervalMs = std::max(1, spell.effectDurationMs / FLAMETHROWER_TICK_COUNT);
+
+        while (effect.nextTickTimeMs <= nowMs && effect.ticksApplied < FLAMETHROWER_TICK_COUNT) {
+            for (auto& [targetId, target] : players) {
+                if (targetId == effect.ownerId || target.hp <= 0) {
+                    continue;
+                }
+
+                const float targetCenterX = target.x + target.colliderWidth / 2.0f;
+                const float targetCenterY = target.y + target.colliderHeight / 2.0f;
+                const float targetRadius = std::max(target.colliderWidth, target.colliderHeight) / 2.0f;
+                if (!isInsideFlamethrower(targetCenterX, targetCenterY, targetRadius, effect, spell)) {
+                    continue;
+                }
+
+                PlayerDamageResult damageResult = CombatSystem::applyAttackToPlayer(target, &players[effect.ownerId], tickDamage, true);
+                ServerDiagnostics::logCombatEvent("areaEffectHitPlayer", {
+                    {"tick", worldTick},
+                    {"effectId", effect.id},
+                    {"spellId", effect.spellId},
+                    {"targetId", targetId},
+                    {"ownerId", effect.ownerId},
+                    {"damage", tickDamage},
+                    {"tickIndex", effect.ticksApplied},
+                    {"killed", damageResult.killed}
+                });
+
+                if (network) {
+                    network->broadcast(json({{"event", "playerDamaged"}, {"tick", worldTick}, {"id", targetId}, {"hp", damageResult.newHp}}).dump());
+                    if (damageResult.killed) {
+                        network->broadcast(json({
+                            {"event", "playerScored"},
+                            {"tick", worldTick},
+                            {"victimId", targetId},
+                            {"attackerId", effect.ownerId},
+                            {"targetDeaths", damageResult.victimDeaths},
+                            {"attackerKills", damageResult.attackerKills}
+                        }).dump());
+                    }
+                }
+            }
+
+            for (auto& [dummyId, dummy] : dummies) {
+                if (dummy.hp <= 0) {
+                    continue;
+                }
+
+                if (!isInsideFlamethrower(dummy.x, dummy.y, worldDefinition.dummyColliderSize / 2.0f, effect, spell)) {
+                    continue;
+                }
+
+                DummyDamageResult damageResult = CombatSystem::applyDamageToDummy(dummy, tickDamage, nowMs);
+                ServerDiagnostics::logCombatEvent("areaEffectHitDummy", {
+                    {"tick", worldTick},
+                    {"effectId", effect.id},
+                    {"spellId", effect.spellId},
+                    {"dummyId", dummyId},
+                    {"ownerId", effect.ownerId},
+                    {"damage", tickDamage},
+                    {"tickIndex", effect.ticksApplied},
+                    {"killed", damageResult.killed}
+                });
+
+                if (network) {
+                    network->broadcast(json({{"event", "dummyDamaged"}, {"tick", worldTick}, {"id", dummyId}, {"hp", damageResult.newHp}}).dump());
+                }
+            }
+
+            effect.ticksApplied += 1;
+            effect.nextTickTimeMs += tickIntervalMs;
+        }
+
+        if (effect.ticksApplied < FLAMETHROWER_TICK_COUNT && nowMs < effect.endTimeMs) {
+            remaining.push_back(effect);
+        }
+    }
+
+    activeAreaEffects = std::move(remaining);
 }

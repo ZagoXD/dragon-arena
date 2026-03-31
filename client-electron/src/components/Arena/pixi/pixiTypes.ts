@@ -40,6 +40,8 @@ export interface AimingArrowView {
   angle: number
   dist: number
   width: number
+  endWidth?: number
+  style?: 'arrow' | 'beam' | 'beam_constant'
   originX: number
   originY: number
 }
@@ -50,6 +52,20 @@ export interface ImpactEffectView {
   y: number
   radius: number
   color: number
+  life: number
+  maxLife: number
+}
+
+export interface ActiveSkillEffectView {
+  id: string
+  ownerId: string
+  spellId: string
+  spell: ResolvedCharacterConfig['autoAttack']
+  x: number
+  y: number
+  angle: number
+  warmupMs: number
+  activeDurationMs: number
   life: number
   maxLife: number
 }
@@ -68,5 +84,7 @@ export interface PixiArenaViewProps {
   localPlayer: LocalPlayerView | null
   projectiles: ProjectileView[]
   impactEffects: ImpactEffectView[]
+  activeSkillEffects: ActiveSkillEffectView[]
   aimingArrowData: AimingArrowView | null
+  onReadyChange?: (ready: boolean) => void
 }

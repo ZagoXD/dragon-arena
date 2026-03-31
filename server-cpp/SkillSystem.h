@@ -22,6 +22,8 @@ public:
 
     static bool useSkill(
         std::map<std::string, Player>& players,
+        std::vector<ActiveProjectile>& activeProjectiles,
+        std::vector<ActiveAreaEffect>& activeAreaEffects,
         unsigned long long worldTick,
         const std::string& playerId,
         const std::string& skillId,

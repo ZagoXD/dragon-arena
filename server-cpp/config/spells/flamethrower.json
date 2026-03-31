@@ -1,0 +1,11 @@
+{
+  "id": "flamethrower",
+  "name": "Flamethrower",
+  "damage": 300,
+  "range": 288.0,
+  "castTimeMs": 300,
+  "cooldownMs": 5000,
+  "projectileSpeed": 0.0,
+  "projectileRadius": 64.5,
+  "effectDurationMs": 600
+}

@@ -156,7 +156,7 @@ bool GameWorld::requestAutoAttack(std::string playerId, float targetX, float tar
 
 bool GameWorld::useSkill(std::string playerId, std::string skillId, float targetX, float targetY, NetworkHandler* network) {
     std::lock_guard<std::mutex> lock(mtx);
-    return SkillSystem::useSkill(players, worldTick, playerId, skillId, targetX, targetY, network);
+    return SkillSystem::useSkill(players, activeProjectiles, activeAreaEffects, worldTick, playerId, skillId, targetX, targetY, network);
 }
 
 void GameWorld::updateSimulation(NetworkHandler* network, float deltaSeconds, long long now_ms) {
@@ -164,6 +164,7 @@ void GameWorld::updateSimulation(NetworkHandler* network, float deltaSeconds, lo
     WorldTickRunner::updatePlayerMovement(players, mapLoader, worldTick, deltaSeconds, network);
     updatePendingAutoAttacks(network, now_ms);
     updateProjectiles(network, deltaSeconds, now_ms);
+    updateAreaEffects(network, now_ms);
     updateDummyRespawns(network, now_ms);
 }
 
@@ -213,6 +214,18 @@ void GameWorld::updateProjectiles(NetworkHandler* network, float deltaSeconds, l
         worldDefinition,
         worldTick,
         deltaSeconds,
+        now_ms,
+        network
+    );
+}
+
+void GameWorld::updateAreaEffects(NetworkHandler* network, long long now_ms) {
+    ProjectileSystem::updateAreaEffects(
+        players,
+        dummies,
+        activeAreaEffects,
+        worldDefinition,
+        worldTick,
         now_ms,
         network
     );

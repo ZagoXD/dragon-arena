@@ -1,5 +1,6 @@
-import { Container, Graphics } from 'pixi.js'
-import { AimingArrowView, ImpactEffectView } from './pixiTypes'
+import { Container, Graphics, Sprite, Texture } from 'pixi.js'
+import { getCachedFrameTexture, getResolvedTexture } from './pixiTextureCache'
+import { ActiveSkillEffectView, AimingArrowView, ImpactEffectView } from './pixiTypes'
 
 export function buildAimingArrow(aimingArrowData: AimingArrowView | null) {
   if (!aimingArrowData) {
@@ -11,6 +12,42 @@ export function buildAimingArrow(aimingArrowData: AimingArrowView | null) {
   container.y = aimingArrowData.originY
   container.rotation = aimingArrowData.angle
   container.zIndex = aimingArrowData.originY + 140
+
+  if (aimingArrowData.style === 'beam' || aimingArrowData.style === 'beam_constant') {
+    const isConstantBeam = aimingArrowData.style === 'beam_constant'
+    const startWidth = isConstantBeam ? aimingArrowData.width : 2
+    const endWidth = Math.max(startWidth + 2, aimingArrowData.endWidth ?? aimingArrowData.width)
+    const fill = new Graphics()
+    fill.poly([
+      0, -startWidth / 2,
+      aimingArrowData.dist, -endWidth / 2,
+      aimingArrowData.dist, endWidth / 2,
+      0, startWidth / 2,
+    ])
+    fill.fill({ color: 0xffa347, alpha: 0.22 })
+    fill.stroke({ width: 2, color: 0xffdd9c, alpha: 0.5, join: 'round' })
+
+    const core = new Graphics()
+    core.poly([
+      0, -(isConstantBeam ? startWidth * 0.18 : 0.5),
+      aimingArrowData.dist, -endWidth * 0.18,
+      aimingArrowData.dist, endWidth * 0.18,
+      0, isConstantBeam ? startWidth * 0.18 : 0.5,
+    ])
+    core.fill({ color: 0xfff0bf, alpha: 0.88 })
+
+    if (isConstantBeam) {
+      container.addChild(fill, core)
+      return container
+    }
+
+    const originPulse = new Graphics()
+    originPulse.circle(0, 0, 7)
+    originPulse.fill({ color: 0xffd38a, alpha: 0.22 })
+    originPulse.stroke({ width: 2, color: 0xfff0bf, alpha: 0.55 })
+    container.addChild(fill, core, originPulse)
+    return container
+  }
 
   const shaftWidth = Math.max(12, aimingArrowData.width)
   const glowWidth = shaftWidth + 8
@@ -67,6 +104,58 @@ export function buildAimingArrow(aimingArrowData: AimingArrowView | null) {
   originCore.fill({ color: 0xfff7d6, alpha: 0.95 })
 
   container.addChild(glow, body, core, guideMarks, tipGlow, tip, originPulse, originCore)
+  return container
+}
+
+export function buildSkillEffect(
+  frameTextureCache: Map<string, Texture>,
+  effect: ActiveSkillEffectView
+) {
+  if (effect.spell.effectKind !== 'beam' || effect.warmupMs > 0) {
+    return null
+  }
+
+  const texture = getResolvedTexture(effect.spell.imageSrc)
+  if (!texture) {
+    return null
+  }
+
+  const frameWidth = effect.spell.frameWidth || effect.spell.frameSize
+  const frameHeight = effect.spell.frameHeight || effect.spell.frameSize
+  const frameCount = effect.spell.frameCount || 1
+  const elapsedMs = effect.activeDurationMs - effect.life
+  const activeDurationMs = Math.max(1, effect.activeDurationMs)
+  const progress = Math.min(0.999, Math.max(0, elapsedMs / activeDurationMs))
+  const frameIndex = Math.min(frameCount - 1, Math.floor(progress * frameCount))
+
+  const frameTexture = getCachedFrameTexture(
+    frameTextureCache,
+    `skill:${effect.spell.imageSrc}:${frameIndex}:${frameWidth}:${frameHeight}`,
+    texture,
+    0,
+    frameIndex * frameHeight,
+    frameWidth,
+    frameHeight
+  )
+
+  if (!frameTexture) {
+    return null
+  }
+
+  const container = new Container()
+  container.x = effect.x
+  container.y = effect.y
+  container.rotation = effect.angle + Math.PI / 2
+  container.zIndex = effect.y + 110
+
+  const sprite = new Sprite(frameTexture)
+  sprite.anchor.set(0.5, 1)
+  sprite.width = frameWidth
+  sprite.height = frameHeight * 1.5
+  sprite.alpha = 0.98
+  sprite.roundPixels = true
+
+  container.addChild(sprite)
   return container
 }
 

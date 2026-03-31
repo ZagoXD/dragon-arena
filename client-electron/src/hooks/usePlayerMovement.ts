@@ -22,6 +22,7 @@ export interface PlayerState {
 }
 
 interface Options {
+  enabled?: boolean
   mapWidth: number
   mapHeight: number
   tileSize: number
@@ -63,6 +64,7 @@ function isBlocked(mapData: any, nx: number, ny: number, width: number, height: 
 }
 
 export function usePlayerMovement({
+  enabled = true,
   mapWidth,
   mapHeight,
   tileSize,
@@ -114,7 +116,7 @@ export function usePlayerMovement({
   }, [])
 
   useGameLoop((deltaMs) => {
-    if (state.isDashing || hp <= 0) return
+    if (!enabled || state.isDashing || hp <= 0) return
 
     const held = keys.current
     if (!held) {

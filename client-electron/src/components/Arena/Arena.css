@@ -41,6 +41,59 @@
   z-index: 0;
 }
 
+.arena-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 170, 70, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(7, 8, 15, 0.9) 0%, rgba(4, 5, 10, 0.96) 100%);
+  backdrop-filter: blur(8px);
+}
+
+.arena-loading-card {
+  min-width: 320px;
+  padding: 30px 34px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 196, 110, 0.18);
+  background: rgba(12, 14, 24, 0.88);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  color: #f4ead3;
+}
+
+.arena-loading-card h2 {
+  margin: 0 0 10px;
+  font-size: 1.35rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffd18a;
+}
+
+.arena-loading-card p {
+  margin: 0;
+  font-size: 1rem;
+  color: rgba(244, 234, 211, 0.82);
+}
+
+.arena-loading-spinner {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 196, 110, 0.18);
+  border-top-color: #ffb347;
+  animation: arenaSpin 0.9s linear infinite;
+}
+
+@keyframes arenaSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Inner vignette overlay — depth sense inside viewport */
 .arena-viewport::after {
   content: '';

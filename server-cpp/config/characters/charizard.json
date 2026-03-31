@@ -1,0 +1,10 @@
+{
+  "id": "charizard",
+  "name": "Charizard",
+  "maxHp": 1000,
+  "movementSpeed": 220.0,
+  "colliderWidth": 64.0,
+  "colliderHeight": 64.0,
+  "autoAttackSpellId": "ember",
+  "skillIds": ["dragon_dive", "flamethrower", "fire_blast"]
+}

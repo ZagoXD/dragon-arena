@@ -4,6 +4,26 @@ import { ANIMATION_FPS } from '../../config/spriteMap'
 import './HUD.css'
 
 function getSpellIconStyle(spell: ResolvedCharacterConfig['autoAttack']): React.CSSProperties {
+  if (spell.id === 'flamethrower') {
+    return {
+      backgroundImage: `url(${spell.imageSrc})`,
+      backgroundSize: '100% 600%',
+      backgroundPosition: 'center 40%',
+      backgroundRepeat: 'no-repeat',
+      transform: 'rotate(90deg) scale(1.15)',
+      transformOrigin: 'center',
+    }
+  }
+
+  if (spell.id === 'fire_blast') {
+    return {
+      backgroundImage: `url(${spell.imageSrc})`,
+      backgroundSize: '100% 400%',
+      backgroundPosition: 'center top',
+      backgroundRepeat: 'no-repeat',
+    }
+  }
+
   if (spell.iconMode === 'single_fit') {
     return {
       backgroundImage: `url(${spell.imageSrc})`,

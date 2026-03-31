@@ -1,0 +1,11 @@
+{
+  "id": "fire_blast",
+  "name": "Fire Blast",
+  "damage": 450,
+  "range": 600.0,
+  "castTimeMs": 300,
+  "cooldownMs": 5000,
+  "projectileSpeed": 450.0,
+  "projectileRadius": 64.0,
+  "effectDurationMs": 0
+}

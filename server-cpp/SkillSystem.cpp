@@ -2,6 +2,7 @@
 #include "GameConfig.h"
 #include "NetworkHandler.h"
 #include "ServerDiagnostics.h"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <sstream>
@@ -12,6 +13,48 @@ std::string makeProjectileId(const std::string& ownerId, long long nowMs) {
     std::ostringstream id;
     id << "proj_" << ownerId << "_" << nowMs << "_" << sequence++;
     return id.str();
+}
+
+void broadcastSkillUsed(
+    NetworkHandler* network,
+    unsigned long long worldTick,
+    const std::string& playerId,
+    const std::string& skillId,
+    float targetX,
+    float targetY,
+    float originX,
+    float originY,
+    float angle,
+    const SpellDefinition& spell
+) {
+    if (!network) {
+        return;
+    }
+
+    ServerDiagnostics::logCombatEvent("skillAccepted", {
+        {"tick", worldTick},
+        {"playerId", playerId},
+        {"skillId", skillId},
+        {"targetX", targetX},
+        {"targetY", targetY},
+        {"originX", originX},
+        {"originY", originY},
+        {"angle", angle}
+    });
+    network->broadcast(json({
+        {"event", "skillUsed"},
+        {"tick", worldTick},
+        {"id", playerId},
+        {"skillId", skillId},
+        {"targetX", targetX},
+        {"targetY", targetY},
+        {"originX", originX},
+        {"originY", originY},
+        {"angle", angle},
+        {"castTimeMs", spell.castTimeMs},
+        {"cooldownMs", spell.cooldownMs},
+        {"effectDurationMs", spell.effectDurationMs}
+    }).dump());
 }
 }
 
@@ -89,6 +132,8 @@ bool SkillSystem::requestAutoAttack(
 
 bool SkillSystem::useSkill(
     std::map<std::string, Player>& players,
+    std::vector<ActiveProjectile>& activeProjectiles,
+    std::vector<ActiveAreaEffect>& activeAreaEffects,
     unsigned long long worldTick,
     const std::string& playerId,
     const std::string& skillId,
@@ -101,6 +146,7 @@ bool SkillSystem::useSkill(
 
     Player& player = players[playerId];
     if (player.isDashing || player.hp <= 0) return false;
+    if (std::find(player.skillIds.begin(), player.skillIds.end(), skillId) == player.skillIds.end()) return false;
 
     const auto& spell = GameConfig::getSpellDefinition(skillId);
     auto now = std::chrono::steady_clock::now();
@@ -110,6 +156,10 @@ bool SkillSystem::useSkill(
     if (nowMs - lastUse < spell.cooldownMs) {
         return false;
     }
+
+    float originX = player.x + player.colliderWidth / 2.0f;
+    float originY = player.y + player.colliderHeight / 2.0f;
+    float angle = std::atan2(targetY - originY, targetX - originX);
 
     if (skillId == "dragon_dive") {
         float dx = targetX - player.x;
@@ -130,24 +180,64 @@ bool SkillSystem::useSkill(
         player.lastSkillUseTimes[skillId] = nowMs;
         player.dashHitIds.clear();
 
+        broadcastSkillUsed(network, worldTick, playerId, skillId, targetX, targetY, originX, originY, angle, spell);
+
+        return true;
+    }
+
+    if (skillId == "flamethrower") {
+        activeAreaEffects.push_back({
+            "area_" + playerId + "_" + std::to_string(nowMs),
+            playerId,
+            skillId,
+            originX,
+            originY,
+            angle,
+            nowMs + spell.castTimeMs,
+            nowMs + spell.castTimeMs + spell.effectDurationMs,
+            nowMs + spell.castTimeMs,
+            0
+        });
+        player.lastSkillUseTimes[skillId] = nowMs;
+
+        broadcastSkillUsed(network, worldTick, playerId, skillId, targetX, targetY, originX, originY, angle, spell);
+
+        return true;
+    }
+
+    if (skillId == "fire_blast") {
+        const float clampedTargetX = originX + std::cos(angle) * spell.range;
+        const float clampedTargetY = originY + std::sin(angle) * spell.range;
+
+        player.lastSkillUseTimes[skillId] = nowMs;
+        const std::string projectileId = makeProjectileId(playerId, nowMs);
+        activeProjectiles.push_back({
+            projectileId,
+            playerId,
+            skillId,
+            originX,
+            originY,
+            angle,
+            0.0f,
+            {},
+            {}
+        });
+
+        broadcastSkillUsed(network, worldTick, playerId, skillId, clampedTargetX, clampedTargetY, originX, originY, angle, spell);
+
         if (network) {
-            ServerDiagnostics::logCombatEvent("skillAccepted", {
-                {"tick", worldTick},
-                {"playerId", playerId},
-                {"skillId", skillId},
-                {"targetX", targetX},
-                {"targetY", targetY}
-            });
             network->broadcast(json({
-                {"event", "skillUsed"},
+                {"event", "projectileSpawned"},
                 {"tick", worldTick},
-                {"id", playerId},
-                {"skillId", skillId},
-                {"targetX", targetX},
-                {"targetY", targetY},
-                {"castTimeMs", spell.castTimeMs},
-                {"cooldownMs", spell.cooldownMs},
-                {"effectDurationMs", spell.effectDurationMs}
+                {"projectile", {
+                    {"id", projectileId},
+                    {"ownerId", playerId},
+                    {"spellId", skillId},
+                    {"x", originX},
+                    {"y", originY},
+                    {"angle", angle},
+                    {"distance", 0.0f}
+                }}
             }).dump());
         }
 

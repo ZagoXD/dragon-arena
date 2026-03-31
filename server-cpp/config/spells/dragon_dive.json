@@ -1,0 +1,11 @@
+{
+  "id": "dragon_dive",
+  "name": "Dragon Dive",
+  "damage": 200,
+  "range": 600.0,
+  "castTimeMs": 0,
+  "cooldownMs": 3000,
+  "projectileSpeed": 0.0,
+  "projectileRadius": 32.0,
+  "effectDurationMs": 300
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Application,
   Assets,
@@ -8,7 +8,7 @@ import {
   type DestroyOptions,
 } from 'pixi.js'
 import { VIEWPORT_HEIGHT, VIEWPORT_WIDTH } from '../../config/spriteMap'
-import { buildAimingArrow, buildImpactEffect } from './pixi/pixiEffects'
+import { buildAimingArrow, buildImpactEffect, buildSkillEffect } from './pixi/pixiEffects'
 import { buildDummy, buildPlayer, buildProjectile, PIXI_STATIC_ASSET_URLS } from './pixi/pixiEntities'
 import { buildMapLayer, getTilesetInfo } from './pixi/pixiMap'
 import { destroyTextureCache } from './pixi/pixiTextureCache'
@@ -55,7 +55,17 @@ export function PixiArenaView(props: PixiArenaViewProps) {
   const foregroundRef = useRef<Container | null>(null)
   const overlayRef = useRef<Container | null>(null)
   const frameTextureCacheRef = useRef<Map<string, Texture>>(new Map())
+  const onReadyChangeRef = useRef(props.onReadyChange)
   const [assetsReadyVersion, setAssetsReadyVersion] = useState(0)
+
+  onReadyChangeRef.current = props.onReadyChange
+
+  const assetUrls = useMemo(() => collectAssetUrls(props), [
+    props.mapData,
+    props.localPlayer?.character.id,
+    props.remotePlayers.map(player => player.character.id).join('|'),
+  ])
+  const assetUrlsKey = useMemo(() => assetUrls.join('|'), [assetUrls])
 
   useEffect(() => {
     let disposed = false
@@ -124,8 +134,10 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       overlayRef.current = null
 
       if (hostRef.current) {
-        hostRef.current.innerHTML = ''
+      hostRef.current.innerHTML = ''
       }
+
+      onReadyChangeRef.current?.(false)
     }
   }, [])
 
@@ -133,8 +145,10 @@ export function PixiArenaView(props: PixiArenaViewProps) {
     let cancelled = false
 
     const loadAssets = async () => {
+      onReadyChangeRef.current?.(false)
+
       try {
-        await Assets.load(collectAssetUrls(props))
+        await Assets.load(assetUrls)
       } catch (error) {
         console.error('PixiArenaView: failed to load one or more assets.', error)
       }
@@ -145,6 +159,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
 
       worldRef.current?.position.set(-props.cameraX, -props.cameraY)
       setAssetsReadyVersion(version => version + 1)
+      onReadyChangeRef.current?.(true)
     }
 
     loadAssets()
@@ -153,12 +168,8 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       cancelled = true
     }
   }, [
-    props.mapData,
-    props.cameraX,
-    props.cameraY,
-    props.localPlayer,
-    props.remotePlayers,
-    props.projectiles,
+    assetUrls,
+    assetUrlsKey,
   ])
 
   useEffect(() => {
@@ -261,6 +272,17 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       entities.addChild(buildImpactEffect(effect))
     })
 
+    props.activeSkillEffects.forEach(effect => {
+      if (!isPointInsideViewport(effect.x, effect.y, viewportBounds, effect.spell.range)) {
+        return
+      }
+
+      const skillEffect = buildSkillEffect(frameTextureCacheRef.current, effect)
+      if (skillEffect) {
+        entities.addChild(skillEffect)
+      }
+    })
+
     const aimingArrow = buildAimingArrow(props.aimingArrowData)
     if (aimingArrow) {
       overlay.addChild(aimingArrow)
@@ -273,47 +295,12 @@ export function PixiArenaView(props: PixiArenaViewProps) {
     props.localPlayer,
     props.projectiles,
     props.impactEffects,
+    props.activeSkillEffects,
     props.aimingArrowData,
     props.cameraX,
     props.cameraY,
     assetsReadyVersion,
   ])
-
-  useEffect(() => {
-    let cancelled = false
-
-    const warmStaticAssets = async () => {
-      if (
-        !backgroundRef.current ||
-        !foregroundRef.current
-      ) {
-        return
-      }
-
-      const staticAssetUrls = props.mapData.tilesets
-        .map(getTilesetInfo)
-        .filter((tileset: TilesetInfo | null): tileset is TilesetInfo => tileset !== null)
-        .map((tileset: TilesetInfo) => tileset.src)
-
-      try {
-        await Assets.load(staticAssetUrls)
-      } catch (error) {
-        console.error('PixiArenaView: failed to warm static map assets.', error)
-      }
-
-      if (cancelled) {
-        return
-      }
-
-      setAssetsReadyVersion(version => version + 1)
-    }
-
-    warmStaticAssets()
-
-    return () => {
-      cancelled = true
-    }
-  }, [props.mapData])
 
   return <div ref={hostRef} className="arena-pixi-root" />
 }

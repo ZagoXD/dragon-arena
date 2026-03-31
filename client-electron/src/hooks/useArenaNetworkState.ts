@@ -10,6 +10,7 @@ import {
 } from './useSocket'
 import { GameplayBootstrap } from '../types/gameplay'
 import { DummyData, ProjectileData } from '../types/arenaWorld'
+import { ActiveSkillEffectView } from '../components/Arena/pixi/pixiTypes'
 
 interface UseArenaNetworkStateParams {
   playerName: string
@@ -81,6 +82,7 @@ export function useArenaNetworkState({
   const [authoritativePosition, setAuthoritativePosition] = useState<{ x: number, y: number } | null>(null)
   const [localDashState, setLocalDashState] = useState<LocalDashState>({ isDashing: false })
   const [impactEffects, setImpactEffects] = useState<ImpactEffect[]>([])
+  const [activeSkillEffects, setActiveSkillEffects] = useState<ActiveSkillEffectView[]>([])
 
   const otherPlayersRef = useRef<Record<string, NetPlayer>>({})
   const remoteSamplesRef = useRef<Record<string, RemotePlayerSample[]>>({})
@@ -182,6 +184,44 @@ export function useArenaNetworkState({
 
   const handleSkillUsed = useCallback((event: SkillUsedEvent) => {
     setSkillCooldowns(prev => ({ ...prev, [event.skillId]: event.cooldownMs }))
+
+    const currentBootstrap = bootstrapRef.current
+    if (currentBootstrap) {
+      const owner =
+        event.id === socketIdRef.current
+          ? currentBootstrap.player
+          : otherPlayersRef.current[event.id]
+
+      if (owner) {
+        const resolvedCharacter = resolveCharacterConfig(owner.characterId, currentBootstrap.characters, currentBootstrap.spells)
+        const resolvedSpell = resolvedCharacter?.skills.find(skill => skill.id === event.skillId)
+
+        if (resolvedSpell?.effectKind === 'beam') {
+          const fallbackOriginX = owner.x + owner.colliderWidth / 2
+          const fallbackOriginY = owner.y + owner.colliderHeight / 2
+          const originX = event.originX ?? fallbackOriginX
+          const originY = event.originY ?? fallbackOriginY
+          const angle = event.angle ?? Math.atan2(event.targetY - originY, event.targetX - originX)
+
+          setActiveSkillEffects(prev => [
+            ...prev,
+            {
+              id: `${event.id}-${event.skillId}-${performance.now()}`,
+              ownerId: event.id,
+              spellId: event.skillId,
+              spell: resolvedSpell,
+              x: originX,
+              y: originY,
+              angle,
+              warmupMs: event.castTimeMs,
+              activeDurationMs: event.effectDurationMs,
+              life: event.castTimeMs + event.effectDurationMs,
+              maxLife: event.castTimeMs + event.effectDurationMs,
+            },
+          ])
+        }
+      }
+    }
 
     if (event.id === socketIdRef.current && event.skillId === 'dragon_dive' && bootstrapRef.current?.player) {
       const player = bootstrapRef.current.player
@@ -411,6 +451,14 @@ export function useArenaNetworkState({
       .map(effect => ({ ...effect, life: effect.life - deltaMs }))
       .filter(effect => effect.life > 0))
 
+    setActiveSkillEffects(prev => prev
+      .map(effect => ({
+        ...effect,
+        warmupMs: Math.max(0, effect.warmupMs - deltaMs),
+        life: effect.life - deltaMs,
+      }))
+      .filter(effect => effect.life > 0))
+
     setSkillCooldowns(prev => {
       const next: Record<string, number> = {}
       let changed = false
@@ -450,6 +498,7 @@ export function useArenaNetworkState({
     authoritativePosition,
     localDashState,
     impactEffects,
+    activeSkillEffects,
     emitMove,
     emitShoot,
     emitRespawn,

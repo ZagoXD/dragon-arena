@@ -19,6 +19,7 @@ private:
     std::map<std::string, Player> players;
     std::map<std::string, DummyEntity> dummies;
     std::vector<ActiveProjectile> activeProjectiles;
+    std::vector<ActiveAreaEffect> activeAreaEffects;
     std::vector<PendingAutoAttack> pendingAutoAttacks;
     std::mutex mtx;
     WorldDefinition worldDefinition;
@@ -63,6 +64,7 @@ private:
     void updateDummyRespawns(NetworkHandler* network, long long now_ms);
     void updatePendingAutoAttacks(NetworkHandler* network, long long now_ms);
     void updateProjectiles(NetworkHandler* network, float deltaSeconds, long long now_ms);
+    void updateAreaEffects(NetworkHandler* network, long long now_ms);
 };
 
 #endif

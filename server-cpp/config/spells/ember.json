@@ -1,0 +1,11 @@
+{
+  "id": "ember",
+  "name": "Ember",
+  "damage": 50,
+  "range": 600.0,
+  "castTimeMs": 300,
+  "cooldownMs": 800,
+  "projectileSpeed": 1000.0,
+  "projectileRadius": 16.0,
+  "effectDurationMs": 0
+}

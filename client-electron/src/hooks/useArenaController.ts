@@ -6,6 +6,7 @@ import { ResolvedCharacterConfig, ResolvedSpellConfig, VisualCharacterConfig } f
 import { VIEWPORT_HEIGHT, VIEWPORT_WIDTH, getClosest4WayDirection } from '../config/spriteMap'
 
 interface UseArenaControllerParams {
+  inputEnabled: boolean
   character: ResolvedCharacterConfig | null
   fallbackVisual: VisualCharacterConfig
   bootstrapPlayer?: {
@@ -30,6 +31,7 @@ interface UseArenaControllerParams {
 }
 
 export function useArenaController({
+  inputEnabled,
   character,
   fallbackVisual,
   bootstrapPlayer,
@@ -57,6 +59,8 @@ export function useArenaController({
     angle: number
     dist: number
     width: number
+    endWidth?: number
+    style?: 'arrow' | 'beam' | 'beam_constant'
     originX: number
     originY: number
   } | null>(null)
@@ -72,6 +76,7 @@ export function useArenaController({
   const isMouseDownRef = useRef(false)
 
   const player = usePlayerMovement({
+    enabled: inputEnabled,
     mapWidth,
     mapHeight,
     tileSize,
@@ -149,6 +154,7 @@ export function useArenaController({
   cameraRef.current = camera
 
   const fireActiveSkill = useCallback(() => {
+    if (!inputEnabled) return
     const activeSkill = aimingSkillRef.current
     if (!activeSkill || !character) return
 
@@ -164,6 +170,13 @@ export function useArenaController({
     const originX = playerRef.current.x + character.colliderWidth / 2
     const originY = playerRef.current.y + character.colliderHeight / 2
     const angle = Math.atan2(targetWorldY - originY, targetWorldX - originX)
+    const usesFixedRange = activeSkill.id === 'flamethrower' || activeSkill.id === 'fire_blast'
+    const resolvedTargetX = usesFixedRange
+      ? originX + Math.cos(angle) * activeSkill.range
+      : targetWorldX
+    const resolvedTargetY = usesFixedRange
+      ? originY + Math.sin(angle) * activeSkill.range
+      : targetWorldY
     playerRef.current.setDirection(getClosest4WayDirection(angle))
 
     if (skillRequestPendingRef.current[activeSkill.id]) return
@@ -175,9 +188,9 @@ export function useArenaController({
       skillRequestPendingRef.current[activeSkill.id] = false
       delete skillPendingTimeoutsRef.current[activeSkill.id]
     }, 400)
-    emitUseSkill(activeSkill.id, targetWorldX, targetWorldY)
+    emitUseSkill(activeSkill.id, resolvedTargetX, resolvedTargetY)
     setAimingSkill(null)
-  }, [character, emitUseSkill, mousePos, scale])
+  }, [character, emitUseSkill, inputEnabled, mousePos, scale])
 
   useEffect(() => {
     if (autoAttackCD <= 0) return
@@ -201,6 +214,9 @@ export function useArenaController({
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
+      if (!inputEnabled) {
+        return
+      }
       if (e.button === 0) {
         if (aimingSkillRef.current) fireActiveSkill()
         else isMouseDownRef.current = true
@@ -209,6 +225,9 @@ export function useArenaController({
     }
 
     const onMouseUp = (e: MouseEvent) => {
+      if (!inputEnabled) {
+        return
+      }
       if (e.button === 0) isMouseDownRef.current = false
     }
 
@@ -222,12 +241,15 @@ export function useArenaController({
       window.removeEventListener('mouseup', onMouseUp)
       window.removeEventListener('contextmenu', onContext)
     }
-  }, [fireActiveSkill])
+  }, [fireActiveSkill, inputEnabled])
 
   useEffect(() => {
     if (!character) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!inputEnabled && e.key !== 'Escape') {
+        return
+      }
       if (e.key === 'Tab') {
         e.preventDefault()
         setShowScoreboard(true)
@@ -235,6 +257,14 @@ export function useArenaController({
       if (e.key === '1' && character.skills[0]) {
         const cd = skillCooldowns[character.skills[0].id] || 0
         if (cd <= 0) setAimingSkill(character.skills[0])
+      }
+      if (e.key === '2' && character.skills[1]) {
+        const cd = skillCooldowns[character.skills[1].id] || 0
+        if (cd <= 0) setAimingSkill(character.skills[1])
+      }
+      if (e.key === '3' && character.skills[2]) {
+        const cd = skillCooldowns[character.skills[2].id] || 0
+        if (cd <= 0) setAimingSkill(character.skills[2])
       }
       if (e.key === 'Escape') {
         if (aimingSkillRef.current) {
@@ -258,10 +288,10 @@ export function useArenaController({
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [character, skillCooldowns, hasAuthoritativePlayerState, hp, onReturnToSelect, respawnAvailableAt])
+  }, [character, skillCooldowns, hasAuthoritativePlayerState, hp, inputEnabled, onReturnToSelect, respawnAvailableAt])
 
   useGameLoop(() => {
-    if (!character) return
+    if (!character || !inputEnabled) return
 
     if (aimingSkillRef.current) {
       const viewport = viewportRef.current
@@ -276,13 +306,25 @@ export function useArenaController({
       const originY = playerRef.current.y + character.colliderHeight / 2
       const dx = targetWorldX - originX
       const dy = targetWorldY - originY
-      const dist = Math.min(aimingSkillRef.current.range, Math.hypot(dx, dy))
+      const dist = aimingSkillRef.current.id === 'flamethrower'
+        ? aimingSkillRef.current.range
+        : Math.min(aimingSkillRef.current.range, Math.hypot(dx, dy))
       const angle = Math.atan2(dy, dx)
+      const usesBeamStyle =
+        aimingSkillRef.current.id === 'flamethrower' || aimingSkillRef.current.id === 'fire_blast'
+      const aimingStyle =
+        aimingSkillRef.current.id === 'fire_blast'
+          ? 'beam_constant'
+          : (aimingSkillRef.current.aimingStyle || 'arrow')
 
       setAimingArrowData({
         angle,
         dist,
         width: aimingSkillRef.current.aimingWidth || 32,
+        endWidth: usesBeamStyle
+          ? (aimingSkillRef.current.frameWidth || aimingSkillRef.current.aimingWidth || 129)
+          : undefined,
+        style: aimingStyle,
         originX,
         originY,
       })

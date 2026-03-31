@@ -49,6 +49,9 @@ export interface SkillUsedEvent {
   skillId: string
   targetX: number
   targetY: number
+  originX?: number
+  originY?: number
+  angle?: number
   castTimeMs: number
   cooldownMs: number
   effectDurationMs: number

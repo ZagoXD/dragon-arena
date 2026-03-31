@@ -1,0 +1,9 @@
+{
+  "tileSize": 64,
+  "mapWidth": 2048,
+  "mapHeight": 1280,
+  "dummyMaxHp": 500,
+  "dummyRespawnMs": 10000,
+  "dummyColliderSize": 64,
+  "playerRespawnMs": 5000
+}

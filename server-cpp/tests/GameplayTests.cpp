@@ -31,14 +31,14 @@ void testGameConfigValidation() {
 
     const auto& charizard = GameConfig::getCharacterDefinition("charizard");
     assert(charizard.autoAttackSpellId == "ember");
-    assert(charizard.skillIds.size() == 1);
+    assert(charizard.skillIds.size() == 3);
     assert(!GameConfig::getLoadedConfigPath().empty());
-    assert(GameConfig::getLoadedConfigPath().find("gameplay.json") != std::string::npos);
+    assert(GameConfig::getLoadedConfigPath().find("config") != std::string::npos);
     assert(!GameConfig::getContentHash().empty());
 
     json summary = GameConfig::buildContentSummary();
     assert(summary["characters"]["count"] == 1);
-    assert(summary["spells"]["count"] == 2);
+    assert(summary["spells"]["count"] == 4);
 }
 
 void testMovementIntentAndBounds() {
@@ -144,15 +144,17 @@ void testAutoAttackCastAndProjectileLifecycle() {
 
 void testSkillCooldownAndDashState() {
     std::map<std::string, Player> players;
+    std::vector<ActiveProjectile> activeProjectiles;
+    std::vector<ActiveAreaEffect> activeAreaEffects;
     players["attacker"] = makeCharizard("attacker");
     players["attacker"].x = 100.0f;
     players["attacker"].y = 100.0f;
 
-    bool used = SkillSystem::useSkill(players, 20, "attacker", "dragon_dive", 1000.0f, 100.0f, nullptr);
+    bool used = SkillSystem::useSkill(players, activeProjectiles, activeAreaEffects, 20, "attacker", "dragon_dive", 1000.0f, 100.0f, nullptr);
     assert(used);
     assert(players["attacker"].isDashing);
     assert(players["attacker"].dashTargetX <= players["attacker"].x + GameConfig::getSpellDefinition("dragon_dive").range + 0.1f);
-    assert(!SkillSystem::useSkill(players, 20, "attacker", "dragon_dive", 1000.0f, 100.0f, nullptr));
+    assert(!SkillSystem::useSkill(players, activeProjectiles, activeAreaEffects, 20, "attacker", "dragon_dive", 1000.0f, 100.0f, nullptr));
 }
 
 void testDashDamageAndRespawn() {
@@ -202,7 +204,7 @@ void testWorldSetupAndProtocolPayloads() {
     assert(players["p"].y >= 0.0f);
 
     std::vector<ActiveProjectile> projectiles = {
-        {"proj_1", "p", "ember", 100.0f, 100.0f, 0.0f, 20.0f}
+        {"proj_1", "p", "ember", 100.0f, 100.0f, 0.0f, 20.0f, {}, {}}
     };
 
     json snapshot = WorldSnapshotBuilder::buildWorldSnapshot(42, players, dummies, projectiles);

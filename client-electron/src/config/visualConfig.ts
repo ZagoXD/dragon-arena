@@ -1,6 +1,8 @@
 import charizardSrc from '../assets/characters/charizard.png'
 import emberSrc from '../assets/spells/ember.png'
 import dragonDiveSrc from '../assets/spells/dragon_dive.png'
+import flamethrowerSrc from '../assets/spells/flamethrower.png'
+import fireBlastSrc from '../assets/spells/fire_blast.png'
 import {
   AuthoritativeCharacterDefinition,
   AuthoritativeSpellDefinition,
@@ -11,9 +13,15 @@ export interface VisualSpellConfig {
   description: string
   imageSrc: string
   frameSize: number
+  frameWidth?: number
+  frameHeight?: number
+  frameCount?: number
   aimingWidth?: number
+  aimingStyle?: 'arrow' | 'beam'
+  effectKind?: 'projectile' | 'beam'
   renderMode?: 'directional_sheet' | 'single_rotated'
   iconMode?: 'sheet_focus' | 'single_fit'
+  rotationOffsetRad?: number
 }
 
 export interface VisualCharacterConfig {
@@ -52,6 +60,35 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
     aimingWidth: 32,
     renderMode: 'single_rotated',
     iconMode: 'single_fit',
+  },
+  flamethrower: {
+    id: 'flamethrower',
+    description: 'O dragao expele uma lufada curta e densa de fogo, queimando tudo no trajeto.',
+    imageSrc: flamethrowerSrc,
+    frameSize: 129,
+    frameWidth: 129,
+    frameHeight: 192,
+    frameCount: 6,
+    aimingWidth: 129,
+    aimingStyle: 'beam',
+    effectKind: 'beam',
+    renderMode: 'single_rotated',
+    iconMode: 'single_fit',
+  },
+  fire_blast: {
+    id: 'fire_blast',
+    description: 'O dragao dispara um boneco de chamas que avanca em linha reta e continua queimando quem permanecer no trajeto.',
+    imageSrc: fireBlastSrc,
+    frameSize: 128,
+    frameWidth: 128,
+    frameHeight: 128,
+    frameCount: 4,
+    aimingWidth: 128,
+    aimingStyle: 'beam',
+    effectKind: 'projectile',
+    renderMode: 'single_rotated',
+    iconMode: 'single_fit',
+    rotationOffsetRad: -Math.PI / 2,
   },
 }
 
