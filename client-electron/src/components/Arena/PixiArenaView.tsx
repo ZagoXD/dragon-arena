@@ -173,7 +173,19 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       onReadyChangeRef.current?.(false)
 
       try {
-        await Assets.load(assetUrls)
+        const results = await Promise.allSettled(assetUrls.map(url => Assets.load(url)))
+        const failures = results.flatMap((result, index) =>
+          result.status === 'rejected'
+            ? [{ url: assetUrls[index], reason: result.reason }]
+            : []
+        )
+
+        console.info('[PixiArenaView] asset load summary', {
+          total: assetUrls.length,
+          loaded: assetUrls.filter(url => Assets.get(url)).length,
+          failures,
+          tilesetUrls: assetUrls.filter(url => url.includes('tilesets')),
+        })
       } catch (error) {
         console.error('PixiArenaView: failed to load one or more assets.', error)
       }

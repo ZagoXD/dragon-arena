@@ -1,4 +1,5 @@
 import { Assets, Rectangle, Texture } from 'pixi.js'
+const missingAssetLookups = new Set<string>()
 
 export function destroyTextureCache(cache: Map<string, Texture>) {
   cache.forEach(texture => texture.destroy())
@@ -49,9 +50,21 @@ export function getResolvedTexture(src: string) {
     return loadedTexture
   }
 
-  const fallbackTexture = Texture.from(src)
-  if (fallbackTexture.source) {
-    return fallbackTexture
+  if (!missingAssetLookups.has(src)) {
+    missingAssetLookups.add(src)
+    console.warn('[pixiTextureCache] asset not found in Assets cache, trying Texture.from fallback', {
+      src,
+      cached: loadedTexture,
+    })
+  }
+
+  try {
+    const fallbackTexture = Texture.from(src)
+    if (fallbackTexture instanceof Texture && fallbackTexture.source) {
+      return fallbackTexture
+    }
+  } catch {
+    return null
   }
 
   return null
