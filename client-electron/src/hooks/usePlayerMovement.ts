@@ -34,6 +34,18 @@ interface Options {
   hp: number
 }
 
+function getMapCollisionFootprint(colliderWidth: number, colliderHeight: number) {
+  const footprintWidth = Math.max(24, colliderWidth * 0.72)
+  const footprintHeight = Math.max(20, colliderHeight * 0.5)
+
+  return {
+    offsetX: (colliderWidth - footprintWidth) * 0.5,
+    offsetY: colliderHeight - footprintHeight,
+    width: footprintWidth,
+    height: footprintHeight,
+  }
+}
+
 function isBlocked(mapData: any, nx: number, ny: number, width: number, height: number, tileSize: number): boolean {
   if (!mapData) return false
 
@@ -161,6 +173,7 @@ export function usePlayerMovement({
     const step = speed * (deltaMs / 1000)
     let newX = state.x + dx * step
     let newY = state.y + dy * step
+    const footprint = getMapCollisionFootprint(colliderWidth, colliderHeight)
 
     const currentMap = (window as any).currentGameMapData
     const rawMapWidth = currentMap ? currentMap.width * tileSize : mapWidth
@@ -169,9 +182,37 @@ export function usePlayerMovement({
     newX = Math.max(0, Math.min(rawMapWidth - colliderWidth, newX))
     newY = Math.max(0, Math.min(rawMapHeight - colliderHeight, newY))
 
-    if (currentMap && isBlocked(currentMap, newX, newY, colliderWidth, colliderHeight, tileSize)) {
-      if (!isBlocked(currentMap, newX, state.y, colliderWidth, colliderHeight, tileSize)) newY = state.y
-      else if (!isBlocked(currentMap, state.x, newY, colliderWidth, colliderHeight, tileSize)) newX = state.x
+    if (
+      currentMap &&
+      isBlocked(
+        currentMap,
+        newX + footprint.offsetX,
+        newY + footprint.offsetY,
+        footprint.width,
+        footprint.height,
+        tileSize
+      )
+    ) {
+      if (
+        !isBlocked(
+          currentMap,
+          newX + footprint.offsetX,
+          state.y + footprint.offsetY,
+          footprint.width,
+          footprint.height,
+          tileSize
+        )
+      ) newY = state.y
+      else if (
+        !isBlocked(
+          currentMap,
+          state.x + footprint.offsetX,
+          newY + footprint.offsetY,
+          footprint.width,
+          footprint.height,
+          tileSize
+        )
+      ) newX = state.x
       else {
         newX = state.x
         newY = state.y

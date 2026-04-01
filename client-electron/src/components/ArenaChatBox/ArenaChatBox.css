@@ -1,10 +1,10 @@
 .arena-chat-box {
   position: absolute;
-  left: 22px;
-  top: 22px;
+  left: var(--arena-safe-edge, 38px);
+  top: var(--arena-safe-edge, 38px);
   z-index: 1300;
   width: 392px;
-  max-width: calc(100% - 44px);
+  max-width: calc(100% - (var(--arena-safe-edge, 38px) * 2));
   pointer-events: none;
 }
 

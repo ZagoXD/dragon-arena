@@ -1,6 +1,6 @@
 # Dragon Arena
 
-Dragon Arena roda hoje com uma arquitetura de **servidor autoritativo em C++** e **cliente desktop em Electron/React/PixiJS**.
+Dragon Arena roda hoje com uma arquitetura de servidor autoritativo em C++ e cliente desktop em Electron/React/PixiJS.
 
 O backend é a fonte de verdade do gameplay. O frontend envia intenção, recebe estado autoritativo e cuida da renderização, HUD, câmera e feedback visual.
 
@@ -15,16 +15,16 @@ Servidor autoritativo do jogo.
 - Mapa carregado de `map-assets/tiled/default_map.tmj`
 - Gameplay carregado de arquivos JSON separados por domínio
 - Sistemas organizados por responsabilidade:
-  - `CombatSystem`
-  - `MovementSystem`
-  - `SkillSystem`
-  - `ProjectileSystem`
-  - `DashSystem`
-  - `BurnSystem`
-  - `RespawnSystem`
-  - `WorldSetup`
-  - `WorldTickRunner`
-  - `WorldSnapshotBuilder`
+- `CombatSystem`
+- `MovementSystem`
+- `SkillSystem`
+- `ProjectileSystem`
+- `DashSystem`
+- `BurnSystem`
+- `RespawnSystem`
+- `WorldSetup`
+- `WorldTickRunner`
+- `WorldSnapshotBuilder`
 
 Responsabilidades do backend:
 
@@ -36,10 +36,12 @@ Responsabilidades do backend:
 - kill/death e scoreboard
 - bootstrap de sessão
 - snapshots e eventos autoritativos
+- autenticação, sessões e perfil
+- sistema social e chat
 
 Observação importante:
 
-- o **respawn automático de players agora é autoritativo no backend**
+- o respawn automático de players é autoritativo no backend
 - o frontend só exibe o countdown visual
 
 ### `client-electron/`
@@ -49,7 +51,7 @@ Cliente desktop do jogo.
 - Shell desktop em Electron
 - UI em React + TypeScript
 - Renderização da arena em PixiJS
-- HUD, seleção de personagem, nome e overlays em React
+- HUD, seleção de personagem, login, home, overlays sociais e chat em React
 
 Responsabilidades do cliente:
 
@@ -59,35 +61,38 @@ Responsabilidades do cliente:
 - HUD e menus
 - feedback visual de skills, projéteis e passivas
 - render de mapa, players, dummies e efeitos
+- friend list e chats
 
-O cliente **não decide gameplay crítico**.
+O cliente não decide gameplay crítico.
 
-## PersistÃªncia
+## Persistência
 
-O backend agora tem uma camada inicial de banco em `server-cpp/database/`:
+O backend possui uma camada de banco em `server-cpp/database/`:
 
 - [Database.h](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/database/Database.h)
 - [Database.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/database/Database.cpp)
 - [UserRepository.h](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/database/UserRepository.h)
 - [UserRepository.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/database/UserRepository.cpp)
 
-Essa base usa o cliente nativo do PostgreSQL (`libpq`) e prepara o servidor para `register/login` sem espalhar SQL pelo resto do projeto.
+Essa base usa o cliente nativo do PostgreSQL (`libpq`) e prepara o servidor para autenticação e features sociais sem espalhar SQL pelo resto do projeto.
 
 Hoje ela cobre:
 
-- conexÃ£o com PostgreSQL
-- `SELECT 1` de validaÃ§Ã£o no startup
-- busca de usuÃ¡rio por email
-- busca de usuÃ¡rio por username
+- conexão com PostgreSQL
+- `SELECT 1` de validação no startup
+- busca de usuário por email
+- busca de usuário por username
 - busca por email ou username
-- criaÃ§Ã£o de usuÃ¡rio
-- criaÃ§Ã£o de perfil inicial
-- transaÃ§Ã£o para criar usuÃ¡rio + perfil
-- relaÃ§Ãµes de amizade em `friendships`
+- criação de usuário
+- criação de perfil inicial
+- transação para criar usuário + perfil
+- relações de amizade em `friendships`
+- mensagens privadas em `private_messages`
+- mensagens da arena em `arena_messages`
 - pedidos pendentes recebidos e enviados
-- presenÃ§a online/offline por socket autenticado
+- presença online/offline por socket autenticado
 
-VariÃ¡veis de ambiente aceitas:
+Variáveis de ambiente aceitas:
 
 - `DRAGON_DB_URL` ou `DATABASE_URL`
 - `DRAGON_DB_HOST` ou `PGHOST`
@@ -96,7 +101,7 @@ VariÃ¡veis de ambiente aceitas:
 - `DRAGON_DB_USER` ou `PGUSER`
 - `DRAGON_DB_PASSWORD` ou `PGPASSWORD`
 
-Defaults do projeto quando nenhuma env Ã© informada:
+Defaults do projeto quando nenhuma env é informada:
 
 - host: `127.0.0.1`
 - port: `5432`
@@ -105,32 +110,35 @@ Defaults do projeto quando nenhuma env Ã© informada:
 
 No startup, o servidor tenta:
 
-1. abrir conexÃ£o com o banco
+1. abrir conexão com o banco
 2. executar `SELECT 1`
-3. contar usuÃ¡rios da tabela `users`
+3. contar usuários da tabela `users`
 
-ObservaÃ§Ã£o sobre amizades:
+Observações de permissão:
 
-- a tabela `public.friendships` precisa existir no PostgreSQL
-- se ela for criada manualmente por um usuÃ¡rio admin, o usuÃ¡rio `dragon_app` tambÃ©m precisa de permissÃµes de `SELECT/INSERT/UPDATE/DELETE` na tabela
-- o `dragon_app` tambÃ©m precisa de `USAGE/SELECT` na sequence `public.friendships_id_seq`
+- `public.friendships`, `public.private_messages` e `public.arena_messages` precisam existir no PostgreSQL
+- se essas tabelas forem criadas manualmente por um usuário admin, o usuário `dragon_app` também precisa de permissões de `SELECT/INSERT/UPDATE/DELETE`
+- o `dragon_app` também precisa de `USAGE/SELECT` nas sequences:
+- `public.friendships_id_seq`
+- `public.private_messages_id_seq`
+- `public.arena_messages_id_seq`
 
 ## Sistema Social
 
-O cliente agora possui uma **friend list** integrada Ã  tela inicial.
+O cliente possui uma friend list integrada à tela inicial.
 
 Hoje o fluxo cobre:
 
 - painel `Amigos` no canto inferior direito
 - expandir/minimizar painel
-- badge de notificaÃ§Ãµes para novos pedidos recebidos
+- badge de notificações para novos pedidos recebidos
 - envio de amizade por `nickname + tag`
 - listagem de amigos com nome, tag e status online/offline
 - pedidos recebidos com `aceitar` e `recusar`
 - modal central para pedidos pendentes enviados
 - cancelamento de pedidos enviados
 - menu contextual customizado com clique direito em um amigo
-- exclusÃ£o de amizade com modal de confirmaÃ§Ã£o
+- exclusão de amizade com modal de confirmação
 
 Backend principal do sistema social:
 
@@ -145,6 +153,82 @@ Frontend principal do sistema social:
 - [FriendListPanel.css](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/FriendListPanel/FriendListPanel.css)
 - [HomeScreen.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/HomeScreen/HomeScreen.tsx)
 - [App.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/App.tsx)
+
+## Sistema de Chat
+
+O projeto possui dois fluxos de chat integrados ao backend C++.
+
+### Chat privado entre amigos
+
+O chat privado funciona a partir da friend list.
+
+Hoje o fluxo cobre:
+
+- abrir conversa por duplo clique em um amigo
+- abrir conversa pelo menu contextual com clique direito
+- até 4 conversas abertas ao mesmo tempo
+- ao abrir a 5ª, a mais antiga fecha automaticamente
+- minimizar, expandir e fechar conversa
+- badge de mensagens não lidas por conversa
+- badge agregada na barra `Amigos` quando a conversa estiver fechada
+- histórico persistido no banco
+- sincronização online/offline do amigo na conversa
+
+Backend principal do chat privado:
+
+- [PrivateChatRepository.h](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/social/PrivateChatRepository.h)
+- [PrivateChatRepository.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/social/PrivateChatRepository.cpp)
+- [NetworkHandler.h](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/NetworkHandler.h)
+- [NetworkHandler.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/NetworkHandler.cpp)
+
+Frontend principal do chat privado:
+
+- [PrivateChatPanel.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/PrivateChatPanel/PrivateChatPanel.tsx)
+- [FriendListPanel.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/FriendListPanel/FriendListPanel.tsx)
+- [HomeScreen.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/HomeScreen/HomeScreen.tsx)
+- [App.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/App.tsx)
+
+### Chat da arena
+
+O chat da arena é sobreposto ao viewport do jogo.
+
+Hoje o fluxo cobre:
+
+- caixa de chat na arena
+- `Enter` abre e fecha o input
+- com o input aberto, movimento e skills do player ficam bloqueados
+- histórico local com até 100 mensagens visíveis
+- rolagem manual quando o chat está aberto
+- whispers com cor diferente
+- mensagens locais usando `Você` via i18n
+- dropdown de ajuda ao digitar `/`
+
+Comandos atuais da arena:
+
+- `/add Nick#TAG`
+- `/w Nick#TAG mensagem`
+- `/r mensagem`
+
+Regras atuais:
+
+- `/add` reutiliza o sistema de amizade
+- `/w` envia mensagem privada para amigo
+- `/r` responde ao último whisper recebido
+
+Backend principal do chat da arena:
+
+- [ArenaChatRepository.h](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/social/ArenaChatRepository.h)
+- [ArenaChatRepository.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/social/ArenaChatRepository.cpp)
+- [NetworkHandler.h](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/NetworkHandler.h)
+- [NetworkHandler.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/NetworkHandler.cpp)
+
+Frontend principal do chat da arena:
+
+- [ArenaChatBox.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/ArenaChatBox/ArenaChatBox.tsx)
+- [ArenaChatBox.css](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/ArenaChatBox/ArenaChatBox.css)
+- [Arena.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/Arena/Arena.tsx)
+- [useArenaNetworkState.ts](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/hooks/useArenaNetworkState.ts)
+- [useSocket.ts](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/hooks/useSocket.ts)
 
 ## Fluxo de Rede
 
@@ -200,6 +284,7 @@ Camadas usadas hoje:
 
 - `ground`
 - `plants`
+- `props`
 - `collision`
 - `walls`
 - `spawns`
@@ -288,6 +373,9 @@ Hoje o projeto está consolidado neste modelo:
 - frontend Electron/React/Pixi como camada visual
 - gameplay separado por arquivos de config
 - protocolo de sessão consolidado
+- friend list integrada à home
+- chat privado entre amigos
+- chat da arena com comandos
 - respawn autoritativo no servidor
 - arena renderizada em PixiJS
 

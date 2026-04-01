@@ -2,6 +2,27 @@
 #include <algorithm>
 #include <cmath>
 
+namespace {
+struct FootprintBox {
+    float offsetX;
+    float offsetY;
+    float width;
+    float height;
+};
+
+FootprintBox getMapCollisionFootprint(const Player& p) {
+    const float footprintWidth = std::max(24.0f, p.colliderWidth * 0.72f);
+    const float footprintHeight = std::max(20.0f, p.colliderHeight * 0.5f);
+
+    return FootprintBox{
+        (p.colliderWidth - footprintWidth) * 0.5f,
+        p.colliderHeight - footprintHeight,
+        footprintWidth,
+        footprintHeight
+    };
+}
+}
+
 void MovementSystem::handleMoveIntent(Player& p, float inputX, float inputY, std::string dir, int anim) {
     float magnitude = std::sqrt(inputX * inputX + inputY * inputY);
     if (magnitude > 1.0f) {
@@ -25,12 +46,29 @@ bool MovementSystem::applyMovement(Player& p, float deltaSeconds, const MapLoade
     bool moved = false;
 
     if (mapLoader.isLoaded()) {
+        const FootprintBox footprint = getMapCollisionFootprint(p);
+
         nx = std::max(0.0f, std::min(nx, mapLoader.getWidthPixels() - p.colliderWidth));
         ny = std::max(0.0f, std::min(ny, mapLoader.getHeightPixels() - p.colliderHeight));
 
-        bool blockedBoth = mapLoader.isBlocked(nx, ny, p.colliderWidth, p.colliderHeight);
-        bool blockedX = mapLoader.isBlocked(nx, p.y, p.colliderWidth, p.colliderHeight);
-        bool blockedY = mapLoader.isBlocked(p.x, ny, p.colliderWidth, p.colliderHeight);
+        bool blockedBoth = mapLoader.isBlocked(
+            nx + footprint.offsetX,
+            ny + footprint.offsetY,
+            footprint.width,
+            footprint.height
+        );
+        bool blockedX = mapLoader.isBlocked(
+            nx + footprint.offsetX,
+            p.y + footprint.offsetY,
+            footprint.width,
+            footprint.height
+        );
+        bool blockedY = mapLoader.isBlocked(
+            p.x + footprint.offsetX,
+            ny + footprint.offsetY,
+            footprint.width,
+            footprint.height
+        );
 
         if (!blockedBoth) {
             moved = (nx != p.x || ny != p.y);

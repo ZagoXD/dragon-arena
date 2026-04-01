@@ -22,6 +22,7 @@
   overflow: hidden;
   flex-shrink: 0;
   border-radius: 18px;
+  --arena-safe-edge: 38px;
   transform-origin: center center;
   /* Hard shadow to separate the game from the letterbox bars */
   box-shadow: 0 0 0 4px #1a1a2a, 0 0 40px rgba(0,0,0,0.9);

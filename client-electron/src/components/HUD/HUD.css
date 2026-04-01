@@ -22,7 +22,11 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  padding: 0 32px 24px 32px;
+  padding:
+    0
+    var(--arena-safe-edge, 38px)
+    calc(var(--arena-safe-edge, 38px) - 2px)
+    var(--arena-safe-edge, 38px);
   box-sizing: border-box;
   z-index: 9000;
   pointer-events: none;
