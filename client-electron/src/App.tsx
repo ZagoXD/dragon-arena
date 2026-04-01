@@ -1,14 +1,15 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { NameScreen } from './components/NameScreen/NameScreen'
 import { HomeScreen } from './components/HomeScreen/HomeScreen'
 import { FriendListEntry, IncomingFriendRequest, OutgoingFriendRequest } from './components/FriendListPanel/FriendListPanel'
+import { PrivateChatMessage } from './components/PrivateChatPanel/PrivateChatPanel'
 import { SelectScreen } from './components/SelectScreen/SelectScreen'
 import { Arena } from './components/Arena/Arena'
 import { LoadingScreen } from './components/LoadingScreen/LoadingScreen'
 import { SplashScreen } from './components/SplashScreen/SplashScreen'
 import { SettingsPanel, ShellSettings } from './components/SettingsPanel/SettingsPanel'
 import { TitleBar } from './components/TitleBar/TitleBar'
-import { ArenaAuthIntent, AuthSuccessPayload, ProfileSyncPayload } from './hooks/useSocket'
+import { ArenaAuthIntent, ArenaChatMessage, AuthSuccessPayload, ProfileSyncPayload } from './hooks/useSocket'
 import i18n, { AppLanguage, supportedLanguages } from './i18n'
 import { translateBackendError } from './i18n/translateBackendError'
 import './App.css'
@@ -16,6 +17,7 @@ import './App.css'
 type Screen = 'splash' | 'name' | 'loading' | 'home' | 'select' | 'arena'
 const AUTH_SESSION_STORAGE_KEY = 'dragon-arena-auth-session'
 const SHELL_SETTINGS_STORAGE_KEY = 'dragon-arena-shell-settings'
+const MAX_OPEN_PRIVATE_CHATS = 4
 const DEFAULT_SHELL_SETTINGS: ShellSettings = {
   displayMode: 'borderless',
   resolution: { width: 1600, height: 900 },
@@ -41,11 +43,22 @@ interface StoredAuthSession {
   tag: string
 }
 
+interface PrivateConversationSummary {
+  friendUserId: number
+  nickname: string
+  tag: string
+  online: boolean
+  unreadCount: number
+  lastMessagePreview: string
+  lastMessageAt: number
+}
+
 function App() {
   const [shellSettings, setShellSettings] = useState<ShellSettings>(DEFAULT_SHELL_SETTINGS)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [screen, setScreen] = useState<Screen>('splash')
   const [bootReady, setBootReady] = useState(false)
+  const [playerUserId, setPlayerUserId] = useState<number | null>(null)
   const [playerName, setPlayerName] = useState('')
   const [playerTag, setPlayerTag] = useState('')
   const [playerCoins, setPlayerCoins] = useState(0)
@@ -67,6 +80,12 @@ function App() {
   const [friends, setFriends] = useState<FriendListEntry[]>([])
   const [incomingFriendRequests, setIncomingFriendRequests] = useState<IncomingFriendRequest[]>([])
   const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<OutgoingFriendRequest[]>([])
+  const [privateConversations, setPrivateConversations] = useState<PrivateConversationSummary[]>([])
+  const [privateMessagesByFriendId, setPrivateMessagesByFriendId] = useState<Record<number, PrivateChatMessage[]>>({})
+  const [openPrivateChatFriendIds, setOpenPrivateChatFriendIds] = useState<number[]>([])
+  const [privateChatMinimizedByFriendId, setPrivateChatMinimizedByFriendId] = useState<Record<number, boolean>>({})
+  const [privateChatSendBusyByFriendId, setPrivateChatSendBusyByFriendId] = useState<Record<number, boolean>>({})
+  const [arenaReplyTarget, setArenaReplyTarget] = useState<{ userId: number, label: string } | null>(null)
   const [friendSendBusy, setFriendSendBusy] = useState(false)
   const [friendSendError, setFriendSendError] = useState<string | null>(null)
   const [friendSendInfo, setFriendSendInfo] = useState<string | null>(null)
@@ -74,6 +93,8 @@ function App() {
   const attemptedStoredSessionRef = useRef(false)
   const lobbySocketRef = useRef<WebSocket | null>(null)
   const lastIncomingRequestIdsRef = useRef<number[]>([])
+  const openPrivateChatFriendIdsRef = useRef<number[]>([])
+  const privateChatMinimizedByFriendIdRef = useRef<Record<number, boolean>>({})
   const currentLanguage = (supportedLanguages.includes(i18n.language as AppLanguage)
     ? i18n.language
     : 'pt-BR') as AppLanguage
@@ -81,6 +102,7 @@ function App() {
   const showSettingsButton = screen === 'home'
 
   const applyAccountSnapshot = useCallback((payload: Pick<AuthSuccessPayload, 'user' | 'profile'>) => {
+    setPlayerUserId(payload.user.id)
     setPlayerName(payload.user.nickname || payload.user.username)
     setPlayerTag(payload.user.tag || '')
     setPlayerCoins(payload.profile.coins ?? 0)
@@ -309,6 +331,7 @@ function App() {
       clearPersistedSession()
       setAuthIntent(null)
     }
+    setPlayerUserId(null)
     setSessionExpiresAtMs(0)
     setShouldPersistSession(false)
     setFriendPanelExpanded(false)
@@ -316,6 +339,12 @@ function App() {
     setFriends([])
     setIncomingFriendRequests([])
     setOutgoingFriendRequests([])
+    setPrivateConversations([])
+    setPrivateMessagesByFriendId({})
+    setOpenPrivateChatFriendIds([])
+    setPrivateChatMinimizedByFriendId({})
+    setPrivateChatSendBusyByFriendId({})
+    setArenaReplyTarget(null)
     setFriendSendBusy(false)
     setFriendSendError(null)
     setFriendSendInfo(null)
@@ -374,6 +403,70 @@ function App() {
       }
       return next
     })
+  }, [])
+
+  const handleOpenPrivateChat = useCallback((friend: FriendListEntry) => {
+    setOpenPrivateChatFriendIds(current => {
+      const next = current.filter(friendUserId => friendUserId !== friend.userId)
+      next.push(friend.userId)
+      return next.slice(-MAX_OPEN_PRIVATE_CHATS)
+    })
+    setPrivateChatMinimizedByFriendId(current => ({
+      ...current,
+      [friend.userId]: false,
+    }))
+
+    if (lobbySocketRef.current?.readyState === WebSocket.OPEN) {
+      lobbySocketRef.current.send(JSON.stringify({
+        event: 'privateChatOpen',
+        friendUserId: friend.userId,
+      }))
+      lobbySocketRef.current.send(JSON.stringify({
+        event: 'privateMessagesMarkRead',
+        friendUserId: friend.userId,
+      }))
+    }
+  }, [])
+
+  const handleTogglePrivateChatMinimized = useCallback((friendUserId: number) => {
+    setPrivateChatMinimizedByFriendId(current => ({
+      ...current,
+      [friendUserId]: !current[friendUserId],
+    }))
+  }, [])
+
+  const handleClosePrivateChat = useCallback((friendUserId: number) => {
+    setOpenPrivateChatFriendIds(current => current.filter(id => id !== friendUserId))
+    setPrivateChatMinimizedByFriendId(current => {
+      const next = { ...current }
+      delete next[friendUserId]
+      return next
+    })
+    setPrivateChatSendBusyByFriendId(current => {
+      const next = { ...current }
+      delete next[friendUserId]
+      return next
+    })
+  }, [])
+
+  const handleSendPrivateMessage = useCallback((friendUserId: number, body: string) => {
+    if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setFriendSendError(i18n.t('friends.connectionUnavailable'))
+      setFriendSendInfo(null)
+      return
+    }
+
+    setPrivateChatSendBusyByFriendId(current => ({
+      ...current,
+      [friendUserId]: true,
+    }))
+    setFriendSendError(null)
+    setFriendSendInfo(null)
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'privateMessageSend',
+      friendUserId,
+      body,
+    }))
   }, [])
 
   const handleSendFriendRequest = useCallback((nickname: string, tag: string) => {
@@ -445,6 +538,7 @@ function App() {
   const handleLogout = useCallback(() => {
     clearPersistedSession()
     setSettingsOpen(false)
+    setPlayerUserId(null)
     setShouldPersistSession(false)
     setSessionExpiresAtMs(0)
     setAuthIntent(null)
@@ -457,6 +551,12 @@ function App() {
     setFriends([])
     setIncomingFriendRequests([])
     setOutgoingFriendRequests([])
+    setPrivateConversations([])
+    setPrivateMessagesByFriendId({})
+    setOpenPrivateChatFriendIds([])
+    setPrivateChatMinimizedByFriendId({})
+    setPrivateChatSendBusyByFriendId({})
+    setArenaReplyTarget(null)
     setFriendSendBusy(false)
     setFriendSendError(null)
     setFriendSendInfo(null)
@@ -497,6 +597,14 @@ function App() {
 
     void ipcRenderer.invoke('app-quit')
   }, [])
+
+  useEffect(() => {
+    openPrivateChatFriendIdsRef.current = openPrivateChatFriendIds
+  }, [openPrivateChatFriendIds])
+
+  useEffect(() => {
+    privateChatMinimizedByFriendIdRef.current = privateChatMinimizedByFriendId
+  }, [privateChatMinimizedByFriendId])
 
   useEffect(() => {
     const loadShellSettings = async () => {
@@ -576,6 +684,7 @@ function App() {
       setPlayerName(session.nickname || session.username || 'Player')
       setPlayerTag(session.tag || '')
       setPlayerCoins(0)
+      setPlayerUserId(null)
       setSessionExpiresAtMs(session.expiresAtMs)
       setShouldPersistSession(true)
       setAuthError(null)
@@ -622,6 +731,7 @@ function App() {
 
       ws.send(JSON.stringify({ event: 'profileSync' }))
       ws.send(JSON.stringify({ event: 'friendsSync' }))
+      ws.send(JSON.stringify({ event: 'privateChatsSync' }))
     }
 
     ws.onopen = () => {
@@ -691,6 +801,64 @@ function App() {
         return
       }
 
+      if (data.event === 'privateChatsSync') {
+        const nextConversations = (data.conversations || []) as PrivateConversationSummary[]
+        setPrivateConversations(nextConversations)
+        setOpenPrivateChatFriendIds(current => current.filter(friendUserId => (
+          nextConversations.some(conversation => conversation.friendUserId === friendUserId)
+        )))
+        return
+      }
+
+      if (data.event === 'privateChatHistory') {
+        const friendUserId = Number(data.friendUserId)
+        setPrivateMessagesByFriendId(prev => ({
+          ...prev,
+          [friendUserId]: (data.messages || []) as PrivateChatMessage[],
+        }))
+        setPrivateChatSendBusyByFriendId(prev => ({
+          ...prev,
+          [friendUserId]: false,
+        }))
+        return
+      }
+
+      if (data.event === 'privateMessageReceived') {
+        const friendUserId = Number(data.friendUserId)
+        const nextMessage = data.message as PrivateChatMessage
+        setPrivateMessagesByFriendId(prev => ({
+          ...prev,
+          [friendUserId]: [...(prev[friendUserId] || []), nextMessage],
+        }))
+
+        const isOpen = openPrivateChatFriendIdsRef.current.includes(friendUserId)
+        const isMinimized = privateChatMinimizedByFriendIdRef.current[friendUserId] ?? false
+
+        if (isOpen && !isMinimized && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            event: 'privateMessagesMarkRead',
+            friendUserId,
+          }))
+        }
+        requestSync()
+        return
+      }
+
+      if (data.event === 'privateMessageSent') {
+        const friendUserId = Number(data.friendUserId)
+        const nextMessage = data.message as PrivateChatMessage
+        setPrivateMessagesByFriendId(prev => ({
+          ...prev,
+          [friendUserId]: [...(prev[friendUserId] || []), nextMessage],
+        }))
+        setPrivateChatSendBusyByFriendId(prev => ({
+          ...prev,
+          [friendUserId]: false,
+        }))
+        requestSync()
+        return
+      }
+
       if (data.event === 'friendRequestSent') {
         setFriendSendBusy(false)
         setFriendSendError(null)
@@ -727,6 +895,7 @@ function App() {
         setFriendActionBusyRequestId(null)
         setFriendSendError(null)
         setFriendSendInfo(i18n.t('friends.removeSuccess'))
+        handleClosePrivateChat(Number(data.friendUserId))
         requestSync()
         return
       }
@@ -743,6 +912,7 @@ function App() {
       if (data.event === 'actionRejected' || data.event === 'protocolError') {
         const translatedMessage = translateBackendError(i18n.t.bind(i18n), data.code, data.reason)
         setFriendSendBusy(false)
+        setPrivateChatSendBusyByFriendId({})
         setFriendActionBusyRequestId(null)
         setFriendSendInfo(null)
         setFriendSendError(translatedMessage)
@@ -772,7 +942,66 @@ function App() {
       }
       ws = null
     }
-  }, [applyAccountSnapshot, authIntent, friendPanelExpanded, handleAuthFailure, persistStoredSession, screen, serverUrl, sessionExpiresAtMs, shouldPersistSession])
+  }, [applyAccountSnapshot, authIntent, friendPanelExpanded, handleAuthFailure, handleClosePrivateChat, persistStoredSession, screen, serverUrl, sessionExpiresAtMs, shouldPersistSession])
+
+  const privateUnreadByFriendId = useMemo(() => {
+    const next: Record<number, number> = {}
+    for (const conversation of privateConversations) {
+      next[conversation.friendUserId] = conversation.unreadCount
+    }
+    return next
+  }, [privateConversations])
+
+  const openPrivateChats = useMemo(() => openPrivateChatFriendIds
+    .map(friendUserId => {
+      const friend = friends.find(entry => entry.userId === friendUserId)
+        || privateConversations
+          .filter(conversation => conversation.friendUserId === friendUserId)
+          .map(conversation => ({
+            userId: conversation.friendUserId,
+            nickname: conversation.nickname,
+            tag: conversation.tag,
+            online: conversation.online,
+          } as FriendListEntry))[0]
+
+      if (!friend) {
+        return null
+      }
+
+      return {
+        friend,
+        messages: privateMessagesByFriendId[friendUserId] || [],
+        minimized: privateChatMinimizedByFriendId[friendUserId] ?? false,
+        unreadCount: privateUnreadByFriendId[friendUserId] || 0,
+        sendBusy: privateChatSendBusyByFriendId[friendUserId] ?? false,
+      }
+    })
+    .filter((chat): chat is NonNullable<typeof chat> => chat !== null), [
+    friends,
+    openPrivateChatFriendIds,
+    privateConversations,
+    privateMessagesByFriendId,
+    privateChatMinimizedByFriendId,
+    privateChatSendBusyByFriendId,
+    privateUnreadByFriendId,
+  ])
+
+  const closedChatUnreadCount = useMemo(() => privateConversations.reduce((total, conversation) => {
+    if (openPrivateChatFriendIds.includes(conversation.friendUserId)) {
+      return total
+    }
+
+    return total + conversation.unreadCount
+  }, 0), [openPrivateChatFriendIds, privateConversations])
+
+  const handleArenaChatMessage = useCallback((message: ArenaChatMessage) => {
+    if (message.type === 'whisper_in' && message.senderUserId && message.senderNickname && message.senderTag) {
+      setArenaReplyTarget({
+        userId: message.senderUserId,
+        label: `${message.senderNickname}${message.senderTag}`,
+      })
+    }
+  }, [])
 
   return (
     <div className={`app-shell app-shell--${screen}`}>
@@ -820,15 +1049,21 @@ function App() {
                   coins={playerCoins}
                   isBusy={enterArenaPending}
                   friendPanelExpanded={friendPanelExpanded}
-                  friendNotificationCount={friendNotificationCount}
+                  friendNotificationCount={friendNotificationCount + closedChatUnreadCount}
                   friends={friends}
+                  privateUnreadByFriendId={privateUnreadByFriendId}
                   incomingRequests={incomingFriendRequests}
                   outgoingRequests={outgoingFriendRequests}
+                  openPrivateChats={openPrivateChats}
                   friendSendBusy={friendSendBusy}
                   friendSendError={friendSendError}
                   friendSendInfo={friendSendInfo}
                   friendActionBusyRequestId={friendActionBusyRequestId}
                   onToggleFriendPanel={handleToggleFriendPanel}
+                  onOpenChat={handleOpenPrivateChat}
+                  onTogglePrivateChatMinimized={handleTogglePrivateChatMinimized}
+                  onClosePrivateChat={handleClosePrivateChat}
+                  onSendPrivateMessage={handleSendPrivateMessage}
                   onSendFriendRequest={handleSendFriendRequest}
                   onRespondFriendRequest={handleRespondFriendRequest}
                   onCancelOutgoingRequest={handleCancelOutgoingFriendRequest}
@@ -845,11 +1080,14 @@ function App() {
               )}
               {screen === 'arena' && (
                 <Arena
+                  playerUserId={playerUserId}
                   playerName={playerName}
                   authIntent={authIntent}
                   characterId={characterId}
                   onAuthenticated={handleAuthenticated}
                   onAuthFailure={handleAuthFailure}
+                  onArenaChatMessage={handleArenaChatMessage}
+                  replyTarget={arenaReplyTarget}
                   onReturnToHome={handleReturnToHome}
                   onReturnToSelect={handleReturnToSelect}
                 />

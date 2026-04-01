@@ -2,6 +2,9 @@
 #include "ProtocolConfig.h"
 #include "ProtocolPayloadBuilder.h"
 #include "ServerDiagnostics.h"
+#include <algorithm>
+#include <cctype>
+#include <ctime>
 #include <iostream>
 #include <set>
 
@@ -13,6 +16,61 @@ bool hasString(const json& payload, const char* key) {
 bool hasNumber(const json& payload, const char* key) {
     return payload.contains(key) && payload[key].is_number();
 }
+
+std::string trimCopy(const std::string& value) {
+    auto first = std::find_if_not(value.begin(), value.end(), [](unsigned char ch) {
+        return std::isspace(ch) != 0;
+    });
+    auto last = std::find_if_not(value.rbegin(), value.rend(), [](unsigned char ch) {
+        return std::isspace(ch) != 0;
+    }).base();
+
+    if (first >= last) {
+        return "";
+    }
+
+    return std::string(first, last);
+}
+
+std::vector<std::string> splitBySpace(const std::string& text) {
+    std::vector<std::string> parts;
+    std::string current;
+    for (char ch : text) {
+        if (std::isspace(static_cast<unsigned char>(ch)) != 0) {
+            if (!current.empty()) {
+                parts.push_back(current);
+                current.clear();
+            }
+            continue;
+        }
+        current.push_back(ch);
+    }
+
+    if (!current.empty()) {
+        parts.push_back(current);
+    }
+
+    return parts;
+}
+
+bool parseNicknameAndTagToken(const std::string& token, std::string* nickname, std::string* tag) {
+    std::size_t tagPos = token.rfind('#');
+    if (tagPos == std::string::npos || tagPos == 0 || tagPos == token.size() - 1) {
+        return false;
+    }
+
+    if (nickname != nullptr) {
+        *nickname = token.substr(0, tagPos);
+    }
+
+    if (tag != nullptr) {
+        *tag = token.substr(tagPos);
+    }
+
+    return true;
+}
+
+constexpr const char* MAIN_ARENA_KEY = "main";
 }
 
 NetworkHandler::NetworkHandler(GameWorld &world, int port, Database& database)
@@ -21,6 +79,8 @@ NetworkHandler::NetworkHandler(GameWorld &world, int port, Database& database)
       database(database),
       userRepository(database),
       friendshipRepository(database),
+      privateChatRepository(database),
+      arenaChatRepository(database),
       authService(userRepository),
       sessionService(userRepository) {}
 
@@ -134,6 +194,64 @@ json NetworkHandler::buildFriendsSyncPayload(long long userId, std::string* erro
     return payload;
 }
 
+json NetworkHandler::buildPrivateChatsSyncPayload(long long userId, std::string* error) {
+    std::string repositoryError;
+    std::vector<FriendshipSummary> friends = friendshipRepository.listAcceptedFriends(userId, &repositoryError);
+    if (!repositoryError.empty()) {
+        if (error != nullptr) {
+            *error = repositoryError;
+        }
+        return json();
+    }
+
+    json payload = {
+        {"event", "privateChatsSync"},
+        {"conversations", json::array()},
+        {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+    };
+
+    for (const FriendshipSummary& friendSummary : friends) {
+        repositoryError.clear();
+        std::optional<PrivateMessageRecord> lastMessage = privateChatRepository.findLastMessageBetween(
+            userId,
+            friendSummary.userId,
+            &repositoryError
+        );
+        if (!repositoryError.empty()) {
+            if (error != nullptr) {
+                *error = repositoryError;
+            }
+            return json();
+        }
+
+        repositoryError.clear();
+        int unreadCount = privateChatRepository.countUnreadMessages(
+            userId,
+            friendSummary.userId,
+            &repositoryError
+        );
+        if (!repositoryError.empty()) {
+            if (error != nullptr) {
+                *error = repositoryError;
+            }
+            return json();
+        }
+
+        json conversation = {
+            {"friendUserId", friendSummary.userId},
+            {"nickname", friendSummary.nickname},
+            {"tag", friendSummary.tag},
+            {"online", isUserOnline(friendSummary.userId)},
+            {"unreadCount", unreadCount},
+            {"lastMessagePreview", lastMessage.has_value() ? lastMessage->body : ""},
+            {"lastMessageAt", lastMessage.has_value() ? lastMessage->createdAtMs : 0}
+        };
+        payload["conversations"].push_back(conversation);
+    }
+
+    return payload;
+}
+
 void NetworkHandler::sendFriendsSyncToSocket(uWS::WebSocket<false, true, PerSocketData>* ws, long long userId) {
     std::string error;
     json payload = buildFriendsSyncPayload(userId, &error);
@@ -142,6 +260,22 @@ void NetworkHandler::sendFriendsSyncToSocket(uWS::WebSocket<false, true, PerSock
             "friendsSync",
             "database_error",
             error.empty() ? "Could not load friend list" : error,
+            world.getCurrentTick()
+        ).dump(), uWS::OpCode::TEXT);
+        return;
+    }
+
+    ws->send(payload.dump(), uWS::OpCode::TEXT);
+}
+
+void NetworkHandler::sendPrivateChatsSyncToSocket(uWS::WebSocket<false, true, PerSocketData>* ws, long long userId) {
+    std::string error;
+    json payload = buildPrivateChatsSyncPayload(userId, &error);
+    if (payload.is_null() || payload.empty()) {
+        ws->send(ProtocolPayloadBuilder::buildActionRejected(
+            "privateChatsSync",
+            "database_error",
+            error.empty() ? "Could not load private chats" : error,
             world.getCurrentTick()
         ).dump(), uWS::OpCode::TEXT);
         return;
@@ -174,6 +308,30 @@ void NetworkHandler::sendFriendsSyncToUsers(const std::vector<long long>& userId
     }
 }
 
+void NetworkHandler::sendPrivateChatsSyncToUser(long long userId) {
+    std::vector<uWS::WebSocket<false, true, PerSocketData>*> sockets;
+    {
+        std::lock_guard<std::mutex> lock(social_mtx);
+        auto it = authenticatedSockets.find(userId);
+        if (it == authenticatedSockets.end()) {
+            return;
+        }
+
+        sockets.assign(it->second.begin(), it->second.end());
+    }
+
+    for (uWS::WebSocket<false, true, PerSocketData>* socket : sockets) {
+        sendPrivateChatsSyncToSocket(socket, userId);
+    }
+}
+
+void NetworkHandler::sendPrivateChatsSyncToUsers(const std::vector<long long>& userIds) {
+    std::set<long long> uniqueIds(userIds.begin(), userIds.end());
+    for (long long userId : uniqueIds) {
+        sendPrivateChatsSyncToUser(userId);
+    }
+}
+
 void NetworkHandler::notifyFriendsPresenceChanged(long long userId) {
     std::string error;
     std::vector<long long> friendIds = friendshipRepository.listAcceptedFriendIds(userId, &error);
@@ -183,6 +341,45 @@ void NetworkHandler::notifyFriendsPresenceChanged(long long userId) {
 
     friendIds.push_back(userId);
     sendFriendsSyncToUsers(friendIds);
+    sendPrivateChatsSyncToUsers(friendIds);
+}
+
+void NetworkHandler::sendArenaPublicMessage(const json& payload) {
+    std::lock_guard<std::mutex> lock(clients_mtx);
+    for (auto const& [id, ws] : clients) {
+        (void)id;
+        ws->send(payload.dump(), uWS::OpCode::TEXT);
+    }
+}
+
+void NetworkHandler::sendPrivateMessageToUser(long long userId, const json& payload, bool alsoSendArenaWhisper) {
+    std::vector<uWS::WebSocket<false, true, PerSocketData>*> sockets;
+    {
+        std::lock_guard<std::mutex> lock(social_mtx);
+        auto it = authenticatedSockets.find(userId);
+        if (it == authenticatedSockets.end()) {
+            return;
+        }
+
+        sockets.assign(it->second.begin(), it->second.end());
+    }
+
+    for (uWS::WebSocket<false, true, PerSocketData>* socket : sockets) {
+        PerSocketData* userData = socket->getUserData();
+        if (userData != nullptr && payload.value("event", "") == "privateMessageReceived") {
+            userData->lastWhisperFromUserId = payload.value("friendUserId", 0LL);
+            userData->lastWhisperFromDisplay = payload.value("nickname", "") + payload.value("tag", "");
+        }
+
+        socket->send(payload.dump(), uWS::OpCode::TEXT);
+        if (alsoSendArenaWhisper) {
+            if (userData != nullptr && !userData->id.empty()) {
+                json whisperPayload = payload;
+                whisperPayload["event"] = "arenaWhisper";
+                socket->send(whisperPayload.dump(), uWS::OpCode::TEXT);
+            }
+        }
+    }
 }
 
 void NetworkHandler::start() {
@@ -384,6 +581,198 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
 
             sendFriendsSyncToSocket(ws, userData->userId);
         }
+        else if (event == "privateChatsSync") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateChatsSync", "not_authenticated", "Client must authenticate before syncing private chats", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            sendPrivateChatsSyncToSocket(ws, userData->userId);
+        }
+        else if (event == "privateChatOpen") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateChatOpen", "not_authenticated", "Client must authenticate before opening a private chat", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!data.contains("friendUserId") || !data["friendUserId"].is_number_integer()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateChatOpen", "invalid_payload", "privateChatOpen requires integer friendUserId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const long long friendUserId = data["friendUserId"];
+            std::string repositoryError;
+            std::optional<FriendshipLinkRecord> acceptedLink = friendshipRepository.findAcceptedLink(
+                userData->userId,
+                friendUserId,
+                &repositoryError
+            );
+            if (!acceptedLink.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "privateChatOpen",
+                    repositoryError.empty() ? "friend_not_found" : "database_error",
+                    repositoryError.empty() ? "Friendship was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            repositoryError.clear();
+            std::optional<UserRecord> friendUser = userRepository.findById(friendUserId, &repositoryError);
+            if (!friendUser.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "privateChatOpen",
+                    repositoryError.empty() ? "user_not_found" : "database_error",
+                    repositoryError.empty() ? "Friend user was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            repositoryError.clear();
+            std::vector<PrivateMessageRecord> messages = privateChatRepository.listConversationMessages(
+                userData->userId,
+                friendUserId,
+                50,
+                &repositoryError
+            );
+            if (!repositoryError.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateChatOpen", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            repositoryError.clear();
+            if (!privateChatRepository.markConversationRead(userData->userId, friendUserId, &repositoryError)) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateChatOpen", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            json payload = {
+                {"event", "privateChatHistory"},
+                {"friendUserId", friendUserId},
+                {"nickname", friendUser->nickname},
+                {"tag", friendUser->tag},
+                {"messages", json::array()},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            };
+
+            for (const PrivateMessageRecord& messageRecord : messages) {
+                payload["messages"].push_back({
+                    {"id", messageRecord.id},
+                    {"direction", messageRecord.senderId == userData->userId ? "out" : "in"},
+                    {"body", messageRecord.body},
+                    {"createdAt", messageRecord.createdAtMs},
+                    {"read", messageRecord.read}
+                });
+            }
+
+            ws->send(payload.dump(), uWS::OpCode::TEXT);
+            sendPrivateChatsSyncToUsers({userData->userId, friendUserId});
+        }
+        else if (event == "privateMessagesMarkRead") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateMessagesMarkRead", "not_authenticated", "Client must authenticate before marking messages as read", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!data.contains("friendUserId") || !data["friendUserId"].is_number_integer()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateMessagesMarkRead", "invalid_payload", "privateMessagesMarkRead requires integer friendUserId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const long long friendUserId = data["friendUserId"];
+            std::string repositoryError;
+            if (!privateChatRepository.markConversationRead(userData->userId, friendUserId, &repositoryError)) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateMessagesMarkRead", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            sendPrivateChatsSyncToUsers({userData->userId, friendUserId});
+        }
+        else if (event == "privateMessageSend") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateMessageSend", "not_authenticated", "Client must authenticate before sending private messages", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!data.contains("friendUserId") || !data["friendUserId"].is_number_integer() || !hasString(data, "body")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateMessageSend", "invalid_payload", "privateMessageSend requires integer friendUserId and string body", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const long long friendUserId = data["friendUserId"];
+            const std::string body = trimCopy(data["body"]);
+            if (body.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateMessageSend", "chat_empty_message", "Private message body is required", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (body.size() > 400) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateMessageSend", "chat_message_too_long", "Private message exceeds the maximum length", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            std::string repositoryError;
+            std::optional<FriendshipLinkRecord> acceptedLink = friendshipRepository.findAcceptedLink(
+                userData->userId,
+                friendUserId,
+                &repositoryError
+            );
+            if (!acceptedLink.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "privateMessageSend",
+                    repositoryError.empty() ? "chat_not_friends" : "database_error",
+                    repositoryError.empty() ? "Private messages are only available between friends" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            repositoryError.clear();
+            std::optional<UserRecord> friendUser = userRepository.findById(friendUserId, &repositoryError);
+            if (!friendUser.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "privateMessageSend",
+                    repositoryError.empty() ? "chat_invalid_target" : "database_error",
+                    repositoryError.empty() ? "Target user was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            PrivateMessageRecord messageRecord;
+            if (!privateChatRepository.createMessage(userData->userId, friendUserId, body, &messageRecord, &repositoryError)) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("privateMessageSend", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            json senderPayload = {
+                {"event", "privateMessageSent"},
+                {"friendUserId", friendUserId},
+                {"message", {
+                    {"id", messageRecord.id},
+                    {"direction", "out"},
+                    {"body", messageRecord.body},
+                    {"createdAt", messageRecord.createdAtMs},
+                    {"read", false}
+                }},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            };
+            ws->send(senderPayload.dump(), uWS::OpCode::TEXT);
+
+            json recipientPayload = {
+                {"event", "privateMessageReceived"},
+                {"friendUserId", userData->userId},
+                {"nickname", userData->nickname},
+                {"tag", userData->tag},
+                {"message", {
+                    {"id", messageRecord.id},
+                    {"direction", "in"},
+                    {"body", messageRecord.body},
+                    {"createdAt", messageRecord.createdAtMs},
+                    {"read", false}
+                }},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            };
+            sendPrivateMessageToUser(friendUserId, recipientPayload, true);
+            sendPrivateChatsSyncToUsers({userData->userId, friendUserId});
+        }
         else if (event == "sendFriendRequest") {
             if (!userData->authenticated || userData->userId <= 0) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("sendFriendRequest", "not_authenticated", "Client must authenticate before sending friend requests", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
@@ -440,6 +829,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                     }
 
                     sendFriendsSyncToUsers(affectedUsers);
+                    sendPrivateChatsSyncToUsers(affectedUsers);
                     ws->send(json({
                         {"event", "friendRequestSent"},
                         {"mode", "accepted_existing"},
@@ -458,6 +848,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             }
 
             sendFriendsSyncToUsers(affectedUsers);
+            sendPrivateChatsSyncToUsers(affectedUsers);
             ws->send(json({
                 {"event", "friendRequestSent"},
                 {"mode", "pending"},
@@ -510,6 +901,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             }
 
             sendFriendsSyncToUsers({userData->userId, updatedRequest.requesterId});
+            sendPrivateChatsSyncToUsers({userData->userId, updatedRequest.requesterId});
             ws->send(json({
                 {"event", "friendRequestResponded"},
                 {"requestId", updatedRequest.id},
@@ -555,6 +947,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             }
 
             sendFriendsSyncToUsers({userData->userId, updatedRequest.addresseeId});
+            sendPrivateChatsSyncToUsers({userData->userId, updatedRequest.addresseeId});
             ws->send(json({
                 {"event", "friendRequestCancelled"},
                 {"requestId", updatedRequest.id},
@@ -594,11 +987,266 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             }
 
             sendFriendsSyncToUsers({userData->userId, friendUserId});
+            sendPrivateChatsSyncToUsers({userData->userId, friendUserId});
             ws->send(json({
                 {"event", "friendRemoved"},
                 {"friendUserId", friendUserId},
                 {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
             }).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "arenaMessageSend") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("arenaMessageSend", "not_authenticated", "Client must authenticate before sending arena messages", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (userData->id.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("arenaMessageSend", "not_joined", "Client must join the arena before sending arena messages", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!hasString(data, "body")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("arenaMessageSend", "invalid_payload", "arenaMessageSend requires string body", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const std::string body = trimCopy(data["body"]);
+            if (body.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("arenaMessageSend", "chat_empty_message", "Arena chat body is required", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (body.size() > 400) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("arenaMessageSend", "chat_message_too_long", "Arena chat message exceeds the maximum length", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            auto sendArenaSystemToSelf = [&](const std::string& systemBody, const std::string& type = "system") {
+                ws->send(json({
+                    {"event", "arenaSystemMessage"},
+                    {"message", {
+                        {"type", type},
+                        {"body", systemBody},
+                        {"createdAt", static_cast<long long>(std::time(nullptr)) * 1000}
+                    }},
+                    {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+                }).dump(), uWS::OpCode::TEXT);
+            };
+
+            if (body.rfind("/add ", 0) == 0) {
+                const std::string targetToken = trimCopy(body.substr(5));
+                std::string targetNickname;
+                std::string targetTag;
+                if (!parseNicknameAndTagToken(targetToken, &targetNickname, &targetTag)) {
+                    sendArenaSystemToSelf("Use /add Nickname#TAG to send a friend request.", "error");
+                    return;
+                }
+
+                std::string repositoryError;
+                std::optional<UserRecord> targetUser = userRepository.findByNicknameAndTag(targetNickname, targetTag, &repositoryError);
+                if (!targetUser.has_value()) {
+                    sendArenaSystemToSelf(repositoryError.empty() ? "Player not found for /add." : repositoryError, "error");
+                    return;
+                }
+                if (targetUser->id == userData->userId) {
+                    sendArenaSystemToSelf("You cannot add yourself.", "error");
+                    return;
+                }
+
+                std::optional<FriendshipLinkRecord> existingLink = friendshipRepository.findExistingLink(userData->userId, targetUser->id, &repositoryError);
+                if (!repositoryError.empty()) {
+                    sendArenaSystemToSelf(repositoryError, "error");
+                    return;
+                }
+
+                std::vector<long long> affectedUsers = {userData->userId, targetUser->id};
+                if (existingLink.has_value()) {
+                    if (existingLink->status == "accepted") {
+                        sendArenaSystemToSelf("This player is already on your friend list.", "error");
+                        return;
+                    }
+
+                    if (existingLink->status == "pending") {
+                        if (existingLink->requesterId == userData->userId) {
+                            sendArenaSystemToSelf("A friend request is already pending for this player.", "error");
+                            return;
+                        }
+
+                        FriendshipLinkRecord acceptedLink;
+                        if (!friendshipRepository.updateRequestStatus(existingLink->id, "accepted", &acceptedLink, &repositoryError)) {
+                            sendArenaSystemToSelf(repositoryError, "error");
+                            return;
+                        }
+
+                        sendFriendsSyncToUsers(affectedUsers);
+                        sendPrivateChatsSyncToUsers(affectedUsers);
+                        sendArenaSystemToSelf("Friend request accepted. You are now friends.");
+                        return;
+                    }
+                }
+
+                FriendshipLinkRecord newLink;
+                if (!friendshipRepository.createPendingRequest(userData->userId, targetUser->id, &newLink, &repositoryError)) {
+                    sendArenaSystemToSelf(repositoryError, "error");
+                    return;
+                }
+
+                sendFriendsSyncToUsers(affectedUsers);
+                sendPrivateChatsSyncToUsers(affectedUsers);
+                sendArenaSystemToSelf("Friend request sent.");
+                return;
+            }
+
+            auto sendPrivateWhisper = [&](long long targetUserId, const std::string& targetNickname, const std::string& targetTag, const std::string& whisperBody) {
+                std::string repositoryError;
+                std::optional<FriendshipLinkRecord> acceptedLink = friendshipRepository.findAcceptedLink(
+                    userData->userId,
+                    targetUserId,
+                    &repositoryError
+                );
+                if (!acceptedLink.has_value()) {
+                    sendArenaSystemToSelf(repositoryError.empty() ? "Private messages are only available between friends." : repositoryError, "error");
+                    return;
+                }
+
+                PrivateMessageRecord messageRecord;
+                if (!privateChatRepository.createMessage(userData->userId, targetUserId, whisperBody, &messageRecord, &repositoryError)) {
+                    sendArenaSystemToSelf(repositoryError, "error");
+                    return;
+                }
+
+                json incomingPayload = {
+                    {"event", "privateMessageReceived"},
+                    {"friendUserId", userData->userId},
+                    {"nickname", userData->nickname},
+                    {"tag", userData->tag},
+                    {"message", {
+                        {"id", messageRecord.id},
+                        {"direction", "in"},
+                        {"body", messageRecord.body},
+                        {"createdAt", messageRecord.createdAtMs},
+                        {"read", false}
+                    }},
+                    {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+                };
+                sendPrivateMessageToUser(targetUserId, incomingPayload, true);
+
+                ws->send(json({
+                    {"event", "privateMessageSent"},
+                    {"friendUserId", targetUserId},
+                    {"message", {
+                        {"id", messageRecord.id},
+                        {"direction", "out"},
+                        {"body", messageRecord.body},
+                        {"createdAt", messageRecord.createdAtMs},
+                        {"read", false}
+                    }},
+                    {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+                }).dump(), uWS::OpCode::TEXT);
+
+                ws->send(json({
+                    {"event", "arenaWhisper"},
+                    {"message", {
+                        {"id", messageRecord.id},
+                        {"type", "whisper_out"},
+                        {"senderUserId", userData->userId},
+                        {"senderNickname", userData->nickname},
+                        {"senderTag", userData->tag},
+                        {"targetUserId", targetUserId},
+                        {"targetLabel", targetNickname + targetTag},
+                        {"body", messageRecord.body},
+                        {"createdAt", messageRecord.createdAtMs}
+                    }},
+                    {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+                }).dump(), uWS::OpCode::TEXT);
+
+                sendPrivateChatsSyncToUsers({userData->userId, targetUserId});
+            };
+
+            if (body.rfind("/w ", 0) == 0) {
+                const std::vector<std::string> parts = splitBySpace(body);
+                if (parts.size() < 3) {
+                    sendArenaSystemToSelf("Use /w Nickname#TAG message to send a private message.", "error");
+                    return;
+                }
+
+                std::string targetNickname;
+                std::string targetTag;
+                if (!parseNicknameAndTagToken(parts[1], &targetNickname, &targetTag)) {
+                    sendArenaSystemToSelf("Use /w Nickname#TAG message to send a private message.", "error");
+                    return;
+                }
+
+                std::string repositoryError;
+                std::optional<UserRecord> targetUser = userRepository.findByNicknameAndTag(targetNickname, targetTag, &repositoryError);
+                if (!targetUser.has_value()) {
+                    sendArenaSystemToSelf(repositoryError.empty() ? "Whisper target not found." : repositoryError, "error");
+                    return;
+                }
+
+                std::string whisperBody = trimCopy(body.substr(body.find(parts[1]) + parts[1].size()));
+                if (whisperBody.empty()) {
+                    sendArenaSystemToSelf("Whisper body is required.", "error");
+                    return;
+                }
+
+                sendPrivateWhisper(targetUser->id, targetUser->nickname, targetUser->tag, whisperBody);
+                return;
+            }
+
+            if (body.rfind("/r", 0) == 0) {
+                if (userData->lastWhisperFromUserId <= 0 || userData->lastWhisperFromDisplay.empty()) {
+                    sendArenaSystemToSelf("You have no recent private message to reply to.", "error");
+                    return;
+                }
+
+                std::string replyBody = trimCopy(body.substr(2));
+                if (replyBody.rfind(userData->lastWhisperFromDisplay, 0) == 0) {
+                    replyBody = trimCopy(replyBody.substr(userData->lastWhisperFromDisplay.size()));
+                }
+                if (replyBody.empty()) {
+                    sendArenaSystemToSelf("Reply message is required.", "error");
+                    return;
+                }
+
+                std::string repositoryError;
+                std::optional<UserRecord> targetUser = userRepository.findById(userData->lastWhisperFromUserId, &repositoryError);
+                if (!targetUser.has_value()) {
+                    sendArenaSystemToSelf(repositoryError.empty() ? "Reply target not found." : repositoryError, "error");
+                    return;
+                }
+
+                sendPrivateWhisper(targetUser->id, targetUser->nickname, targetUser->tag, replyBody);
+                return;
+            }
+
+            ArenaMessageRecord arenaMessage;
+            std::string repositoryError;
+            if (!arenaChatRepository.createMessage(
+                MAIN_ARENA_KEY,
+                userData->userId,
+                userData->nickname,
+                userData->tag,
+                "public",
+                body,
+                std::nullopt,
+                &arenaMessage,
+                &repositoryError
+            )) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("arenaMessageSend", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            sendArenaPublicMessage(json({
+                {"event", "arenaMessage"},
+                {"message", {
+                    {"id", arenaMessage.id},
+                    {"type", "public"},
+                    {"senderUserId", arenaMessage.senderUserId},
+                    {"senderNickname", arenaMessage.senderNickname},
+                    {"senderTag", arenaMessage.senderTag},
+                    {"body", arenaMessage.body},
+                    {"createdAt", arenaMessage.createdAtMs}
+                }},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }));
         }
         else if (event == "join") {
             if (!userData->authenticated) {
@@ -628,7 +1276,36 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 userData->role
             );
             ws->send(world.getSessionInitJson(id).dump(), uWS::OpCode::TEXT);
-            
+
+            std::string arenaMessagesError;
+            std::vector<ArenaMessageRecord> recentArenaMessages = arenaChatRepository.listRecentMessages(
+                MAIN_ARENA_KEY,
+                30,
+                &arenaMessagesError
+            );
+            if (arenaMessagesError.empty()) {
+                json historyPayload = {
+                    {"event", "arenaChatSync"},
+                    {"messages", json::array()},
+                    {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+                };
+
+                for (const ArenaMessageRecord& messageRecord : recentArenaMessages) {
+                    historyPayload["messages"].push_back({
+                        {"id", messageRecord.id},
+                        {"type", messageRecord.messageType.empty() ? "public" : messageRecord.messageType},
+                        {"senderUserId", messageRecord.senderUserId},
+                        {"senderNickname", messageRecord.senderNickname},
+                        {"senderTag", messageRecord.senderTag},
+                        {"body", messageRecord.body},
+                        {"targetUserId", messageRecord.targetUserId > 0 ? json(messageRecord.targetUserId) : json(nullptr)},
+                        {"createdAt", messageRecord.createdAtMs}
+                    });
+                }
+
+                ws->send(historyPayload.dump(), uWS::OpCode::TEXT);
+            }
+
             std::string joinMsg = json({{"event", "playerJoined"}, {"player", world.getPlayerJson(id)}}).dump();
             broadcast(joinMsg);
             ws->subscribe("arena");

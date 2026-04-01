@@ -99,6 +99,18 @@ export interface ProfileSyncPayload {
   profile: AuthSuccessPayload['profile']
 }
 
+export interface ArenaChatMessage {
+  id?: number
+  type: 'public' | 'whisper_in' | 'whisper_out' | 'system' | 'error'
+  senderUserId?: number
+  senderNickname?: string
+  senderTag?: string
+  targetUserId?: number
+  targetLabel?: string
+  body: string
+  createdAt: number
+}
+
 export function useSocket(
   authIntent: ArenaAuthIntent,
   characterId: string,
@@ -114,7 +126,8 @@ export function useSocket(
   onSkillUsed?: (event: SkillUsedEvent) => void,
   onSkillRejected?: (skillId: string) => void,
   onAuthSucceeded?: (payload: AuthSuccessPayload) => void,
-  onAuthFailed?: (code: string, reason: string) => void
+  onAuthFailed?: (code: string, reason: string) => void,
+  onArenaChatMessage?: (message: ArenaChatMessage) => void
 ) {
   const socketIdRef = useRef<string | undefined>(undefined)
   const [socketId, setSocketId] = useState<string | undefined>(undefined)
@@ -389,6 +402,36 @@ export function useSocket(
         case 'protocolError':
           console.error('Protocol error:', data.code || 'unknown', data.reason || '')
           break
+
+        case 'arenaMessage':
+          onArenaChatMessage?.(data.message as ArenaChatMessage)
+          break
+
+        case 'arenaChatSync':
+          for (const message of (data.messages || []) as ArenaChatMessage[]) {
+            onArenaChatMessage?.(message)
+          }
+          break
+
+        case 'arenaWhisper':
+          if (data.message?.senderNickname) {
+            onArenaChatMessage?.(data.message as ArenaChatMessage)
+          } else {
+            onArenaChatMessage?.({
+              id: data.message?.id,
+              type: 'whisper_in',
+              senderUserId: data.friendUserId,
+              senderNickname: data.nickname,
+              senderTag: data.tag,
+              body: data.message?.body || '',
+              createdAt: data.message?.createdAt || Date.now(),
+            })
+          }
+          break
+
+        case 'arenaSystemMessage':
+          onArenaChatMessage?.(data.message as ArenaChatMessage)
+          break
         }
       }
 
@@ -440,6 +483,12 @@ export function useSocket(
     }
   }
 
+  const emitArenaChat = (body: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'arenaMessageSend', body }))
+    }
+  }
+
   return {
     socketId,
     mapData,
@@ -453,6 +502,7 @@ export function useSocket(
     emitShoot,
     emitRespawn,
     emitUseSkill,
+    emitArenaChat,
     isConnected: !!socketId && !!bootstrap && hasSessionInitRef.current,
   }
 }

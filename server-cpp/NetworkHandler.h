@@ -12,7 +12,9 @@
 #include "database/Database.h"
 #include "database/UserRepository.h"
 #include "GameWorld.h"
+#include "social/ArenaChatRepository.h"
 #include "social/FriendshipRepository.h"
+#include "social/PrivateChatRepository.h"
 
 using json = nlohmann::json;
 
@@ -24,6 +26,8 @@ struct PerSocketData {
     std::string nickname;
     std::string tag;
     std::string role = "player";
+    long long lastWhisperFromUserId = 0;
+    std::string lastWhisperFromDisplay;
     bool authenticated = false;
 };
 
@@ -35,6 +39,8 @@ private:
     Database& database;
     UserRepository userRepository;
     FriendshipRepository friendshipRepository;
+    PrivateChatRepository privateChatRepository;
+    ArenaChatRepository arenaChatRepository;
     AuthService authService;
     SessionService sessionService;
     std::map<std::string, uWS::WebSocket<false, true, PerSocketData>*> clients;
@@ -54,10 +60,16 @@ private:
     void unregisterAuthenticatedSocket(uWS::WebSocket<false, true, PerSocketData>* ws, const PerSocketData* userData);
     bool isUserOnline(long long userId);
     json buildFriendsSyncPayload(long long userId, std::string* error = nullptr);
+    json buildPrivateChatsSyncPayload(long long userId, std::string* error = nullptr);
     void sendFriendsSyncToSocket(uWS::WebSocket<false, true, PerSocketData>* ws, long long userId);
     void sendFriendsSyncToUser(long long userId);
     void sendFriendsSyncToUsers(const std::vector<long long>& userIds);
+    void sendPrivateChatsSyncToSocket(uWS::WebSocket<false, true, PerSocketData>* ws, long long userId);
+    void sendPrivateChatsSyncToUser(long long userId);
+    void sendPrivateChatsSyncToUsers(const std::vector<long long>& userIds);
     void notifyFriendsPresenceChanged(long long userId);
+    void sendArenaPublicMessage(const json& payload);
+    void sendPrivateMessageToUser(long long userId, const json& payload, bool alsoSendArenaWhisper = false);
 public:
     void broadcast(const std::string &message);
     void sendTo(const std::string &id, const std::string &message);

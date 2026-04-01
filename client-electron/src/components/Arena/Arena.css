@@ -6,6 +6,8 @@
 .arena-shell {
   width: 100%;
   height: 100%;
+  padding: 12px;
+  box-sizing: border-box;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -19,6 +21,7 @@
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
+  border-radius: 18px;
   transform-origin: center center;
   /* Hard shadow to separate the game from the letterbox bars */
   box-shadow: 0 0 0 4px #1a1a2a, 0 0 40px rgba(0,0,0,0.9);

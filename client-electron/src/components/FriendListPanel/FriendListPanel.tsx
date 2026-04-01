@@ -28,6 +28,7 @@ interface Props {
   expanded: boolean
   unreadCount: number
   friends: FriendListEntry[]
+  privateUnreadByFriendId?: Record<number, number>
   incomingRequests: IncomingFriendRequest[]
   outgoingRequests: OutgoingFriendRequest[]
   sendBusy?: boolean
@@ -39,12 +40,14 @@ interface Props {
   onRespondRequest: (requestId: number, action: 'accept' | 'reject') => void
   onCancelOutgoingRequest: (requestId: number) => void
   onRemoveFriend: (friendUserId: number) => void
+  onOpenChat: (friend: FriendListEntry) => void
 }
 
 export function FriendListPanel({
   expanded,
   unreadCount,
   friends,
+  privateUnreadByFriendId = {},
   incomingRequests,
   outgoingRequests,
   sendBusy = false,
@@ -56,6 +59,7 @@ export function FriendListPanel({
   onRespondRequest,
   onCancelOutgoingRequest,
   onRemoveFriend,
+  onOpenChat,
 }: Props) {
   const { t } = useTranslation()
   const [nickname, setNickname] = useState('')
@@ -162,12 +166,16 @@ export function FriendListPanel({
                 <div
                   key={`${friend.userId}-${friend.tag}`}
                   className="friend-panel__friend"
+                  onDoubleClick={() => onOpenChat(friend)}
                   onContextMenu={(event) => {
                     event.preventDefault()
                     setFriendMenu({ x: event.clientX, y: event.clientY, friend })
                   }}
                 >
                   <span className={`friend-panel__status ${friend.online ? 'is-online' : 'is-offline'}`} />
+                  {(privateUnreadByFriendId[friend.userId] || 0) > 0 && (
+                    <span className="friend-panel__friend-badge">{privateUnreadByFriendId[friend.userId]}</span>
+                  )}
                   <div className="friend-panel__friend-meta">
                     <strong>{`${friend.nickname}${friend.tag}`}</strong>
                     <span>{friend.online ? t('friends.online') : t('friends.offline')}</span>
@@ -240,6 +248,16 @@ export function FriendListPanel({
             style={{ left: friendMenu.x, top: friendMenu.y }}
             onClick={event => event.stopPropagation()}
           >
+            <button
+              type="button"
+              className="friend-panel__context-item"
+              onClick={() => {
+                onOpenChat(friendMenu.friend)
+                setFriendMenu(null)
+              }}
+            >
+              {t('friends.messageAction')}
+            </button>
             <button
               type="button"
               className="friend-panel__context-item friend-panel__context-item--danger"

@@ -64,6 +64,7 @@
   },
   "friends": {
     "title": "Amigos",
+    "messageAction": "Mensaje",
     "nicknamePlaceholder": "Nickname",
     "tagPlaceholder": "#AA1",
     "sendRequest": "Enviar solicitud",
@@ -95,6 +96,29 @@
     "requestAcceptedExisting": "Ahora son amigos.",
     "requestAccepted": "Solicitud aceptada.",
     "requestRejected": "Solicitud rechazada."
+  },
+  "chat": {
+    "private": {
+      "online": "Online",
+      "offline": "Offline",
+      "minimize": "Minimizar conversación",
+      "close": "Cerrar conversación",
+      "empty": "Todavía no hay mensajes. Comienza la conversación.",
+      "placeholder": "Escribe un mensaje privado...",
+      "send": "Enviar"
+    },
+    "arena": {
+      "placeholder": "Escribe un mensaje o comando...",
+      "placeholderReply": "Responder a {{target}}...",
+      "whisperPrefix": "[Susurro]",
+      "whisperOutLabel": "para",
+      "youLabel": "Tú",
+      "commands": {
+        "add": "Envía una solicitud de amistad.",
+        "whisper": "Envía un mensaje privado a un amigo.",
+        "reply": "Responde al último susurro recibido."
+      }
+    }
   },
   "settings": {
     "eyebrow": "Sistema",
@@ -209,6 +233,14 @@
       "friend_request_pending": "Ya existe una solicitud de amistad pendiente para ese jugador.",
       "friend_request_not_found": "No se encontró esa solicitud de amistad.",
       "friend_not_found": "Ese amigo no fue encontrado en tu lista."
+    },
+    "chat": {
+      "chat_not_friends": "Los mensajes privados solo están disponibles entre amigos.",
+      "chat_invalid_target": "No se encontró el objetivo del chat.",
+      "chat_empty_message": "El mensaje no puede estar vacío.",
+      "chat_message_too_long": "El mensaje supera el tamaño máximo permitido.",
+      "chat_rate_limited": "Estás enviando mensajes demasiado rápido.",
+      "chat_reply_target_missing": "No hay un objetivo reciente para responder."
     }
   }
 }

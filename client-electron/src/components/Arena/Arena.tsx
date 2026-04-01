@@ -1,30 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HUD } from '../HUD/HUD'
-import { ArenaAuthIntent, AuthSuccessPayload, AutoAttackStartedEvent, NetPlayer, SkillUsedEvent } from '../../hooks/useSocket'
+import { ArenaAuthIntent, ArenaChatMessage, AuthSuccessPayload, AutoAttackStartedEvent, NetPlayer, SkillUsedEvent } from '../../hooks/useSocket'
 import { useArenaNetworkState } from '../../hooks/useArenaNetworkState'
 import { CHARACTER_VISUALS } from '../../config/visualConfig'
 import { getClosest4WayDirection, VIEWPORT_HEIGHT, VIEWPORT_WIDTH } from '../../config/spriteMap'
 import { useArenaController } from '../../hooks/useArenaController'
 import { PixiArenaView } from './PixiArenaView'
+import { ArenaChatBox } from '../ArenaChatBox/ArenaChatBox'
 import './Arena.css'
 
 interface Props {
+  playerUserId: number | null
   playerName: string
   authIntent: ArenaAuthIntent | null
   characterId?: string
   onAuthenticated: (payload: AuthSuccessPayload) => void
   onAuthFailure: (message: string) => void
+  onArenaChatMessage: (message: ArenaChatMessage) => void
+  replyTarget: { userId: number, label: string } | null
   onReturnToHome: () => void
   onReturnToSelect: (respawnAvailableAt?: number) => void
 }
 
 export function Arena({
+  playerUserId,
   playerName,
   authIntent,
   characterId = 'charizard',
   onAuthenticated,
   onAuthFailure,
+  onArenaChatMessage,
+  replyTarget,
   onReturnToHome,
   onReturnToSelect,
 }: Props) {
@@ -33,6 +40,8 @@ export function Arena({
   const [pixiReady, setPixiReady] = useState(false)
   const [pixiInstanceKey, setPixiInstanceKey] = useState(0)
   const [showLeavePrompt, setShowLeavePrompt] = useState(false)
+  const [arenaChatMessages, setArenaChatMessages] = useState<ArenaChatMessage[]>([])
+  const [chatInputActive, setChatInputActive] = useState(false)
   const localPlayerIdRef = useRef<string | undefined>(undefined)
   const lockActionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left', durationMs: number) => void) | null>(null)
   const setDirectionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left') => void) | null>(null)
@@ -109,6 +118,7 @@ export function Arena({
     emitMove,
     emitShoot,
     emitUseSkill,
+    emitArenaChat,
   } = useArenaNetworkState({
     authIntent: authIntent ?? {
       mode: 'login',
@@ -120,12 +130,16 @@ export function Arena({
     onSkillUsed: handleSkillUsed,
     onAuthSucceeded: handleAuthSucceeded,
     onAuthFailed: handleAuthFailed,
+    onArenaChatMessage: (message) => {
+      setArenaChatMessages(prev => [...prev.slice(-40), message])
+      onArenaChatMessage(message)
+    },
   })
 
   const displayPlayerName = bootstrap?.player?.name || playerName
 
   const controller = useArenaController({
-    inputEnabled: pixiReady && Boolean(bootstrap && character && mapData),
+    inputEnabled: pixiReady && Boolean(bootstrap && character && mapData) && !chatInputActive,
     character,
     fallbackVisual,
     bootstrapPlayer: bootstrap?.player,
@@ -163,6 +177,10 @@ export function Arena({
         return
       }
 
+      if (chatInputActive) {
+        return
+      }
+
       if (controller.showScoreboard) {
         return
       }
@@ -175,7 +193,7 @@ export function Arena({
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [controller.showScoreboard])
+  }, [chatInputActive, controller.showScoreboard])
 
   const arenaReady = Boolean(bootstrap && character && mapData && pixiReady)
 
@@ -266,6 +284,16 @@ export function Arena({
             mapHeight={mapHeight}
             skillCooldowns={skillCooldowns}
             autoAttackCooldown={autoAttackCD}
+          />
+        )}
+
+        {arenaReady && (
+          <ArenaChatBox
+            messages={arenaChatMessages}
+            localUserId={playerUserId}
+            replyTarget={replyTarget}
+            onSend={emitArenaChat}
+            onInputActiveChange={setChatInputActive}
           />
         )}
 

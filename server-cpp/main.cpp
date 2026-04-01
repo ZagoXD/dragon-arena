@@ -1,6 +1,8 @@
 #include "database/Database.h"
 #include "database/UserRepository.h"
 #include "social/FriendshipRepository.h"
+#include "social/PrivateChatRepository.h"
+#include "social/ArenaChatRepository.h"
 #include "GameWorld.h"
 #include "GameConfig.h"
 #include "NetworkHandler.h"
@@ -23,6 +25,8 @@ int main() {
 
         UserRepository users(database);
         FriendshipRepository friendships(database);
+        PrivateChatRepository privateChats(database);
+        ArenaChatRepository arenaChats(database);
         std::string roleSchemaError;
         if (users.ensureRoleSchema(&roleSchemaError)) {
             std::cout << "[Database] users.role schema ready." << std::endl;
@@ -51,6 +55,20 @@ int main() {
             std::cout << "[Database] friendships schema ready." << std::endl;
         } else {
             std::cerr << "[Database] Could not ensure friendships schema: " << friendshipSchemaError << std::endl;
+        }
+
+        std::string privateChatCleanupError;
+        if (privateChats.cleanupExpired(30, &privateChatCleanupError)) {
+            std::cout << "[Database] private_messages cleanup completed." << std::endl;
+        } else {
+            std::cerr << "[Database] Could not cleanup private_messages: " << privateChatCleanupError << std::endl;
+        }
+
+        std::string arenaChatCleanupError;
+        if (arenaChats.cleanupExpired(60, &arenaChatCleanupError)) {
+            std::cout << "[Database] arena_messages cleanup completed." << std::endl;
+        } else {
+            std::cerr << "[Database] Could not cleanup arena_messages: " << arenaChatCleanupError << std::endl;
         }
     } else {
         std::cerr << "[Database] Connection failed (" << database.getConfig().describe() << "): " << databaseError << std::endl;

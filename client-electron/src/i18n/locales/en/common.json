@@ -64,6 +64,7 @@
   },
   "friends": {
     "title": "Friends",
+    "messageAction": "Message",
     "nicknamePlaceholder": "Nickname",
     "tagPlaceholder": "#AA1",
     "sendRequest": "Send request",
@@ -95,6 +96,29 @@
     "requestAcceptedExisting": "You are now friends.",
     "requestAccepted": "Friend request accepted.",
     "requestRejected": "Friend request rejected."
+  },
+  "chat": {
+    "private": {
+      "online": "Online",
+      "offline": "Offline",
+      "minimize": "Minimize conversation",
+      "close": "Close conversation",
+      "empty": "No messages yet. Start the conversation.",
+      "placeholder": "Type a private message...",
+      "send": "Send"
+    },
+    "arena": {
+      "placeholder": "Type a message or command...",
+      "placeholderReply": "Reply to {{target}}...",
+      "whisperPrefix": "[Whisper]",
+      "whisperOutLabel": "to",
+      "youLabel": "You",
+      "commands": {
+        "add": "Sends a friend request.",
+        "whisper": "Sends a private message to a friend.",
+        "reply": "Replies to the last whisper you received."
+      }
+    }
   },
   "settings": {
     "eyebrow": "System",
@@ -209,6 +233,14 @@
       "friend_request_pending": "A friend request is already pending for that player.",
       "friend_request_not_found": "That friend request was not found.",
       "friend_not_found": "That friend was not found on your list."
+    },
+    "chat": {
+      "chat_not_friends": "Private messages are only available between friends.",
+      "chat_invalid_target": "The chat target was not found.",
+      "chat_empty_message": "The message cannot be empty.",
+      "chat_message_too_long": "The message exceeds the maximum allowed size.",
+      "chat_rate_limited": "You are sending messages too quickly.",
+      "chat_reply_target_missing": "There is no recent target to reply to."
     }
   }
 }

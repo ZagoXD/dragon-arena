@@ -1,0 +1,121 @@
+.arena-chat-box {
+  position: absolute;
+  left: 22px;
+  top: 22px;
+  z-index: 1300;
+  width: 392px;
+  max-width: calc(100% - 44px);
+  pointer-events: none;
+}
+
+.arena-chat-box__messages {
+  max-height: 118px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(7, 10, 18, 0.34);
+  backdrop-filter: blur(6px);
+  scrollbar-width: none;
+}
+
+.arena-chat-box__messages::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.arena-chat-box.is-active .arena-chat-box__messages {
+  max-height: 208px;
+  overflow-y: auto;
+  pointer-events: auto;
+  background: rgba(7, 10, 18, 0.68);
+}
+
+.arena-chat-box__line {
+  font-size: 0.84rem;
+  line-height: 1.35;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.arena-chat-box__line strong {
+  font-weight: 800;
+}
+
+.arena-chat-box__line--public {
+  color: #f5e9ce;
+}
+
+.arena-chat-box__line--whisper_in {
+  color: #7dd3fc;
+}
+
+.arena-chat-box__line--whisper_out {
+  color: #f9a8d4;
+}
+
+.arena-chat-box__line--system {
+  color: #ffd37a;
+}
+
+.arena-chat-box__line--error {
+  color: #fca5a5;
+}
+
+.arena-chat-box__input-shell {
+  margin-top: 8px;
+  pointer-events: auto;
+}
+
+.arena-chat-box__command-list {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 193, 117, 0.16);
+  border-radius: 12px;
+  background: rgba(8, 10, 18, 0.88);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+.arena-chat-box__command-item + .arena-chat-box__command-item {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.arena-chat-box__command-topline {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.arena-chat-box__command-topline strong {
+  color: #ffd37a;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+}
+
+.arena-chat-box__command-topline span {
+  color: rgba(255, 245, 223, 0.72);
+  font-size: 0.7rem;
+}
+
+.arena-chat-box__command-item p {
+  margin: 2px 0 0;
+  color: rgba(255, 245, 223, 0.62);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.arena-chat-box__input-shell input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 193, 117, 0.24);
+  border-radius: 12px;
+  background: rgba(8, 10, 18, 0.86);
+  color: #fff5df;
+  font-size: 0.83rem;
+  line-height: 1.25;
+  outline: none;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}

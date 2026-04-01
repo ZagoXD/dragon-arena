@@ -283,6 +283,20 @@
   cursor: context-menu;
 }
 
+.friend-panel__friend-badge {
+  min-width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ff7b2f;
+  color: #231005;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
 .friend-panel__status {
   width: 10px;
   height: 10px;

@@ -4,6 +4,7 @@ import { useGameLoop } from './useGameLoop'
 import {
   AutoAttackStartedEvent,
   AuthSuccessPayload,
+  ArenaChatMessage,
   ArenaAuthIntent,
   NetPlayer,
   ProjectileSpawnEvent,
@@ -23,6 +24,7 @@ interface UseArenaNetworkStateParams {
   onSkillRejected?: (skillId: string) => void
   onAuthSucceeded?: (payload: AuthSuccessPayload) => void
   onAuthFailed?: (code: string, reason: string) => void
+  onArenaChatMessage?: (message: ArenaChatMessage) => void
 }
 
 interface RemotePlayerSample {
@@ -77,6 +79,7 @@ export function useArenaNetworkState({
   onSkillRejected,
   onAuthSucceeded,
   onAuthFailed,
+  onArenaChatMessage,
 }: UseArenaNetworkStateParams) {
   const [hp, setHp] = useState(0)
   const [hasAuthoritativePlayerState, setHasAuthoritativePlayerState] = useState(false)
@@ -261,6 +264,7 @@ export function useArenaNetworkState({
     emitShoot,
     emitRespawn,
     emitUseSkill,
+    emitArenaChat,
   } = useSocket(
     authIntent,
     characterId,
@@ -277,6 +281,7 @@ export function useArenaNetworkState({
     onSkillRejected,
     onAuthSucceeded,
     onAuthFailed,
+    onArenaChatMessage,
   )
 
   const character = useMemo<ResolvedCharacterConfig | null>(() => {
@@ -533,5 +538,6 @@ export function useArenaNetworkState({
     emitShoot,
     emitRespawn,
     emitUseSkill,
+    emitArenaChat,
   }
 }

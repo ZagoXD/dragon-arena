@@ -5,6 +5,8 @@ import { usePlayerMovement } from './usePlayerMovement'
 import { ResolvedCharacterConfig, ResolvedSpellConfig, VisualCharacterConfig } from '../config/visualConfig'
 import { VIEWPORT_HEIGHT, VIEWPORT_WIDTH, getClosest4WayDirection } from '../config/spriteMap'
 
+const ARENA_SAFE_INSET_PX = 28
+
 interface UseArenaControllerParams {
   inputEnabled: boolean
   character: ResolvedCharacterConfig | null
@@ -96,11 +98,25 @@ export function useArenaController({
   hpRef.current = hp
   aimingSkillRef.current = aimingSkill
 
-  useEffect(() => {
-    const compute = () => setScale(Math.min(window.innerWidth / VIEWPORT_WIDTH, window.innerHeight / VIEWPORT_HEIGHT))
-    window.addEventListener('resize', compute)
-    return () => window.removeEventListener('resize', compute)
+  const computeScale = useCallback(() => {
+    const parentRect = viewportRef.current?.parentElement?.getBoundingClientRect()
+    const availableWidth = Math.max(
+      320,
+      (parentRect?.width ?? window.innerWidth) - ARENA_SAFE_INSET_PX * 2
+    )
+    const availableHeight = Math.max(
+      180,
+      (parentRect?.height ?? window.innerHeight) - ARENA_SAFE_INSET_PX * 2
+    )
+
+    setScale(Math.min(availableWidth / VIEWPORT_WIDTH, availableHeight / VIEWPORT_HEIGHT))
   }, [])
+
+  useEffect(() => {
+    computeScale()
+    window.addEventListener('resize', computeScale)
+    return () => window.removeEventListener('resize', computeScale)
+  }, [computeScale])
 
   useEffect(() => {
     if (!bootstrapPlayer) return

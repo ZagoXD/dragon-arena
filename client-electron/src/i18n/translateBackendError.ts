@@ -42,6 +42,15 @@ const socialErrorKeyByCode: Record<string, string> = {
   friend_not_found: 'errors.social.friend_not_found'
 }
 
+const chatErrorKeyByCode: Record<string, string> = {
+  chat_not_friends: 'errors.chat.chat_not_friends',
+  chat_invalid_target: 'errors.chat.chat_invalid_target',
+  chat_empty_message: 'errors.chat.chat_empty_message',
+  chat_message_too_long: 'errors.chat.chat_message_too_long',
+  chat_rate_limited: 'errors.chat.chat_rate_limited',
+  chat_reply_target_missing: 'errors.chat.chat_reply_target_missing'
+}
+
 export function translateBackendError(t: TFunction, code?: string, reason?: string) {
   if (code) {
     const authKey = authErrorKeyByCode[code]
@@ -57,6 +66,11 @@ export function translateBackendError(t: TFunction, code?: string, reason?: stri
     const socialKey = socialErrorKeyByCode[code]
     if (socialKey) {
       return t(socialKey)
+    }
+
+    const chatKey = chatErrorKeyByCode[code]
+    if (chatKey) {
+      return t(chatKey)
     }
   }
 
