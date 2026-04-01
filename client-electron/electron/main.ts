@@ -193,7 +193,7 @@ function createWindow() {
     height,
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,
-    icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    icon: path.join(process.env.VITE_PUBLIC, 'dragon_ico.png'),
     frame: false,
     show: false,
     resizable: false,
