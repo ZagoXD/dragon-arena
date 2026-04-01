@@ -4,10 +4,11 @@ import './HomeScreen.css'
 interface Props {
   nickname: string
   coins: number
+  isBusy?: boolean
   onEnterArena: () => void
 }
 
-export function HomeScreen({ nickname, coins, onEnterArena }: Props) {
+export function HomeScreen({ nickname, coins, isBusy = false, onEnterArena }: Props) {
   const { t } = useTranslation()
 
   return (
@@ -30,8 +31,14 @@ export function HomeScreen({ nickname, coins, onEnterArena }: Props) {
         <h1 className="home-screen__title">{t('home.title')}</h1>
         <p className="home-screen__subtitle">{t('home.subtitle')}</p>
 
-        <button type="button" className="home-screen__cta" onClick={onEnterArena}>
-          {t('home.enterArena')}
+        <button
+          type="button"
+          className={`home-screen__cta ${isBusy ? 'is-loading' : ''}`}
+          disabled={isBusy}
+          onClick={onEnterArena}
+        >
+          {isBusy && <span className="home-screen__spinner" aria-hidden="true" />}
+          <span>{t('home.enterArena')}</span>
         </button>
       </main>
     </div>

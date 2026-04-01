@@ -15,6 +15,7 @@ interface Props {
   characterId?: string
   onAuthenticated: (payload: AuthSuccessPayload) => void
   onAuthFailure: (message: string) => void
+  onReturnToHome: () => void
   onReturnToSelect: (respawnAvailableAt?: number) => void
 }
 
@@ -24,12 +25,14 @@ export function Arena({
   characterId = 'charizard',
   onAuthenticated,
   onAuthFailure,
+  onReturnToHome,
   onReturnToSelect,
 }: Props) {
   const { t } = useTranslation()
   const fallbackVisual = CHARACTER_VISUALS[characterId] || CHARACTER_VISUALS.charizard
   const [pixiReady, setPixiReady] = useState(false)
   const [pixiInstanceKey, setPixiInstanceKey] = useState(0)
+  const [showLeavePrompt, setShowLeavePrompt] = useState(false)
   const localPlayerIdRef = useRef<string | undefined>(undefined)
   const lockActionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left', durationMs: number) => void) | null>(null)
   const setDirectionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left') => void) | null>(null)
@@ -153,6 +156,26 @@ export function Arena({
     }
     previousHpRef.current = hp
   }, [hp])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return
+      }
+
+      if (controller.showScoreboard) {
+        return
+      }
+
+      event.preventDefault()
+      setShowLeavePrompt(current => !current)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [controller.showScoreboard])
 
   const arenaReady = Boolean(bootstrap && character && mapData && pixiReady)
 
@@ -288,6 +311,32 @@ export function Arena({
                 </tbody>
               </table>
               <p className="scoreboard-hint">{t('arena.releaseTab')}</p>
+            </div>
+          </div>
+        )}
+
+        {showLeavePrompt && (
+          <div className="arena-confirm-overlay">
+            <div className="arena-confirm-card">
+              <span className="arena-confirm-eyebrow">{t('arena.leaveEyebrow')}</span>
+              <h2>{t('arena.leaveTitle')}</h2>
+              <p>{t('arena.leaveText')}</p>
+              <div className="arena-confirm-actions">
+                <button
+                  type="button"
+                  className="arena-confirm-button arena-confirm-button--secondary"
+                  onClick={() => setShowLeavePrompt(false)}
+                >
+                  {t('arena.leaveCancel')}
+                </button>
+                <button
+                  type="button"
+                  className="arena-confirm-button arena-confirm-button--primary"
+                  onClick={onReturnToHome}
+                >
+                  {t('arena.leaveConfirm')}
+                </button>
+              </div>
             </div>
           </div>
         )}

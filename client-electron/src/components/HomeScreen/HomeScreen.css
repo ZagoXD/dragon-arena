@@ -113,6 +113,10 @@
 
 .home-screen__cta {
   margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   padding: 18px 42px;
   border: 0;
   border-radius: 999px;
@@ -135,6 +139,33 @@
 
 .home-screen__cta:active {
   transform: translateY(0);
+}
+
+.home-screen__cta:disabled {
+  cursor: wait;
+}
+
+.home-screen__cta.is-loading {
+  filter: brightness(1.02) saturate(0.95);
+}
+
+.home-screen__spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid rgba(31, 16, 4, 0.22);
+  border-top-color: rgba(31, 16, 4, 0.88);
+  animation: home-screen-spin 0.72s linear infinite;
+}
+
+@keyframes home-screen-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 720px) {

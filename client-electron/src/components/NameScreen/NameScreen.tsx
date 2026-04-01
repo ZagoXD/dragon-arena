@@ -11,8 +11,9 @@ interface Props {
   authError?: string | null
   authInfo?: string | null
   initialMode?: AuthMode
+  isBusy?: boolean
   onLanguageChange: (language: AppLanguage) => void
-  onStart: (authIntent: ArenaAuthIntent) => void
+  onStart: (authIntent: ArenaAuthIntent) => void | Promise<void>
 }
 
 const languageFlags = {
@@ -21,7 +22,14 @@ const languageFlags = {
   es: ES,
 } as const
 
-export function NameScreen({ authError, authInfo, initialMode = 'login', onLanguageChange, onStart }: Props) {
+export function NameScreen({
+  authError,
+  authInfo,
+  initialMode = 'login',
+  isBusy = false,
+  onLanguageChange,
+  onStart,
+}: Props) {
   const { t, i18n } = useTranslation()
   const [mode, setMode] = useState<AuthMode>(initialMode)
   const [email, setEmail] = useState('')
@@ -67,6 +75,10 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onLangu
   }
 
   const handleSubmit = () => {
+    if (isBusy) {
+      return
+    }
+
     if (mode === 'register') {
       const validationError = validateRegister()
       setLocalError(validationError)
@@ -115,6 +127,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onLangu
             <button
               type="button"
               className="name-screen__language-trigger"
+              disabled={isBusy}
               onClick={() => setLanguageMenuOpen(open => !open)}
             >
               <CurrentFlag className="name-screen__language-flag" />
@@ -130,6 +143,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onLangu
                       key={language}
                       type="button"
                       className={`name-screen__language-option ${language === currentLanguage ? 'is-active' : ''}`}
+                      disabled={isBusy}
                       onClick={() => {
                         setLanguageMenuOpen(false)
                         onLanguageChange(language)
@@ -149,6 +163,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onLangu
           <button
             type="button"
             className={`name-screen__tab ${mode === 'login' ? 'is-active' : ''}`}
+            disabled={isBusy}
             onClick={() => setMode('login')}
           >
             {t('auth.login')}
@@ -156,6 +171,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onLangu
           <button
             type="button"
             className={`name-screen__tab ${mode === 'register' ? 'is-active' : ''}`}
+            disabled={isBusy}
             onClick={() => setMode('register')}
           >
             {t('auth.register')}
@@ -174,6 +190,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onLangu
                 type="email"
                 value={email}
                 autoFocus
+                disabled={isBusy}
                 onChange={e => setEmail(e.target.value)}
                 onKeyDown={handleKeyDown}
               />
@@ -187,6 +204,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onLangu
                 type="text"
                 value={username}
                 maxLength={20}
+                disabled={isBusy}
                 onChange={e => setUsername(e.target.value)}
                 onKeyDown={handleKeyDown}
               />
@@ -200,6 +218,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onLangu
                 type="text"
                 value={nickname}
                 maxLength={20}
+                disabled={isBusy}
                 onChange={e => setNickname(e.target.value)}
                 onKeyDown={handleKeyDown}
               />
@@ -217,6 +236,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onLangu
                 type="text"
                 value={identifier}
                 autoFocus
+                disabled={isBusy}
                 onChange={e => setIdentifier(e.target.value)}
                 onKeyDown={handleKeyDown}
               />
@@ -231,6 +251,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onLangu
             className="name-screen__input"
             type="password"
             value={password}
+            disabled={isBusy}
             onChange={e => setPassword(e.target.value)}
             onKeyDown={handleKeyDown}
           />
@@ -241,6 +262,7 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onLangu
                 className="name-screen__checkbox-input"
                 type="checkbox"
                 checked={rememberSession}
+                disabled={isBusy}
                 onChange={e => setRememberSession(e.target.checked)}
               />
               <span className="name-screen__checkbox-label">{t('auth.remember')}</span>
@@ -258,10 +280,12 @@ export function NameScreen({ authError, authInfo, initialMode = 'login', onLangu
 
           <button
             id="start-btn"
-            className="name-screen__btn"
+            className={`name-screen__btn ${isBusy ? 'is-loading' : ''}`}
+            disabled={isBusy}
             onClick={handleSubmit}
           >
-            {mode === 'register' ? t('auth.submitRegister') : t('auth.submitLogin')}
+            {isBusy && <span className="name-screen__spinner" aria-hidden="true" />}
+            <span>{mode === 'register' ? t('auth.submitRegister') : t('auth.submitLogin')}</span>
           </button>
         </div>
       </div>

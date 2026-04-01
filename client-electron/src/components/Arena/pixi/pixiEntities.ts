@@ -129,10 +129,11 @@ export function buildPlayer(
   const nameLabel = new Text({
     text: playerName,
     style: {
-      fontFamily: 'monospace',
+      fontFamily: 'Trebuchet MS, Segoe UI, sans-serif',
       fontSize: 12,
-      fill: 0xffffff,
-      stroke: { color: 0x000000, width: 3 },
+      fontWeight: '700',
+      fill: 0xf6f1e7,
+      stroke: { color: 0x11141b, width: 2 },
     },
   })
   nameLabel.anchor.set(0.5, 1)
@@ -142,11 +143,11 @@ export function buildPlayer(
   const adminLabel = showAdminBadge ? new Text({
     text: 'Admin',
     style: {
-      fontFamily: 'monospace',
-      fontSize: 12,
+      fontFamily: 'Trebuchet MS, Segoe UI, sans-serif',
+      fontSize: 11,
       fontWeight: '700',
-      fill: 0xff4d4f,
-      stroke: { color: 0x2b0000, width: 3 },
+      fill: 0xff5659,
+      stroke: { color: 0x280609, width: 2 },
     },
   }) : null
   if (adminLabel) {

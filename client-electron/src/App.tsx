@@ -44,12 +44,14 @@ function App() {
   const [loadingStatus, setLoadingStatus] = useState(() => i18n.t('app.initializing'))
   const [retryCount, setRetryCount] = useState(0)
   const [connError, setConnError] = useState<string | null>(null)
+  const [authPending, setAuthPending] = useState(false)
+  const [enterArenaPending, setEnterArenaPending] = useState(false)
   const attemptedStoredSessionRef = useRef(false)
   const currentLanguage = (supportedLanguages.includes(i18n.language as AppLanguage)
     ? i18n.language
     : 'pt-BR') as AppLanguage
   const showTitleBar = shellSettings.displayMode !== 'fullscreen'
-  const showSettingsButton = screen !== 'splash' && screen !== 'loading'
+  const showSettingsButton = screen === 'home'
 
   const applyAccountSnapshot = useCallback((payload: Pick<AuthSuccessPayload, 'user' | 'profile'>) => {
     setPlayerName(payload.user.nickname || payload.user.username)
@@ -133,11 +135,13 @@ function App() {
     }
   }, [serverUrl])
 
-  const authenticate = useCallback((nextAuthIntent: ArenaAuthIntent) => {
-    setScreen('loading')
-    setConnError(null)
-    setRetryCount(1)
-    setLoadingStatus(i18n.t(nextAuthIntent.mode === 'register' ? 'app.creatingAccount' : 'app.authenticating'))
+  const authenticate = useCallback((nextAuthIntent: ArenaAuthIntent, options?: { showLoadingScreen?: boolean }) => {
+    if (options?.showLoadingScreen) {
+      setScreen('loading')
+      setConnError(null)
+      setRetryCount(1)
+      setLoadingStatus(i18n.t(nextAuthIntent.mode === 'register' ? 'app.creatingAccount' : 'app.authenticating'))
+    }
 
     return new Promise<AuthSuccessPayload>((resolve, reject) => {
       const ws = new WebSocket(serverUrl)
@@ -213,9 +217,12 @@ function App() {
     setAuthError(null)
     setAuthInfo(null)
     setNameScreenMode(nextAuthIntent.mode === 'register' ? 'register' : 'login')
+    setAuthPending(true)
 
     try {
-      const payload = await authenticate(nextAuthIntent)
+      const payload = await authenticate(nextAuthIntent, {
+        showLoadingScreen: nextAuthIntent.mode === 'session',
+      })
 
       if (nextAuthIntent.mode === 'register') {
         setAuthInfo(i18n.t('app.accountCreated'))
@@ -250,6 +257,8 @@ function App() {
       setShouldPersistSession(false)
       setAuthError(error instanceof Error ? error.message : i18n.t('app.authFailed'))
       setScreen('name')
+    } finally {
+      setAuthPending(false)
     }
   }, [applyAccountSnapshot, authenticate, clearPersistedSession, persistSession])
 
@@ -306,7 +315,16 @@ function App() {
   }, [applyAccountSnapshot, persistSession, shouldPersistSession])
 
   const handleEnterArena = useCallback(() => {
-    setScreen('select')
+    setEnterArenaPending(true)
+    window.setTimeout(() => {
+      setEnterArenaPending(false)
+      setScreen('select')
+    }, 220)
+  }, [])
+
+  const handleReturnToHome = useCallback(() => {
+    setSelectionLockedUntil(null)
+    setScreen('home')
   }, [])
 
   const handleLogout = useCallback(() => {
@@ -317,6 +335,8 @@ function App() {
     setAuthIntent(null)
     setAuthError(null)
     setAuthInfo(null)
+    setAuthPending(false)
+    setEnterArenaPending(false)
     setPlayerCoins(0)
     setPlayerName('')
     setSelectionLockedUntil(null)
@@ -541,6 +561,7 @@ function App() {
                   authError={authError}
                   authInfo={authInfo}
                   initialMode={nameScreenMode}
+                  isBusy={authPending}
                   onLanguageChange={handleLanguageChange}
                   onStart={handleNameEnter}
                 />
@@ -557,6 +578,7 @@ function App() {
                 <HomeScreen
                   nickname={playerName}
                   coins={playerCoins}
+                  isBusy={enterArenaPending}
                   onEnterArena={handleEnterArena}
                 />
               )}
@@ -574,6 +596,7 @@ function App() {
                   characterId={characterId}
                   onAuthenticated={handleAuthenticated}
                   onAuthFailure={handleAuthFailure}
+                  onReturnToHome={handleReturnToHome}
                   onReturnToSelect={handleReturnToSelect}
                 />
               )}
@@ -589,7 +612,7 @@ function App() {
             onQuit={handleQuitGame}
             onUpdateSettings={applyShellSettings}
             settings={shellSettings}
-            showLogout={screen !== 'name' && screen !== 'splash' && screen !== 'loading'}
+            showLogout={screen === 'home'}
           />
         )}
       </div>
