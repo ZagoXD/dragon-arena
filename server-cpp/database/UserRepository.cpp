@@ -23,7 +23,7 @@ UserRepository::UserRepository(Database& database)
 
 std::optional<UserRecord> UserRepository::findById(long long id, std::string* error) const {
     DatabaseQueryResult result = database.execute(
-        "SELECT id, email, username, nickname, role, password_hash, created_at "
+        "SELECT id, email, username, nickname, tag, role, password_hash, created_at "
         "FROM users WHERE id = $1 LIMIT 1",
         {std::to_string(id)}
     );
@@ -46,6 +46,7 @@ std::optional<UserRecord> UserRepository::mapUser(const DatabaseQueryResult& res
     user.email = row.get("email").value_or("");
     user.username = row.get("username").value_or("");
     user.nickname = row.get("nickname").value_or("");
+    user.tag = row.get("tag").value_or("");
     user.role = row.get("role").value_or("player");
     user.passwordHash = row.get("password_hash").value_or("");
     user.createdAt = row.get("created_at").value_or("");
@@ -68,7 +69,7 @@ std::optional<PlayerProfileRecord> UserRepository::mapProfile(const DatabaseQuer
 
 std::optional<UserRecord> UserRepository::findByEmail(const std::string& email, std::string* error) const {
     DatabaseQueryResult result = database.execute(
-        "SELECT id, email, username, nickname, role, password_hash, created_at "
+        "SELECT id, email, username, nickname, tag, role, password_hash, created_at "
         "FROM users WHERE email = $1 LIMIT 1",
         {email}
     );
@@ -82,7 +83,7 @@ std::optional<UserRecord> UserRepository::findByEmail(const std::string& email, 
 
 std::optional<UserRecord> UserRepository::findByUsername(const std::string& username, std::string* error) const {
     DatabaseQueryResult result = database.execute(
-        "SELECT id, email, username, nickname, role, password_hash, created_at "
+        "SELECT id, email, username, nickname, tag, role, password_hash, created_at "
         "FROM users WHERE username = $1 LIMIT 1",
         {username}
     );
@@ -96,9 +97,27 @@ std::optional<UserRecord> UserRepository::findByUsername(const std::string& user
 
 std::optional<UserRecord> UserRepository::findByNickname(const std::string& nickname, std::string* error) const {
     DatabaseQueryResult result = database.execute(
-        "SELECT id, email, username, nickname, role, password_hash, created_at "
+        "SELECT id, email, username, nickname, tag, role, password_hash, created_at "
         "FROM users WHERE nickname = $1 LIMIT 1",
         {nickname}
+    );
+
+    if (!result.ok && error != nullptr) {
+        *error = result.error;
+    }
+
+    return mapUser(result);
+}
+
+std::optional<UserRecord> UserRepository::findByNicknameAndTag(
+    const std::string& nickname,
+    const std::string& tag,
+    std::string* error
+) const {
+    DatabaseQueryResult result = database.execute(
+        "SELECT id, email, username, nickname, tag, role, password_hash, created_at "
+        "FROM users WHERE nickname = $1 AND tag = $2 LIMIT 1",
+        {nickname, tag}
     );
 
     if (!result.ok && error != nullptr) {
@@ -113,7 +132,7 @@ std::optional<UserRecord> UserRepository::findByEmailOrUsername(
     std::string* error
 ) const {
     DatabaseQueryResult result = database.execute(
-        "SELECT id, email, username, nickname, role, password_hash, created_at "
+        "SELECT id, email, username, nickname, tag, role, password_hash, created_at "
         "FROM users WHERE email = $1 OR username = $1 LIMIT 1",
         {value}
     );
@@ -142,12 +161,37 @@ std::optional<PlayerProfileRecord> UserRepository::findProfileByUserId(
     return mapProfile(result);
 }
 
+std::vector<std::string> UserRepository::listTagsByNickname(
+    const std::string& nickname,
+    std::string* error
+) const {
+    DatabaseQueryResult result = database.execute(
+        "SELECT tag FROM users WHERE nickname = $1",
+        {nickname}
+    );
+
+    if (!result.ok) {
+        if (error != nullptr) {
+            *error = result.error;
+        }
+        return {};
+    }
+
+    std::vector<std::string> tags;
+    tags.reserve(result.rows.size());
+    for (const DatabaseRow& row : result.rows) {
+        tags.push_back(row.get("tag").value_or(""));
+    }
+
+    return tags;
+}
+
 bool UserRepository::createUser(const CreateUserRequest& request, UserRecord* outUser, std::string* error) {
     DatabaseQueryResult result = database.execute(
-        "INSERT INTO users (email, username, nickname, role, password_hash) "
-        "VALUES ($1, $2, $3, 'player', $4) "
-        "RETURNING id, email, username, nickname, role, password_hash, created_at",
-        {request.email, request.username, request.nickname, request.passwordHash}
+        "INSERT INTO users (email, username, nickname, tag, role, password_hash) "
+        "VALUES ($1, $2, $3, $4, 'player', $5) "
+        "RETURNING id, email, username, nickname, tag, role, password_hash, created_at",
+        {request.email, request.username, request.nickname, request.tag, request.passwordHash}
     );
 
     if (!result.ok) {

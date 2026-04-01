@@ -79,6 +79,7 @@ export interface AuthSuccessPayload {
     email: string
     username: string
     nickname: string
+    tag: string
     role: string
     createdAt: string
   }

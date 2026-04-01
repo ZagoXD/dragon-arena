@@ -127,6 +127,7 @@ json ProtocolPayloadBuilder::buildAuthSuccess(
             {"email", authenticatedUser.user.email},
             {"username", authenticatedUser.user.username},
             {"nickname", authenticatedUser.user.nickname},
+            {"tag", authenticatedUser.user.tag},
             {"role", authenticatedUser.user.role},
             {"createdAt", authenticatedUser.user.createdAt}
         }},
@@ -150,6 +151,7 @@ json ProtocolPayloadBuilder::buildProfileSync(const AuthenticatedUser& authentic
             {"email", authenticatedUser.user.email},
             {"username", authenticatedUser.user.username},
             {"nickname", authenticatedUser.user.nickname},
+            {"tag", authenticatedUser.user.tag},
             {"role", authenticatedUser.user.role},
             {"createdAt", authenticatedUser.user.createdAt}
         }},

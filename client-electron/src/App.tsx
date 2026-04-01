@@ -21,6 +21,7 @@ interface StoredAuthSession {
   expiresAtMs: number
   username: string
   nickname: string
+  tag: string
 }
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
   const [screen, setScreen] = useState<Screen>('splash')
   const [bootReady, setBootReady] = useState(false)
   const [playerName, setPlayerName] = useState('')
+  const [playerTag, setPlayerTag] = useState('')
   const [playerCoins, setPlayerCoins] = useState(0)
   const [sessionExpiresAtMs, setSessionExpiresAtMs] = useState(0)
   const [shouldPersistSession, setShouldPersistSession] = useState(false)
@@ -55,6 +57,7 @@ function App() {
 
   const applyAccountSnapshot = useCallback((payload: Pick<AuthSuccessPayload, 'user' | 'profile'>) => {
     setPlayerName(payload.user.nickname || payload.user.username)
+    setPlayerTag(payload.user.tag || '')
     setPlayerCoins(payload.profile.coins ?? 0)
     setAuthIntent(current => {
       if (current?.mode !== 'session') {
@@ -86,6 +89,7 @@ function App() {
       expiresAtMs: payload.sessionExpiresAtMs,
       username: payload.user.username,
       nickname: payload.user.nickname,
+      tag: payload.user.tag,
     }
     persistStoredSession(session)
   }, [persistStoredSession])
@@ -339,6 +343,7 @@ function App() {
     setEnterArenaPending(false)
     setPlayerCoins(0)
     setPlayerName('')
+    setPlayerTag('')
     setSelectionLockedUntil(null)
     setNameScreenMode('login')
     setScreen('name')
@@ -419,6 +424,7 @@ function App() {
       }
 
       setPlayerName(session.nickname || session.username || 'Player')
+      setPlayerTag(session.tag || '')
       setPlayerCoins(0)
       setSessionExpiresAtMs(session.expiresAtMs)
       setShouldPersistSession(true)
@@ -501,6 +507,7 @@ function App() {
             expiresAtMs: sessionExpiresAtMs,
             username: payload.user.username,
             nickname: payload.user.nickname,
+            tag: payload.user.tag,
           })
         }
         return
@@ -576,7 +583,7 @@ function App() {
               )}
               {screen === 'home' && (
                 <HomeScreen
-                  nickname={playerName}
+                  nickname={`${playerName}${playerTag}`}
                   coins={playerCoins}
                   isBusy={enterArenaPending}
                   onEnterArena={handleEnterArena}

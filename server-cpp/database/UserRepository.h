@@ -4,12 +4,14 @@
 #include "Database.h"
 #include <optional>
 #include <string>
+#include <vector>
 
 struct UserRecord {
     long long id = 0;
     std::string email;
     std::string username;
     std::string nickname;
+    std::string tag;
     std::string role = "player";
     std::string passwordHash;
     std::string createdAt;
@@ -31,6 +33,7 @@ struct CreateUserRequest {
     std::string email;
     std::string username;
     std::string nickname;
+    std::string tag;
     std::string passwordHash;
 };
 
@@ -48,8 +51,10 @@ public:
     std::optional<UserRecord> findByEmail(const std::string& email, std::string* error = nullptr) const;
     std::optional<UserRecord> findByUsername(const std::string& username, std::string* error = nullptr) const;
     std::optional<UserRecord> findByNickname(const std::string& nickname, std::string* error = nullptr) const;
+    std::optional<UserRecord> findByNicknameAndTag(const std::string& nickname, const std::string& tag, std::string* error = nullptr) const;
     std::optional<UserRecord> findByEmailOrUsername(const std::string& value, std::string* error = nullptr) const;
     std::optional<PlayerProfileRecord> findProfileByUserId(long long userId, std::string* error = nullptr) const;
+    std::vector<std::string> listTagsByNickname(const std::string& nickname, std::string* error = nullptr) const;
 
     bool createUser(const CreateUserRequest& request, UserRecord* outUser, std::string* error = nullptr);
     bool updatePasswordHash(long long userId, const std::string& passwordHash, std::string* error = nullptr);

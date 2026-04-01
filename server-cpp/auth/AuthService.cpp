@@ -2,6 +2,9 @@
 #include "PasswordHasher.h"
 #include <algorithm>
 #include <cctype>
+#include <random>
+#include <unordered_set>
+#include <vector>
 
 namespace {
     std::string trimCopy(const std::string& value) {
@@ -67,6 +70,54 @@ namespace {
             return std::isdigit(static_cast<unsigned char>(ch)) != 0;
         });
     }
+
+    std::vector<std::string> buildTagCandidates() {
+        std::vector<std::string> candidates;
+        candidates.reserve(26 * 26 * 10);
+
+        for (char first = 'A'; first <= 'Z'; ++first) {
+            for (char second = 'A'; second <= 'Z'; ++second) {
+                for (char digit = '0'; digit <= '9'; ++digit) {
+                    std::string tag = "#";
+                    tag.push_back(first);
+                    tag.push_back(second);
+                    tag.push_back(digit);
+                    candidates.push_back(tag);
+                }
+            }
+        }
+
+        return candidates;
+    }
+
+    std::string pickAvailableTag(
+        UserRepository& users,
+        const std::string& nickname,
+        std::string* error
+    ) {
+        std::string repositoryError;
+        std::vector<std::string> usedTags = users.listTagsByNickname(nickname, &repositoryError);
+        if (!repositoryError.empty()) {
+            if (error != nullptr) {
+                *error = repositoryError;
+            }
+            return "";
+        }
+
+        std::unordered_set<std::string> usedTagSet(usedTags.begin(), usedTags.end());
+        std::vector<std::string> candidates = buildTagCandidates();
+        std::random_device randomDevice;
+        std::mt19937 generator(randomDevice());
+        std::shuffle(candidates.begin(), candidates.end(), generator);
+
+        for (const std::string& candidate : candidates) {
+            if (!usedTagSet.contains(candidate)) {
+                return candidate;
+            }
+        }
+
+        return "";
+    }
 }
 
 AuthService::AuthService(UserRepository& users)
@@ -115,19 +166,19 @@ AuthResult AuthService::registerUser(
     }
 
     repositoryError.clear();
-    if (users.findByNickname(normalizedNickname, &repositoryError).has_value()) {
-        return {false, "nickname_taken", "Nickname is already registered", std::nullopt};
-    }
-    if (!repositoryError.empty()) {
-        return {false, "database_error", repositoryError, std::nullopt};
-    }
-
-    repositoryError.clear();
     if (users.findByUsername(normalizedUsername, &repositoryError).has_value()) {
         return {false, "username_taken", "Username is already registered", std::nullopt};
     }
     if (!repositoryError.empty()) {
         return {false, "database_error", repositoryError, std::nullopt};
+    }
+
+    std::string generatedTag = pickAvailableTag(users, normalizedNickname, &repositoryError);
+    if (generatedTag.empty()) {
+        if (!repositoryError.empty()) {
+            return {false, "database_error", repositoryError, std::nullopt};
+        }
+        return {false, "nickname_taken", "No available tag remains for this nickname", std::nullopt};
     }
 
     std::string hashError;
@@ -138,7 +189,7 @@ AuthResult AuthService::registerUser(
 
     UserWithProfile record;
     if (!users.createUserWithInitialProfile(
-        {normalizedEmail, normalizedUsername, normalizedNickname, hashedPassword},
+        {normalizedEmail, normalizedUsername, normalizedNickname, generatedTag, hashedPassword},
         &record,
         &repositoryError
     )) {
