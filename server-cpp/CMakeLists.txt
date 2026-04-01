@@ -129,6 +129,7 @@ add_executable(DragonArenaServer
     auth/SessionService.cpp
     database/Database.cpp
     database/UserRepository.cpp
+    social/FriendshipRepository.cpp
     GameConfig.cpp
     Player.cpp
     CombatSystem.cpp
@@ -184,6 +185,7 @@ add_executable(DragonArenaGameplayTests
     auth/SessionService.cpp
     database/Database.cpp
     database/UserRepository.cpp
+    social/FriendshipRepository.cpp
     GameConfig.cpp
     Player.cpp
     CombatSystem.cpp

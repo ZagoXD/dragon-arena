@@ -1,14 +1,48 @@
 import { useTranslation } from 'react-i18next'
+import { FriendListEntry, FriendListPanel, IncomingFriendRequest, OutgoingFriendRequest } from '../FriendListPanel/FriendListPanel'
 import './HomeScreen.css'
 
 interface Props {
   nickname: string
   coins: number
   isBusy?: boolean
+  friendPanelExpanded: boolean
+  friendNotificationCount: number
+  friends: FriendListEntry[]
+  incomingRequests: IncomingFriendRequest[]
+  outgoingRequests: OutgoingFriendRequest[]
+  friendSendBusy?: boolean
+  friendSendError?: string | null
+  friendSendInfo?: string | null
+  friendActionBusyRequestId?: number | null
+  onToggleFriendPanel: () => void
+  onSendFriendRequest: (nickname: string, tag: string) => void
+  onRespondFriendRequest: (requestId: number, action: 'accept' | 'reject') => void
+  onCancelOutgoingRequest: (requestId: number) => void
+  onRemoveFriend: (friendUserId: number) => void
   onEnterArena: () => void
 }
 
-export function HomeScreen({ nickname, coins, isBusy = false, onEnterArena }: Props) {
+export function HomeScreen({
+  nickname,
+  coins,
+  isBusy = false,
+  friendPanelExpanded,
+  friendNotificationCount,
+  friends,
+  incomingRequests,
+  outgoingRequests,
+  friendSendBusy = false,
+  friendSendError,
+  friendSendInfo,
+  friendActionBusyRequestId = null,
+  onToggleFriendPanel,
+  onSendFriendRequest,
+  onRespondFriendRequest,
+  onCancelOutgoingRequest,
+  onRemoveFriend,
+  onEnterArena,
+}: Props) {
   const { t } = useTranslation()
 
   return (
@@ -41,6 +75,23 @@ export function HomeScreen({ nickname, coins, isBusy = false, onEnterArena }: Pr
           <span>{t('home.enterArena')}</span>
         </button>
       </main>
+
+      <FriendListPanel
+        expanded={friendPanelExpanded}
+        unreadCount={friendNotificationCount}
+        friends={friends}
+        incomingRequests={incomingRequests}
+        outgoingRequests={outgoingRequests}
+        sendBusy={friendSendBusy}
+        sendError={friendSendError}
+        sendInfo={friendSendInfo}
+        actionBusyRequestId={friendActionBusyRequestId}
+        onToggleExpanded={onToggleFriendPanel}
+        onSendRequest={onSendFriendRequest}
+        onRespondRequest={onRespondFriendRequest}
+        onCancelOutgoingRequest={onCancelOutgoingRequest}
+        onRemoveFriend={onRemoveFriend}
+      />
     </div>
   )
 }

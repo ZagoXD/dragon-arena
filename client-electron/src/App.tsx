@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { NameScreen } from './components/NameScreen/NameScreen'
 import { HomeScreen } from './components/HomeScreen/HomeScreen'
+import { FriendListEntry, IncomingFriendRequest, OutgoingFriendRequest } from './components/FriendListPanel/FriendListPanel'
 import { SelectScreen } from './components/SelectScreen/SelectScreen'
 import { Arena } from './components/Arena/Arena'
 import { LoadingScreen } from './components/LoadingScreen/LoadingScreen'
@@ -15,6 +16,22 @@ import './App.css'
 type Screen = 'splash' | 'name' | 'loading' | 'home' | 'select' | 'arena'
 const AUTH_SESSION_STORAGE_KEY = 'dragon-arena-auth-session'
 const SHELL_SETTINGS_STORAGE_KEY = 'dragon-arena-shell-settings'
+const DEFAULT_SHELL_SETTINGS: ShellSettings = {
+  displayMode: 'borderless',
+  resolution: { width: 1600, height: 900 },
+}
+
+function getIpcRenderer() {
+  if (typeof window === 'undefined') {
+    return undefined
+  }
+
+  return (window as typeof window & {
+    ipcRenderer?: {
+      invoke?: (channel: string, ...args: unknown[]) => Promise<unknown>
+    }
+  }).ipcRenderer
+}
 
 interface StoredAuthSession {
   token: string
@@ -25,10 +42,7 @@ interface StoredAuthSession {
 }
 
 function App() {
-  const [shellSettings, setShellSettings] = useState<ShellSettings>({
-    displayMode: 'borderless',
-    resolution: { width: 1600, height: 900 },
-  })
+  const [shellSettings, setShellSettings] = useState<ShellSettings>(DEFAULT_SHELL_SETTINGS)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [screen, setScreen] = useState<Screen>('splash')
   const [bootReady, setBootReady] = useState(false)
@@ -48,7 +62,18 @@ function App() {
   const [connError, setConnError] = useState<string | null>(null)
   const [authPending, setAuthPending] = useState(false)
   const [enterArenaPending, setEnterArenaPending] = useState(false)
+  const [friendPanelExpanded, setFriendPanelExpanded] = useState(false)
+  const [friendNotificationCount, setFriendNotificationCount] = useState(0)
+  const [friends, setFriends] = useState<FriendListEntry[]>([])
+  const [incomingFriendRequests, setIncomingFriendRequests] = useState<IncomingFriendRequest[]>([])
+  const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<OutgoingFriendRequest[]>([])
+  const [friendSendBusy, setFriendSendBusy] = useState(false)
+  const [friendSendError, setFriendSendError] = useState<string | null>(null)
+  const [friendSendInfo, setFriendSendInfo] = useState<string | null>(null)
+  const [friendActionBusyRequestId, setFriendActionBusyRequestId] = useState<number | null>(null)
   const attemptedStoredSessionRef = useRef(false)
+  const lobbySocketRef = useRef<WebSocket | null>(null)
+  const lastIncomingRequestIdsRef = useRef<number[]>([])
   const currentLanguage = (supportedLanguages.includes(i18n.language as AppLanguage)
     ? i18n.language
     : 'pt-BR') as AppLanguage
@@ -286,6 +311,16 @@ function App() {
     }
     setSessionExpiresAtMs(0)
     setShouldPersistSession(false)
+    setFriendPanelExpanded(false)
+    setFriendNotificationCount(0)
+    setFriends([])
+    setIncomingFriendRequests([])
+    setOutgoingFriendRequests([])
+    setFriendSendBusy(false)
+    setFriendSendError(null)
+    setFriendSendInfo(null)
+    setFriendActionBusyRequestId(null)
+    lastIncomingRequestIdsRef.current = []
     setAuthError(message)
     setNameScreenMode('login')
     setScreen('name')
@@ -331,6 +366,82 @@ function App() {
     setScreen('home')
   }, [])
 
+  const handleToggleFriendPanel = useCallback(() => {
+    setFriendPanelExpanded(current => {
+      const next = !current
+      if (next) {
+        setFriendNotificationCount(0)
+      }
+      return next
+    })
+  }, [])
+
+  const handleSendFriendRequest = useCallback((nickname: string, tag: string) => {
+    if (!nickname || !tag || !lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setFriendSendError(i18n.t('friends.invalidRequest'))
+      setFriendSendInfo(null)
+      return
+    }
+
+    setFriendSendBusy(true)
+    setFriendSendError(null)
+    setFriendSendInfo(null)
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'sendFriendRequest',
+      nickname,
+      tag,
+    }))
+  }, [])
+
+  const handleRespondFriendRequest = useCallback((requestId: number, action: 'accept' | 'reject') => {
+    if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setFriendSendError(i18n.t('friends.connectionUnavailable'))
+      setFriendSendInfo(null)
+      return
+    }
+
+    setFriendActionBusyRequestId(requestId)
+    setFriendSendError(null)
+    setFriendSendInfo(null)
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'respondFriendRequest',
+      requestId,
+      action,
+    }))
+  }, [])
+
+  const handleCancelOutgoingFriendRequest = useCallback((requestId: number) => {
+    if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setFriendSendError(i18n.t('friends.connectionUnavailable'))
+      setFriendSendInfo(null)
+      return
+    }
+
+    setFriendActionBusyRequestId(requestId)
+    setFriendSendError(null)
+    setFriendSendInfo(null)
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'cancelFriendRequest',
+      requestId,
+    }))
+  }, [])
+
+  const handleRemoveFriend = useCallback((friendUserId: number) => {
+    if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setFriendSendError(i18n.t('friends.connectionUnavailable'))
+      setFriendSendInfo(null)
+      return
+    }
+
+    setFriendActionBusyRequestId(friendUserId)
+    setFriendSendError(null)
+    setFriendSendInfo(null)
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'removeFriend',
+      friendUserId,
+    }))
+  }, [])
+
   const handleLogout = useCallback(() => {
     clearPersistedSession()
     setSettingsOpen(false)
@@ -341,6 +452,16 @@ function App() {
     setAuthInfo(null)
     setAuthPending(false)
     setEnterArenaPending(false)
+    setFriendPanelExpanded(false)
+    setFriendNotificationCount(0)
+    setFriends([])
+    setIncomingFriendRequests([])
+    setOutgoingFriendRequests([])
+    setFriendSendBusy(false)
+    setFriendSendError(null)
+    setFriendSendInfo(null)
+    setFriendActionBusyRequestId(null)
+    lastIncomingRequestIdsRef.current = []
     setPlayerCoins(0)
     setPlayerName('')
     setPlayerTag('')
@@ -359,18 +480,30 @@ function App() {
   }, [handleLogout, screen])
 
   const applyShellSettings = useCallback(async (nextSettings: ShellSettings) => {
-    const applied = await (window as any).ipcRenderer.invoke('window-apply-shell-settings', nextSettings)
+    const ipcRenderer = getIpcRenderer()
+    const applied = ipcRenderer?.invoke
+      ? await ipcRenderer.invoke('window-apply-shell-settings', nextSettings)
+      : nextSettings
+
     setShellSettings(applied as ShellSettings)
     localStorage.setItem(SHELL_SETTINGS_STORAGE_KEY, JSON.stringify(applied))
   }, [])
 
   const handleQuitGame = useCallback(() => {
-    void (window as any).ipcRenderer.invoke('app-quit')
+    const ipcRenderer = getIpcRenderer()
+    if (!ipcRenderer?.invoke) {
+      return
+    }
+
+    void ipcRenderer.invoke('app-quit')
   }, [])
 
   useEffect(() => {
     const loadShellSettings = async () => {
-      const fromMain = await (window as any).ipcRenderer.invoke('window-get-shell-settings')
+      const ipcRenderer = getIpcRenderer()
+      const fromMain = ipcRenderer?.invoke
+        ? await ipcRenderer.invoke('window-get-shell-settings')
+        : DEFAULT_SHELL_SETTINGS
       let nextSettings = fromMain as ShellSettings
       const raw = localStorage.getItem(SHELL_SETTINGS_STORAGE_KEY)
 
@@ -383,11 +516,28 @@ function App() {
       }
 
       setShellSettings(nextSettings)
-      await (window as any).ipcRenderer.invoke('window-apply-shell-settings', nextSettings)
+      if (ipcRenderer?.invoke) {
+        await ipcRenderer.invoke('window-apply-shell-settings', nextSettings)
+      }
     }
 
     void loadShellSettings()
   }, [])
+
+  useEffect(() => {
+    if (!friendSendError && !friendSendInfo) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setFriendSendError(null)
+      setFriendSendInfo(null)
+    }, 5000)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [friendSendError, friendSendInfo])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -471,6 +621,7 @@ function App() {
       }
 
       ws.send(JSON.stringify({ event: 'profileSync' }))
+      ws.send(JSON.stringify({ event: 'friendsSync' }))
     }
 
     ws.onopen = () => {
@@ -478,6 +629,8 @@ function App() {
         ws?.close()
         return
       }
+
+      lobbySocketRef.current = ws
 
       ws.send(JSON.stringify({
         event: 'authToken',
@@ -513,12 +666,86 @@ function App() {
         return
       }
 
+      if (data.event === 'friendsSync') {
+        const nextFriends = (data.friends || []) as FriendListEntry[]
+        const nextIncomingRequests = (data.incomingRequests || []) as IncomingFriendRequest[]
+        const nextOutgoingRequests = (data.outgoingRequests || []) as OutgoingFriendRequest[]
+        const nextRequestIds = nextIncomingRequests.map(request => request.requestId)
+
+        if (!friendPanelExpanded) {
+          const previousIds = new Set(lastIncomingRequestIdsRef.current)
+          const newRequestCount = nextRequestIds.filter(requestId => !previousIds.has(requestId)).length
+          if (newRequestCount > 0) {
+            setFriendNotificationCount(current => current + newRequestCount)
+          }
+        } else {
+          setFriendNotificationCount(0)
+        }
+
+        lastIncomingRequestIdsRef.current = nextRequestIds
+        setFriends(nextFriends)
+        setIncomingFriendRequests(nextIncomingRequests)
+        setOutgoingFriendRequests(nextOutgoingRequests)
+        setFriendSendBusy(false)
+        setFriendActionBusyRequestId(null)
+        return
+      }
+
+      if (data.event === 'friendRequestSent') {
+        setFriendSendBusy(false)
+        setFriendSendError(null)
+        setFriendSendInfo(i18n.t(
+          data.mode === 'accepted_existing'
+            ? 'friends.requestAcceptedExisting'
+            : 'friends.requestSent'
+        ))
+        requestSync()
+        return
+      }
+
+      if (data.event === 'friendRequestResponded') {
+        setFriendActionBusyRequestId(null)
+        setFriendSendError(null)
+        setFriendSendInfo(i18n.t(
+          data.action === 'accept'
+            ? 'friends.requestAccepted'
+            : 'friends.requestRejected'
+        ))
+        requestSync()
+        return
+      }
+
+      if (data.event === 'friendRequestCancelled') {
+        setFriendActionBusyRequestId(null)
+        setFriendSendError(null)
+        setFriendSendInfo(i18n.t('friends.requestCancelled'))
+        requestSync()
+        return
+      }
+
+      if (data.event === 'friendRemoved') {
+        setFriendActionBusyRequestId(null)
+        setFriendSendError(null)
+        setFriendSendInfo(i18n.t('friends.removeSuccess'))
+        requestSync()
+        return
+      }
+
       if (data.event === 'authError') {
         stopInterval()
         if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
           ws.close()
         }
         handleAuthFailure(translateBackendError(i18n.t.bind(i18n), data.code, data.reason))
+        return
+      }
+
+      if (data.event === 'actionRejected' || data.event === 'protocolError') {
+        const translatedMessage = translateBackendError(i18n.t.bind(i18n), data.code, data.reason)
+        setFriendSendBusy(false)
+        setFriendActionBusyRequestId(null)
+        setFriendSendInfo(null)
+        setFriendSendError(translatedMessage)
       }
     }
 
@@ -528,6 +755,9 @@ function App() {
 
     ws.onclose = () => {
       stopInterval()
+      if (lobbySocketRef.current === ws) {
+        lobbySocketRef.current = null
+      }
       ws = null
     }
 
@@ -537,9 +767,12 @@ function App() {
       if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
         ws.close()
       }
+      if (lobbySocketRef.current === ws) {
+        lobbySocketRef.current = null
+      }
       ws = null
     }
-  }, [applyAccountSnapshot, authIntent, handleAuthFailure, persistStoredSession, screen, serverUrl, sessionExpiresAtMs, shouldPersistSession])
+  }, [applyAccountSnapshot, authIntent, friendPanelExpanded, handleAuthFailure, persistStoredSession, screen, serverUrl, sessionExpiresAtMs, shouldPersistSession])
 
   return (
     <div className={`app-shell app-shell--${screen}`}>
@@ -586,6 +819,20 @@ function App() {
                   nickname={`${playerName}${playerTag}`}
                   coins={playerCoins}
                   isBusy={enterArenaPending}
+                  friendPanelExpanded={friendPanelExpanded}
+                  friendNotificationCount={friendNotificationCount}
+                  friends={friends}
+                  incomingRequests={incomingFriendRequests}
+                  outgoingRequests={outgoingFriendRequests}
+                  friendSendBusy={friendSendBusy}
+                  friendSendError={friendSendError}
+                  friendSendInfo={friendSendInfo}
+                  friendActionBusyRequestId={friendActionBusyRequestId}
+                  onToggleFriendPanel={handleToggleFriendPanel}
+                  onSendFriendRequest={handleSendFriendRequest}
+                  onRespondFriendRequest={handleRespondFriendRequest}
+                  onCancelOutgoingRequest={handleCancelOutgoingFriendRequest}
+                  onRemoveFriend={handleRemoveFriend}
                   onEnterArena={handleEnterArena}
                 />
               )}

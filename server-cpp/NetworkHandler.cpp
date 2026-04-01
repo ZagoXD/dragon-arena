@@ -3,6 +3,7 @@
 #include "ProtocolPayloadBuilder.h"
 #include "ServerDiagnostics.h"
 #include <iostream>
+#include <set>
 
 namespace {
 bool hasString(const json& payload, const char* key) {
@@ -19,8 +20,170 @@ NetworkHandler::NetworkHandler(GameWorld &world, int port, Database& database)
       port(port),
       database(database),
       userRepository(database),
+      friendshipRepository(database),
       authService(userRepository),
       sessionService(userRepository) {}
+
+void NetworkHandler::registerAuthenticatedSocket(
+    uWS::WebSocket<false, true, PerSocketData>* ws,
+    PerSocketData* userData
+) {
+    if (userData == nullptr || userData->userId <= 0) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(social_mtx);
+    authenticatedSockets[userData->userId].insert(ws);
+    onlineUserCounts[userData->userId] = static_cast<int>(authenticatedSockets[userData->userId].size());
+}
+
+void NetworkHandler::unregisterAuthenticatedSocket(
+    uWS::WebSocket<false, true, PerSocketData>* ws,
+    const PerSocketData* userData
+) {
+    if (userData == nullptr || userData->userId <= 0) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(social_mtx);
+    auto mapIt = authenticatedSockets.find(userData->userId);
+    if (mapIt == authenticatedSockets.end()) {
+        onlineUserCounts.erase(userData->userId);
+        return;
+    }
+
+    mapIt->second.erase(ws);
+    if (mapIt->second.empty()) {
+        authenticatedSockets.erase(mapIt);
+        onlineUserCounts.erase(userData->userId);
+        return;
+    }
+
+    onlineUserCounts[userData->userId] = static_cast<int>(mapIt->second.size());
+}
+
+bool NetworkHandler::isUserOnline(long long userId) {
+    std::lock_guard<std::mutex> lock(social_mtx);
+    auto it = onlineUserCounts.find(userId);
+    return it != onlineUserCounts.end() && it->second > 0;
+}
+
+json NetworkHandler::buildFriendsSyncPayload(long long userId, std::string* error) {
+    std::string repositoryError;
+    std::vector<FriendshipSummary> friends = friendshipRepository.listAcceptedFriends(userId, &repositoryError);
+    if (!repositoryError.empty()) {
+        if (error != nullptr) {
+            *error = repositoryError;
+        }
+        return json();
+    }
+
+    repositoryError.clear();
+    std::vector<FriendRequestSummary> incomingRequests = friendshipRepository.listIncomingRequests(userId, &repositoryError);
+    if (!repositoryError.empty()) {
+        if (error != nullptr) {
+            *error = repositoryError;
+        }
+        return json();
+    }
+
+    repositoryError.clear();
+    std::vector<FriendRequestSummary> outgoingRequests = friendshipRepository.listOutgoingRequests(userId, &repositoryError);
+    if (!repositoryError.empty()) {
+        if (error != nullptr) {
+            *error = repositoryError;
+        }
+        return json();
+    }
+
+    json payload = {
+        {"event", "friendsSync"},
+        {"friends", json::array()},
+        {"incomingRequests", json::array()},
+        {"outgoingRequests", json::array()},
+        {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+    };
+
+    for (const FriendshipSummary& friendSummary : friends) {
+        payload["friends"].push_back({
+            {"userId", friendSummary.userId},
+            {"nickname", friendSummary.nickname},
+            {"tag", friendSummary.tag},
+            {"online", isUserOnline(friendSummary.userId)}
+        });
+    }
+
+    for (const FriendRequestSummary& requestSummary : incomingRequests) {
+        payload["incomingRequests"].push_back({
+            {"requestId", requestSummary.requestId},
+            {"requesterId", requestSummary.requesterId},
+            {"nickname", requestSummary.nickname},
+            {"tag", requestSummary.tag}
+        });
+    }
+
+    for (const FriendRequestSummary& requestSummary : outgoingRequests) {
+        payload["outgoingRequests"].push_back({
+            {"requestId", requestSummary.requestId},
+            {"addresseeId", requestSummary.addresseeId},
+            {"nickname", requestSummary.nickname},
+            {"tag", requestSummary.tag}
+        });
+    }
+
+    return payload;
+}
+
+void NetworkHandler::sendFriendsSyncToSocket(uWS::WebSocket<false, true, PerSocketData>* ws, long long userId) {
+    std::string error;
+    json payload = buildFriendsSyncPayload(userId, &error);
+    if (payload.is_null() || payload.empty()) {
+        ws->send(ProtocolPayloadBuilder::buildActionRejected(
+            "friendsSync",
+            "database_error",
+            error.empty() ? "Could not load friend list" : error,
+            world.getCurrentTick()
+        ).dump(), uWS::OpCode::TEXT);
+        return;
+    }
+
+    ws->send(payload.dump(), uWS::OpCode::TEXT);
+}
+
+void NetworkHandler::sendFriendsSyncToUser(long long userId) {
+    std::vector<uWS::WebSocket<false, true, PerSocketData>*> sockets;
+    {
+        std::lock_guard<std::mutex> lock(social_mtx);
+        auto it = authenticatedSockets.find(userId);
+        if (it == authenticatedSockets.end()) {
+            return;
+        }
+
+        sockets.assign(it->second.begin(), it->second.end());
+    }
+
+    for (uWS::WebSocket<false, true, PerSocketData>* socket : sockets) {
+        sendFriendsSyncToSocket(socket, userId);
+    }
+}
+
+void NetworkHandler::sendFriendsSyncToUsers(const std::vector<long long>& userIds) {
+    std::set<long long> uniqueIds(userIds.begin(), userIds.end());
+    for (long long userId : uniqueIds) {
+        sendFriendsSyncToUser(userId);
+    }
+}
+
+void NetworkHandler::notifyFriendsPresenceChanged(long long userId) {
+    std::string error;
+    std::vector<long long> friendIds = friendshipRepository.listAcceptedFriendIds(userId, &error);
+    if (!error.empty()) {
+        return;
+    }
+
+    friendIds.push_back(userId);
+    sendFriendsSyncToUsers(friendIds);
+}
 
 void NetworkHandler::start() {
     uWS::App().ws<PerSocketData>("/*", {
@@ -102,13 +265,16 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             userData->email = session.authenticatedSession->authenticatedUser.user.email;
             userData->username = session.authenticatedSession->authenticatedUser.user.username;
             userData->nickname = session.authenticatedSession->authenticatedUser.user.nickname;
+            userData->tag = session.authenticatedSession->authenticatedUser.user.tag;
             userData->role = session.authenticatedSession->authenticatedUser.user.role;
+            registerAuthenticatedSocket(ws, userData);
             ws->send(ProtocolPayloadBuilder::buildAuthSuccess(
                 "register",
                 session.authenticatedSession->authenticatedUser,
                 session.authenticatedSession->session.token,
                 session.authenticatedSession->session.expiresAtMs
             ).dump(), uWS::OpCode::TEXT);
+            notifyFriendsPresenceChanged(userData->userId);
         }
         else if (event == "login") {
             if (!hasString(data, "identifier") || !hasString(data, "password")) {
@@ -133,13 +299,16 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             userData->email = session.authenticatedSession->authenticatedUser.user.email;
             userData->username = session.authenticatedSession->authenticatedUser.user.username;
             userData->nickname = session.authenticatedSession->authenticatedUser.user.nickname;
+            userData->tag = session.authenticatedSession->authenticatedUser.user.tag;
             userData->role = session.authenticatedSession->authenticatedUser.user.role;
+            registerAuthenticatedSocket(ws, userData);
             ws->send(ProtocolPayloadBuilder::buildAuthSuccess(
                 "login",
                 session.authenticatedSession->authenticatedUser,
                 session.authenticatedSession->session.token,
                 session.authenticatedSession->session.expiresAtMs
             ).dump(), uWS::OpCode::TEXT);
+            notifyFriendsPresenceChanged(userData->userId);
         }
         else if (event == "authToken") {
             if (!hasString(data, "token")) {
@@ -158,13 +327,16 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             userData->email = session.authenticatedSession->authenticatedUser.user.email;
             userData->username = session.authenticatedSession->authenticatedUser.user.username;
             userData->nickname = session.authenticatedSession->authenticatedUser.user.nickname;
+            userData->tag = session.authenticatedSession->authenticatedUser.user.tag;
             userData->role = session.authenticatedSession->authenticatedUser.user.role;
+            registerAuthenticatedSocket(ws, userData);
             ws->send(ProtocolPayloadBuilder::buildAuthSuccess(
                 "session",
                 session.authenticatedSession->authenticatedUser,
                 session.authenticatedSession->session.token,
                 session.authenticatedSession->session.expiresAtMs
             ).dump(), uWS::OpCode::TEXT);
+            notifyFriendsPresenceChanged(userData->userId);
         }
         else if (event == "profileSync") {
             if (!userData->authenticated || userData->userId <= 0) {
@@ -199,9 +371,234 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             userData->email = user->email;
             userData->username = user->username;
             userData->nickname = user->nickname;
+            userData->tag = user->tag;
             userData->role = user->role;
 
             ws->send(ProtocolPayloadBuilder::buildProfileSync(AuthenticatedUser{*user, *profile}).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "friendsSync") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("friendsSync", "not_authenticated", "Client must authenticate before syncing friends", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            sendFriendsSyncToSocket(ws, userData->userId);
+        }
+        else if (event == "sendFriendRequest") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("sendFriendRequest", "not_authenticated", "Client must authenticate before sending friend requests", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!hasString(data, "nickname") || !hasString(data, "tag")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("sendFriendRequest", "invalid_payload", "sendFriendRequest requires string nickname and tag", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const std::string targetNickname = data["nickname"];
+            const std::string targetTag = data["tag"];
+            std::string repositoryError;
+            std::optional<UserRecord> targetUser = userRepository.findByNicknameAndTag(targetNickname, targetTag, &repositoryError);
+            if (!targetUser.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "sendFriendRequest",
+                    repositoryError.empty() ? "friend_target_not_found" : "database_error",
+                    repositoryError.empty() ? "Target user was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            if (targetUser->id == userData->userId) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("sendFriendRequest", "friend_self_add", "You cannot send a friend request to yourself", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            repositoryError.clear();
+            std::optional<FriendshipLinkRecord> existingLink = friendshipRepository.findExistingLink(userData->userId, targetUser->id, &repositoryError);
+            if (!repositoryError.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("sendFriendRequest", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            std::vector<long long> affectedUsers = {userData->userId, targetUser->id};
+            if (existingLink.has_value()) {
+                if (existingLink->status == "accepted") {
+                    ws->send(ProtocolPayloadBuilder::buildActionRejected("sendFriendRequest", "friend_already_added", "This user is already on your friend list", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                    return;
+                }
+
+                if (existingLink->status == "pending") {
+                    if (existingLink->requesterId == userData->userId) {
+                        ws->send(ProtocolPayloadBuilder::buildActionRejected("sendFriendRequest", "friend_request_pending", "A friend request is already pending for this user", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                        return;
+                    }
+
+                    FriendshipLinkRecord acceptedLink;
+                    if (!friendshipRepository.updateRequestStatus(existingLink->id, "accepted", &acceptedLink, &repositoryError)) {
+                        ws->send(ProtocolPayloadBuilder::buildActionRejected("sendFriendRequest", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                        return;
+                    }
+
+                    sendFriendsSyncToUsers(affectedUsers);
+                    ws->send(json({
+                        {"event", "friendRequestSent"},
+                        {"mode", "accepted_existing"},
+                        {"nickname", targetUser->nickname},
+                        {"tag", targetUser->tag},
+                        {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+                    }).dump(), uWS::OpCode::TEXT);
+                    return;
+                }
+            }
+
+            FriendshipLinkRecord link;
+            if (!friendshipRepository.createPendingRequest(userData->userId, targetUser->id, &link, &repositoryError)) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("sendFriendRequest", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            sendFriendsSyncToUsers(affectedUsers);
+            ws->send(json({
+                {"event", "friendRequestSent"},
+                {"mode", "pending"},
+                {"nickname", targetUser->nickname},
+                {"tag", targetUser->tag},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "respondFriendRequest") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("respondFriendRequest", "not_authenticated", "Client must authenticate before responding to friend requests", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!data.contains("requestId") || !data["requestId"].is_number_integer() || !hasString(data, "action")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("respondFriendRequest", "invalid_payload", "respondFriendRequest requires integer requestId and string action", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const std::string action = data["action"];
+            if (action != "accept" && action != "reject") {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("respondFriendRequest", "invalid_payload", "response action must be accept or reject", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            std::string repositoryError;
+            std::optional<FriendshipLinkRecord> pendingRequest = friendshipRepository.findPendingIncomingRequest(
+                data["requestId"],
+                userData->userId,
+                &repositoryError
+            );
+            if (!pendingRequest.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "respondFriendRequest",
+                    repositoryError.empty() ? "friend_request_not_found" : "database_error",
+                    repositoryError.empty() ? "Friend request was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            FriendshipLinkRecord updatedRequest;
+            if (!friendshipRepository.updateRequestStatus(
+                pendingRequest->id,
+                action == "accept" ? "accepted" : "rejected",
+                &updatedRequest,
+                &repositoryError
+            )) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("respondFriendRequest", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            sendFriendsSyncToUsers({userData->userId, updatedRequest.requesterId});
+            ws->send(json({
+                {"event", "friendRequestResponded"},
+                {"requestId", updatedRequest.id},
+                {"action", action},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "cancelFriendRequest") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("cancelFriendRequest", "not_authenticated", "Client must authenticate before cancelling friend requests", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!data.contains("requestId") || !data["requestId"].is_number_integer()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("cancelFriendRequest", "invalid_payload", "cancelFriendRequest requires integer requestId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            std::string repositoryError;
+            std::optional<FriendshipLinkRecord> pendingRequest = friendshipRepository.findPendingOutgoingRequest(
+                data["requestId"],
+                userData->userId,
+                &repositoryError
+            );
+            if (!pendingRequest.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "cancelFriendRequest",
+                    repositoryError.empty() ? "friend_request_not_found" : "database_error",
+                    repositoryError.empty() ? "Friend request was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            FriendshipLinkRecord updatedRequest;
+            if (!friendshipRepository.updateRequestStatus(
+                pendingRequest->id,
+                "cancelled",
+                &updatedRequest,
+                &repositoryError
+            )) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("cancelFriendRequest", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            sendFriendsSyncToUsers({userData->userId, updatedRequest.addresseeId});
+            ws->send(json({
+                {"event", "friendRequestCancelled"},
+                {"requestId", updatedRequest.id},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "removeFriend") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("removeFriend", "not_authenticated", "Client must authenticate before removing friends", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!data.contains("friendUserId") || !data["friendUserId"].is_number_integer()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("removeFriend", "invalid_payload", "removeFriend requires integer friendUserId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const long long friendUserId = data["friendUserId"];
+            std::string repositoryError;
+            std::optional<FriendshipLinkRecord> acceptedLink = friendshipRepository.findAcceptedLink(
+                userData->userId,
+                friendUserId,
+                &repositoryError
+            );
+            if (!acceptedLink.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "removeFriend",
+                    repositoryError.empty() ? "friend_not_found" : "database_error",
+                    repositoryError.empty() ? "Friendship was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            if (!friendshipRepository.deleteLink(acceptedLink->id, &repositoryError)) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("removeFriend", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            sendFriendsSyncToUsers({userData->userId, friendUserId});
+            ws->send(json({
+                {"event", "friendRemoved"},
+                {"friendUserId", friendUserId},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }).dump(), uWS::OpCode::TEXT);
         }
         else if (event == "join") {
             if (!userData->authenticated) {
@@ -311,6 +708,8 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
 
 void NetworkHandler::handleClose(uWS::WebSocket<false, true, PerSocketData> *ws) {
     PerSocketData *userData = ws->getUserData();
+    long long closedUserId = userData ? userData->userId : 0;
+    unregisterAuthenticatedSocket(ws, userData);
     if (userData && !userData->id.empty()) {
         std::string id = userData->id;
         {
@@ -319,5 +718,8 @@ void NetworkHandler::handleClose(uWS::WebSocket<false, true, PerSocketData> *ws)
         }
         world.removePlayer(id);
         broadcast(json({{"event", "playerLeft"}, {"id", id}}).dump());
+    }
+    if (closedUserId > 0) {
+        notifyFriendsPresenceChanged(closedUserId);
     }
 }

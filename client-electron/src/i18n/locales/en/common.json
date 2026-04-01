@@ -62,6 +62,40 @@
     "subtitle": "Review your profile, track your resources and enter whenever you want.",
     "enterArena": "Enter the arena"
   },
+  "friends": {
+    "title": "Friends",
+    "nicknamePlaceholder": "Nickname",
+    "tagPlaceholder": "#AA1",
+    "sendRequest": "Send request",
+    "pendingButton": "Pending",
+    "pendingEyebrow": "Sent requests",
+    "pendingTitle": "Pending friend requests",
+    "pendingClose": "Close pending requests",
+    "pendingEmpty": "You do not have any pending requests right now.",
+    "pendingWaiting": "Waiting for response",
+    "pendingCancel": "Cancel request",
+    "removeAction": "Remove friend",
+    "removeEyebrow": "Friend list",
+    "removeTitle": "Remove friendship?",
+    "removeText": "Do you want to remove {{name}} from your friend list?",
+    "removeCancel": "Go back",
+    "removeConfirm": "Remove friend",
+    "requestTitle": "Friend request",
+    "requestText": "wants to be your friend.",
+    "accept": "Accept",
+    "reject": "Reject",
+    "empty": "Your friend list is still empty.",
+    "online": "Online",
+    "offline": "Offline",
+    "invalidRequest": "Enter both nickname and tag to send a request.",
+    "connectionUnavailable": "The social connection is unavailable right now.",
+    "requestSent": "Friend request sent.",
+    "requestCancelled": "Friend request cancelled.",
+    "removeSuccess": "Friend removed.",
+    "requestAcceptedExisting": "You are now friends.",
+    "requestAccepted": "Friend request accepted.",
+    "requestRejected": "Friend request rejected."
+  },
   "settings": {
     "eyebrow": "System",
     "title": "Settings",
@@ -167,6 +201,14 @@
       "missing_event": "The message event is required.",
       "user_not_found": "Authenticated user not found.",
       "profile_not_found": "Player profile not found."
+    },
+    "social": {
+      "friend_target_not_found": "No player was found with that nickname and tag.",
+      "friend_self_add": "You cannot add yourself.",
+      "friend_already_added": "That player is already on your friend list.",
+      "friend_request_pending": "A friend request is already pending for that player.",
+      "friend_request_not_found": "That friend request was not found.",
+      "friend_not_found": "That friend was not found on your list."
     }
   }
 }

@@ -3,12 +3,16 @@
 
 #include <App.h>
 #include <nlohmann/json.hpp>
+#include <mutex>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include "auth/AuthService.h"
 #include "auth/SessionService.h"
 #include "database/Database.h"
 #include "database/UserRepository.h"
 #include "GameWorld.h"
+#include "social/FriendshipRepository.h"
 
 using json = nlohmann::json;
 
@@ -18,6 +22,7 @@ struct PerSocketData {
     std::string email;
     std::string username;
     std::string nickname;
+    std::string tag;
     std::string role = "player";
     bool authenticated = false;
 };
@@ -29,10 +34,14 @@ private:
     int port;
     Database& database;
     UserRepository userRepository;
+    FriendshipRepository friendshipRepository;
     AuthService authService;
     SessionService sessionService;
     std::map<std::string, uWS::WebSocket<false, true, PerSocketData>*> clients;
     std::mutex clients_mtx;
+    std::unordered_map<long long, std::unordered_set<uWS::WebSocket<false, true, PerSocketData>*>> authenticatedSockets;
+    std::unordered_map<long long, int> onlineUserCounts;
+    std::mutex social_mtx;
 
 public:
     NetworkHandler(GameWorld &world, int port, Database& database);
@@ -41,6 +50,14 @@ public:
 private:
     void handleMessage(uWS::WebSocket<false, true, PerSocketData> *ws, std::string_view message);
     void handleClose(uWS::WebSocket<false, true, PerSocketData> *ws);
+    void registerAuthenticatedSocket(uWS::WebSocket<false, true, PerSocketData>* ws, PerSocketData* userData);
+    void unregisterAuthenticatedSocket(uWS::WebSocket<false, true, PerSocketData>* ws, const PerSocketData* userData);
+    bool isUserOnline(long long userId);
+    json buildFriendsSyncPayload(long long userId, std::string* error = nullptr);
+    void sendFriendsSyncToSocket(uWS::WebSocket<false, true, PerSocketData>* ws, long long userId);
+    void sendFriendsSyncToUser(long long userId);
+    void sendFriendsSyncToUsers(const std::vector<long long>& userIds);
+    void notifyFriendsPresenceChanged(long long userId);
 public:
     void broadcast(const std::string &message);
     void sendTo(const std::string &id, const std::string &message);

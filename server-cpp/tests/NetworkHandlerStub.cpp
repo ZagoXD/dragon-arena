@@ -5,6 +5,7 @@ NetworkHandler::NetworkHandler(GameWorld& world, int port, Database& database)
       port(port),
       database(database),
       userRepository(database),
+      friendshipRepository(database),
       authService(userRepository),
       sessionService(userRepository) {}
 

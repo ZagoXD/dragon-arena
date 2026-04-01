@@ -33,6 +33,15 @@ const genericErrorKeyByCode: Record<string, string> = {
   profile_not_found: 'errors.generic.profile_not_found'
 }
 
+const socialErrorKeyByCode: Record<string, string> = {
+  friend_target_not_found: 'errors.social.friend_target_not_found',
+  friend_self_add: 'errors.social.friend_self_add',
+  friend_already_added: 'errors.social.friend_already_added',
+  friend_request_pending: 'errors.social.friend_request_pending',
+  friend_request_not_found: 'errors.social.friend_request_not_found',
+  friend_not_found: 'errors.social.friend_not_found'
+}
+
 export function translateBackendError(t: TFunction, code?: string, reason?: string) {
   if (code) {
     const authKey = authErrorKeyByCode[code]
@@ -43,6 +52,11 @@ export function translateBackendError(t: TFunction, code?: string, reason?: stri
     const genericKey = genericErrorKeyByCode[code]
     if (genericKey) {
       return t(genericKey)
+    }
+
+    const socialKey = socialErrorKeyByCode[code]
+    if (socialKey) {
+      return t(socialKey)
     }
   }
 

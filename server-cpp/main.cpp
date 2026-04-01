@@ -1,5 +1,6 @@
 #include "database/Database.h"
 #include "database/UserRepository.h"
+#include "social/FriendshipRepository.h"
 #include "GameWorld.h"
 #include "GameConfig.h"
 #include "NetworkHandler.h"
@@ -21,6 +22,7 @@ int main() {
         }
 
         UserRepository users(database);
+        FriendshipRepository friendships(database);
         std::string roleSchemaError;
         if (users.ensureRoleSchema(&roleSchemaError)) {
             std::cout << "[Database] users.role schema ready." << std::endl;
@@ -42,6 +44,13 @@ int main() {
             std::cout << "[Database] users table reachable. Current users: " << totalUsers << std::endl;
         } else {
             std::cerr << "[Database] Could not count users: " << countError << std::endl;
+        }
+
+        std::string friendshipSchemaError;
+        if (friendships.ensureSchema(&friendshipSchemaError)) {
+            std::cout << "[Database] friendships schema ready." << std::endl;
+        } else {
+            std::cerr << "[Database] Could not ensure friendships schema: " << friendshipSchemaError << std::endl;
         }
     } else {
         std::cerr << "[Database] Connection failed (" << database.getConfig().describe() << "): " << databaseError << std::endl;

@@ -62,6 +62,40 @@
     "subtitle": "Revisa tu perfil, acompaña tus recursos y entra cuando quieras.",
     "enterArena": "Entrar a la arena"
   },
+  "friends": {
+    "title": "Amigos",
+    "nicknamePlaceholder": "Nickname",
+    "tagPlaceholder": "#AA1",
+    "sendRequest": "Enviar solicitud",
+    "pendingButton": "Pendientes",
+    "pendingEyebrow": "Solicitudes enviadas",
+    "pendingTitle": "Solicitudes pendientes",
+    "pendingClose": "Cerrar solicitudes pendientes",
+    "pendingEmpty": "No tienes solicitudes pendientes en este momento.",
+    "pendingWaiting": "Esperando respuesta",
+    "pendingCancel": "Cancelar solicitud",
+    "removeAction": "Eliminar amigo",
+    "removeEyebrow": "Lista de amigos",
+    "removeTitle": "¿Eliminar amistad?",
+    "removeText": "¿Deseas eliminar a {{name}} de tu lista de amigos?",
+    "removeCancel": "Volver",
+    "removeConfirm": "Eliminar amigo",
+    "requestTitle": "Solicitud de amistad",
+    "requestText": "quiere ser tu amigo.",
+    "accept": "Aceptar",
+    "reject": "Rechazar",
+    "empty": "Tu lista de amigos aún está vacía.",
+    "online": "Online",
+    "offline": "Offline",
+    "invalidRequest": "Ingresa nickname y tag para enviar la solicitud.",
+    "connectionUnavailable": "La conexión social no está disponible ahora.",
+    "requestSent": "Solicitud de amistad enviada.",
+    "requestCancelled": "Solicitud cancelada.",
+    "removeSuccess": "Amistad eliminada.",
+    "requestAcceptedExisting": "Ahora son amigos.",
+    "requestAccepted": "Solicitud aceptada.",
+    "requestRejected": "Solicitud rechazada."
+  },
   "settings": {
     "eyebrow": "Sistema",
     "title": "Configuración",
@@ -167,6 +201,14 @@
       "missing_event": "El evento del mensaje es obligatorio.",
       "user_not_found": "Usuario autenticado no encontrado.",
       "profile_not_found": "Perfil del jugador no encontrado."
+    },
+    "social": {
+      "friend_target_not_found": "No se encontró un jugador con ese nickname y tag.",
+      "friend_self_add": "No puedes agregarte a ti mismo.",
+      "friend_already_added": "Ese jugador ya está en tu lista de amigos.",
+      "friend_request_pending": "Ya existe una solicitud de amistad pendiente para ese jugador.",
+      "friend_request_not_found": "No se encontró esa solicitud de amistad.",
+      "friend_not_found": "Ese amigo no fue encontrado en tu lista."
     }
   }
 }
