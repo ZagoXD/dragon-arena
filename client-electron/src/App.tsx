@@ -5,14 +5,16 @@ import { SelectScreen } from './components/SelectScreen/SelectScreen'
 import { Arena } from './components/Arena/Arena'
 import { LoadingScreen } from './components/LoadingScreen/LoadingScreen'
 import { SplashScreen } from './components/SplashScreen/SplashScreen'
+import { SettingsPanel, ShellSettings } from './components/SettingsPanel/SettingsPanel'
 import { TitleBar } from './components/TitleBar/TitleBar'
 import { ArenaAuthIntent, AuthSuccessPayload, ProfileSyncPayload } from './hooks/useSocket'
-import i18n, { AppLanguage } from './i18n'
+import i18n, { AppLanguage, supportedLanguages } from './i18n'
 import { translateBackendError } from './i18n/translateBackendError'
 import './App.css'
 
 type Screen = 'splash' | 'name' | 'loading' | 'home' | 'select' | 'arena'
 const AUTH_SESSION_STORAGE_KEY = 'dragon-arena-auth-session'
+const SHELL_SETTINGS_STORAGE_KEY = 'dragon-arena-shell-settings'
 
 interface StoredAuthSession {
   token: string
@@ -22,6 +24,11 @@ interface StoredAuthSession {
 }
 
 function App() {
+  const [shellSettings, setShellSettings] = useState<ShellSettings>({
+    displayMode: 'borderless',
+    resolution: { width: 1600, height: 900 },
+  })
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [screen, setScreen] = useState<Screen>('splash')
   const [bootReady, setBootReady] = useState(false)
   const [playerName, setPlayerName] = useState('')
@@ -38,6 +45,11 @@ function App() {
   const [retryCount, setRetryCount] = useState(0)
   const [connError, setConnError] = useState<string | null>(null)
   const attemptedStoredSessionRef = useRef(false)
+  const currentLanguage = (supportedLanguages.includes(i18n.language as AppLanguage)
+    ? i18n.language
+    : 'pt-BR') as AppLanguage
+  const showTitleBar = shellSettings.displayMode !== 'fullscreen'
+  const showSettingsButton = screen !== 'splash' && screen !== 'loading'
 
   const applyAccountSnapshot = useCallback((payload: Pick<AuthSuccessPayload, 'user' | 'profile'>) => {
     setPlayerName(payload.user.nickname || payload.user.username)
@@ -299,6 +311,7 @@ function App() {
 
   const handleLogout = useCallback(() => {
     clearPersistedSession()
+    setSettingsOpen(false)
     setShouldPersistSession(false)
     setSessionExpiresAtMs(0)
     setAuthIntent(null)
@@ -314,10 +327,42 @@ function App() {
   const handleLanguageChange = useCallback(async (language: AppLanguage) => {
     await i18n.changeLanguage(language)
     setLoadingStatus(i18n.t('app.initializing'))
+    setSettingsOpen(false)
     if (screen !== 'name' && screen !== 'loading') {
       handleLogout()
     }
   }, [handleLogout, screen])
+
+  const applyShellSettings = useCallback(async (nextSettings: ShellSettings) => {
+    const applied = await (window as any).ipcRenderer.invoke('window-apply-shell-settings', nextSettings)
+    setShellSettings(applied as ShellSettings)
+    localStorage.setItem(SHELL_SETTINGS_STORAGE_KEY, JSON.stringify(applied))
+  }, [])
+
+  const handleQuitGame = useCallback(() => {
+    void (window as any).ipcRenderer.invoke('app-quit')
+  }, [])
+
+  useEffect(() => {
+    const loadShellSettings = async () => {
+      const fromMain = await (window as any).ipcRenderer.invoke('window-get-shell-settings')
+      let nextSettings = fromMain as ShellSettings
+      const raw = localStorage.getItem(SHELL_SETTINGS_STORAGE_KEY)
+
+      if (raw) {
+        try {
+          nextSettings = JSON.parse(raw) as ShellSettings
+        } catch {
+          nextSettings = fromMain as ShellSettings
+        }
+      }
+
+      setShellSettings(nextSettings)
+      await (window as any).ipcRenderer.invoke('window-apply-shell-settings', nextSettings)
+    }
+
+    void loadShellSettings()
+  }, [])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -473,9 +518,22 @@ function App() {
     <div className={`app-shell app-shell--${screen}`}>
       <div className="app-shell__backdrop" />
       <div className="app-shell__frame">
-        <TitleBar />
-        <main className="app-shell__viewport">
+        {showTitleBar && <TitleBar />}
+        <main className={`app-shell__viewport ${showTitleBar ? '' : 'app-shell__viewport--fullscreen'}`}>
           <div className="app-shell__stage">
+            {showSettingsButton && (
+              <button
+                type="button"
+                className="app-shell__settings-button"
+                onClick={() => setSettingsOpen(true)}
+                title={i18n.t('settings.title')}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M10.5 2h3l.6 2.45a7.86 7.86 0 0 1 1.9.79l2.19-1.23 2.12 2.12-1.23 2.19c.31.6.58 1.24.79 1.9L22 10.5v3l-2.45.6a7.86 7.86 0 0 1-.79 1.9l1.23 2.19-2.12 2.12-2.19-1.23a7.86 7.86 0 0 1-1.9.79L13.5 22h-3l-.6-2.45a7.86 7.86 0 0 1-1.9-.79l-2.19 1.23-2.12-2.12 1.23-2.19a7.86 7.86 0 0 1-.79-1.9L2 13.5v-3l2.45-.6c.17-.66.44-1.3.79-1.9L4.01 5.81l2.12-2.12 2.19 1.23c.6-.31 1.24-.58 1.9-.79L10.5 2Z" stroke="currentColor" strokeWidth="1.5"/>
+                  <circle cx="12" cy="12" r="3.25" stroke="currentColor" strokeWidth="1.5"/>
+                </svg>
+              </button>
+            )}
             <div key={screen} className={`app-scene app-scene--${screen}`}>
               {screen === 'splash' && <SplashScreen />}
               {screen === 'name' && (
@@ -500,7 +558,6 @@ function App() {
                   nickname={playerName}
                   coins={playerCoins}
                   onEnterArena={handleEnterArena}
-                  onLogout={handleLogout}
                 />
               )}
               {screen === 'select' && (
@@ -523,6 +580,18 @@ function App() {
             </div>
           </div>
         </main>
+        {settingsOpen && (
+          <SettingsPanel
+            currentLanguage={currentLanguage}
+            onChangeLanguage={handleLanguageChange}
+            onClose={() => setSettingsOpen(false)}
+            onLogout={handleLogout}
+            onQuit={handleQuitGame}
+            onUpdateSettings={applyShellSettings}
+            settings={shellSettings}
+            showLogout={screen !== 'name' && screen !== 'splash' && screen !== 'loading'}
+          />
+        )}
       </div>
     </div>
   )

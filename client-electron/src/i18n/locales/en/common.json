@@ -60,8 +60,29 @@
     "eyebrow": "Dragon Arena",
     "title": "Your gateway to battle is ready",
     "subtitle": "Review your profile, track your resources and enter whenever you want.",
-    "enterArena": "Enter the arena",
-    "logout": "Logout"
+    "enterArena": "Enter the arena"
+  },
+  "settings": {
+    "eyebrow": "System",
+    "title": "Settings",
+    "close": "Close panel",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "displayMode": "Display mode",
+    "displayModes": {
+      "windowed": "Windowed",
+      "borderless": "Borderless",
+      "fullscreen": "Fullscreen"
+    },
+    "resolution": "Resolution",
+    "resolutionHint": "Manual resolution is only used in windowed mode.",
+    "language": "Language",
+    "languageHint": "If you change language while authenticated, the client will return to login.",
+    "languageConfirmEyebrow": "Language switch",
+    "languageConfirmTitle": "Apply new language?",
+    "languageConfirmText": "If you confirm the language change, you will be redirected to the login screen.",
+    "logout": "Logout",
+    "quit": "Quit game"
   },
   "select": {
     "title": "Choose your legend",

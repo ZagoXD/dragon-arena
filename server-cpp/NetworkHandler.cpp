@@ -26,7 +26,6 @@ void NetworkHandler::start() {
     uWS::App().ws<PerSocketData>("/*", {
         .compression = uWS::SHARED_COMPRESSOR,
         .open = [](auto *ws) {
-            std::cout << "Nova conexao via NetworkHandler." << std::endl;
         },
         .message = [this](auto *ws, std::string_view message, uWS::OpCode opCode) {
             this->handleMessage(ws, message);

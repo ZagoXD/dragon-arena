@@ -60,8 +60,29 @@
     "eyebrow": "Dragon Arena",
     "title": "Seu portal para a batalha está pronto",
     "subtitle": "Revise seu perfil, acompanhe seus recursos e entre quando quiser.",
-    "enterArena": "Entrar na arena",
-    "logout": "Sair"
+    "enterArena": "Entrar na arena"
+  },
+  "settings": {
+    "eyebrow": "Sistema",
+    "title": "Configurações",
+    "close": "Fechar painel",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "displayMode": "Modo de exibição",
+    "displayModes": {
+      "windowed": "Janela",
+      "borderless": "Borderless",
+      "fullscreen": "Tela cheia"
+    },
+    "resolution": "Resolução",
+    "resolutionHint": "A resolução manual só é usada no modo janela.",
+    "language": "Idioma",
+    "languageHint": "Se você trocar o idioma já autenticado, o cliente voltará para o login.",
+    "languageConfirmEyebrow": "Troca de idioma",
+    "languageConfirmTitle": "Aplicar novo idioma?",
+    "languageConfirmText": "Ao confirmar a troca de idioma, você será redirecionado para a tela de login.",
+    "logout": "Logout",
+    "quit": "Sair do jogo"
   },
   "select": {
     "title": "Escolha sua lenda",

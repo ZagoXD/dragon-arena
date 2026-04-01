@@ -25,7 +25,27 @@ let win: BrowserWindow | null
 
 const BASE_WINDOW_WIDTH = 1600
 const BASE_WINDOW_HEIGHT = 900
+const MIN_WINDOW_WIDTH = 1280
+const MIN_WINDOW_HEIGHT = 720
 const SNAP_TO_TOP_THRESHOLD = 4
+
+type DisplayMode = 'windowed' | 'borderless' | 'fullscreen'
+
+interface ShellSettings {
+  displayMode: DisplayMode
+  resolution: {
+    width: number
+    height: number
+  }
+}
+
+let currentShellSettings: ShellSettings = {
+  displayMode: 'borderless',
+  resolution: {
+    width: BASE_WINDOW_WIDTH,
+    height: BASE_WINDOW_HEIGHT,
+  },
+}
 
 function centerWindowOnDisplay(target: BrowserWindow) {
   const display = screen.getDisplayMatching(target.getBounds())
@@ -42,6 +62,65 @@ function centerWindowOnDisplay(target: BrowserWindow) {
     width: nextWidth,
     height: nextHeight,
   })
+}
+
+function applyShellSettings(target: BrowserWindow, settings: ShellSettings) {
+  currentShellSettings = settings
+  const display = screen.getDisplayMatching(target.getBounds())
+  const { x, y, width, height } = display.workArea
+  const { x: fullX, y: fullY, width: fullWidth, height: fullHeight } = display.bounds
+  const applyWindowedBounds = () => {
+    const nextWidth = Math.min(settings.resolution.width, width)
+    const nextHeight = Math.min(settings.resolution.height, height)
+    const centeredX = x + Math.round((width - nextWidth) / 2)
+    const centeredY = y + Math.round((height - nextHeight) / 2)
+
+    target.setBounds({
+      x: centeredX,
+      y: centeredY,
+      width: nextWidth,
+      height: nextHeight,
+    })
+  }
+
+  if (settings.displayMode === 'fullscreen') {
+    target.setKiosk(false)
+    target.setAlwaysOnTop(false)
+    target.setFullScreen(false)
+    target.setFullScreenable(true)
+    target.setBounds({ x: fullX, y: fullY, width: fullWidth, height: fullHeight })
+    target.setAlwaysOnTop(true, 'screen-saver')
+    target.setKiosk(true)
+    target.setFullScreen(true)
+    return
+  }
+
+  if (target.isKiosk()) {
+    target.setKiosk(false)
+  }
+
+  target.setAlwaysOnTop(false)
+
+  if (target.isFullScreen()) {
+    target.once('leave-full-screen', () => {
+      if (settings.displayMode === 'borderless') {
+        target.setBounds({ x, y, width, height })
+      } else {
+        applyWindowedBounds()
+      }
+    })
+    target.setFullScreen(false)
+    return
+  }
+
+  if (settings.displayMode === 'borderless') {
+    target.setKiosk(false)
+    target.setBounds({ x, y, width, height })
+    return
+  }
+
+  target.setKiosk(false)
+  applyWindowedBounds()
 }
 
 function registerWindowGuards(target: BrowserWindow) {
@@ -84,6 +163,10 @@ function registerWindowGuards(target: BrowserWindow) {
     const isTouchingTop = bounds.y <= topEdge + SNAP_TO_TOP_THRESHOLD
     lastWindowY = bounds.y
 
+    if (currentShellSettings.displayMode !== 'windowed') {
+      return
+    }
+
     if (!wasAwayFromTop || !isTouchingTop) {
       return
     }
@@ -108,14 +191,14 @@ function createWindow() {
     y,
     width,
     height,
-    minWidth: BASE_WINDOW_WIDTH,
-    minHeight: BASE_WINDOW_HEIGHT,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
     icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
     frame: false,
     show: false,
     resizable: false,
     maximizable: false,
-    fullscreenable: false,
+    fullscreenable: true,
     backgroundColor: '#04050a',
     autoHideMenuBar: true,
     webPreferences: {
@@ -167,3 +250,15 @@ app.whenReady().then(createWindow)
 // Window manipulation handlers
 ipcMain.on('window-minimize', () => win?.minimize())
 ipcMain.on('window-close', () => win?.close())
+ipcMain.handle('window-get-shell-settings', () => currentShellSettings)
+ipcMain.handle('window-apply-shell-settings', (_event, settings: ShellSettings) => {
+  if (!win) {
+    return currentShellSettings
+  }
+
+  applyShellSettings(win, settings)
+  return currentShellSettings
+})
+ipcMain.handle('app-quit', () => {
+  app.quit()
+})

@@ -60,8 +60,29 @@
     "eyebrow": "Dragon Arena",
     "title": "Tu portal hacia la batalla está listo",
     "subtitle": "Revisa tu perfil, acompaña tus recursos y entra cuando quieras.",
-    "enterArena": "Entrar a la arena",
-    "logout": "Salir"
+    "enterArena": "Entrar a la arena"
+  },
+  "settings": {
+    "eyebrow": "Sistema",
+    "title": "Configuración",
+    "close": "Cerrar panel",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "displayMode": "Modo de pantalla",
+    "displayModes": {
+      "windowed": "Ventana",
+      "borderless": "Borderless",
+      "fullscreen": "Pantalla completa"
+    },
+    "resolution": "Resolución",
+    "resolutionHint": "La resolución manual solo se usa en modo ventana.",
+    "language": "Idioma",
+    "languageHint": "Si cambias el idioma ya autenticado, el cliente volverá al login.",
+    "languageConfirmEyebrow": "Cambio de idioma",
+    "languageConfirmTitle": "¿Aplicar nuevo idioma?",
+    "languageConfirmText": "Si confirmas el cambio de idioma, serás redirigido a la pantalla de login.",
+    "logout": "Logout",
+    "quit": "Salir del juego"
   },
   "select": {
     "title": "Elige tu leyenda",

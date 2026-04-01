@@ -5,10 +5,9 @@ interface Props {
   nickname: string
   coins: number
   onEnterArena: () => void
-  onLogout: () => void
 }
 
-export function HomeScreen({ nickname, coins, onEnterArena, onLogout }: Props) {
+export function HomeScreen({ nickname, coins, onEnterArena }: Props) {
   const { t } = useTranslation()
 
   return (
@@ -17,9 +16,6 @@ export function HomeScreen({ nickname, coins, onEnterArena, onLogout }: Props) {
       <div className="home-screen__glow home-screen__glow--right" />
 
       <aside className="home-screen__profile">
-        <button type="button" className="home-screen__logout" onClick={onLogout}>
-          {t('home.logout')}
-        </button>
         <span className="home-screen__profile-label">{t('home.profileLabel')}</span>
         <strong className="home-screen__profile-name">{nickname}</strong>
 
