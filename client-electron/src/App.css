@@ -3,7 +3,9 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #04050a;
+  background:
+    radial-gradient(circle at top, rgba(255, 166, 84, 0.08), transparent 26%),
+    linear-gradient(180deg, #030408 0%, #06070d 50%, #04050a 100%);
 }
 
 .app-shell__backdrop {
@@ -12,7 +14,8 @@
   pointer-events: none;
   background:
     radial-gradient(circle at top, rgba(255, 170, 78, 0.05), transparent 22%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 16%, transparent 84%, rgba(255, 255, 255, 0.02) 100%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 16%, transparent 84%, rgba(255, 255, 255, 0.02) 100%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 0%, transparent 14%, transparent 86%, rgba(255, 255, 255, 0.018) 100%);
 }
 
 .app-shell__frame {
@@ -24,7 +27,8 @@
   border: none;
   background: linear-gradient(180deg, rgba(11, 13, 22, 0.98) 0%, rgba(7, 8, 14, 0.98) 100%);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 0 0 1px rgba(255, 208, 138, 0.04);
 }
 
 .app-shell__frame::before {
@@ -38,10 +42,58 @@
     linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.08) 100%);
 }
 
+.app-shell__frame::after {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 220, 172, 0.05);
+  border-radius: 18px;
+}
+
 .app-shell__viewport {
   position: absolute;
   inset: 46px 0 0;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 170, 78, 0.06), transparent 18%),
+    linear-gradient(180deg, rgba(7, 8, 14, 0.86) 0%, rgba(5, 6, 10, 0.92) 100%);
+}
+
+.app-shell__stage {
+  position: relative;
+  width: min(100%, calc((100vh - 46px) * (16 / 9)));
+  height: min(100%, calc(100vw * (9 / 16)));
+  overflow: hidden;
+  border-radius: 22px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 0 0 1px rgba(255, 206, 142, 0.04),
+    0 28px 54px rgba(0, 0, 0, 0.32);
+}
+
+.app-scene {
+  width: 100%;
+  height: 100%;
+  animation: appSceneEnter 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-scene--arena {
+  animation-duration: 220ms;
+}
+
+@keyframes appSceneEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 #root {

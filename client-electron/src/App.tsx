@@ -4,13 +4,14 @@ import { HomeScreen } from './components/HomeScreen/HomeScreen'
 import { SelectScreen } from './components/SelectScreen/SelectScreen'
 import { Arena } from './components/Arena/Arena'
 import { LoadingScreen } from './components/LoadingScreen/LoadingScreen'
+import { SplashScreen } from './components/SplashScreen/SplashScreen'
 import { TitleBar } from './components/TitleBar/TitleBar'
 import { ArenaAuthIntent, AuthSuccessPayload, ProfileSyncPayload } from './hooks/useSocket'
 import i18n, { AppLanguage } from './i18n'
 import { translateBackendError } from './i18n/translateBackendError'
 import './App.css'
 
-type Screen = 'name' | 'loading' | 'home' | 'select' | 'arena'
+type Screen = 'splash' | 'name' | 'loading' | 'home' | 'select' | 'arena'
 const AUTH_SESSION_STORAGE_KEY = 'dragon-arena-auth-session'
 
 interface StoredAuthSession {
@@ -21,7 +22,8 @@ interface StoredAuthSession {
 }
 
 function App() {
-  const [screen, setScreen] = useState<Screen>('name')
+  const [screen, setScreen] = useState<Screen>('splash')
+  const [bootReady, setBootReady] = useState(false)
   const [playerName, setPlayerName] = useState('')
   const [playerCoins, setPlayerCoins] = useState(0)
   const [sessionExpiresAtMs, setSessionExpiresAtMs] = useState(0)
@@ -318,6 +320,20 @@ function App() {
   }, [handleLogout, screen])
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setBootReady(true)
+    }, 1650)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!bootReady || attemptedStoredSessionRef.current) {
+      return
+    }
+
     if (attemptedStoredSessionRef.current) {
       return
     }
@@ -325,6 +341,7 @@ function App() {
 
     const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY)
     if (!raw) {
+      setScreen('name')
       return
     }
 
@@ -332,6 +349,7 @@ function App() {
       const session = JSON.parse(raw) as StoredAuthSession
       if (!session.token || !session.expiresAtMs || session.expiresAtMs <= Date.now()) {
         clearPersistedSession()
+        setScreen('name')
         return
       }
 
@@ -350,8 +368,9 @@ function App() {
       })
     } catch {
       clearPersistedSession()
+      setScreen('name')
     }
-  }, [clearPersistedSession, handleNameEnter])
+  }, [bootReady, clearPersistedSession, handleNameEnter])
 
   useEffect(() => {
     if (authIntent?.mode !== 'session' || !authIntent.sessionToken) {
@@ -456,48 +475,53 @@ function App() {
       <div className="app-shell__frame">
         <TitleBar />
         <main className="app-shell__viewport">
-          {screen === 'name' && (
-            <NameScreen
-              authError={authError}
-              authInfo={authInfo}
-              initialMode={nameScreenMode}
-              onLanguageChange={handleLanguageChange}
-              onStart={handleNameEnter}
-            />
-          )}
-          {screen === 'loading' && (
-            <LoadingScreen
-              status={loadingStatus}
-              retryCount={retryCount}
-              error={connError}
-              onRetry={testConnection}
-            />
-          )}
-          {screen === 'home' && (
-            <HomeScreen
-              nickname={playerName}
-              coins={playerCoins}
-              onEnterArena={handleEnterArena}
-              onLogout={handleLogout}
-            />
-          )}
-          {screen === 'select' && (
-            <SelectScreen
-              playerName={playerName}
-              selectionLockedUntil={selectionLockedUntil}
-              onSelect={handleSelectCharacter}
-            />
-          )}
-          {screen === 'arena' && (
-            <Arena
-              playerName={playerName}
-              authIntent={authIntent}
-              characterId={characterId}
-              onAuthenticated={handleAuthenticated}
-              onAuthFailure={handleAuthFailure}
-              onReturnToSelect={handleReturnToSelect}
-            />
-          )}
+          <div className="app-shell__stage">
+            <div key={screen} className={`app-scene app-scene--${screen}`}>
+              {screen === 'splash' && <SplashScreen />}
+              {screen === 'name' && (
+                <NameScreen
+                  authError={authError}
+                  authInfo={authInfo}
+                  initialMode={nameScreenMode}
+                  onLanguageChange={handleLanguageChange}
+                  onStart={handleNameEnter}
+                />
+              )}
+              {screen === 'loading' && (
+                <LoadingScreen
+                  status={loadingStatus}
+                  retryCount={retryCount}
+                  error={connError}
+                  onRetry={testConnection}
+                />
+              )}
+              {screen === 'home' && (
+                <HomeScreen
+                  nickname={playerName}
+                  coins={playerCoins}
+                  onEnterArena={handleEnterArena}
+                  onLogout={handleLogout}
+                />
+              )}
+              {screen === 'select' && (
+                <SelectScreen
+                  playerName={playerName}
+                  selectionLockedUntil={selectionLockedUntil}
+                  onSelect={handleSelectCharacter}
+                />
+              )}
+              {screen === 'arena' && (
+                <Arena
+                  playerName={playerName}
+                  authIntent={authIntent}
+                  characterId={characterId}
+                  onAuthenticated={handleAuthenticated}
+                  onAuthFailure={handleAuthFailure}
+                  onReturnToSelect={handleReturnToSelect}
+                />
+              )}
+            </div>
+          </div>
         </main>
       </div>
     </div>

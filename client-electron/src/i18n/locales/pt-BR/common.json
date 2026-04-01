@@ -24,6 +24,11 @@
     "connectionFailed": "Falha na conexão",
     "tryAgain": "Tentar novamente"
   },
+  "splash": {
+    "eyebrow": "Cliente oficial",
+    "subtitle": "Forjando sua conexão com a arena, preparando os sistemas centrais e sincronizando a experiência de batalha.",
+    "loading": "Inicializando sistemas"
+  },
   "auth": {
     "subtitle": "Autentique-se para entrar no campo de batalha",
     "login": "Entrar",

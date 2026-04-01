@@ -24,6 +24,11 @@
     "connectionFailed": "Connection failed",
     "tryAgain": "Try again"
   },
+  "splash": {
+    "eyebrow": "Official client",
+    "subtitle": "Forging your connection to the arena, preparing core systems and synchronizing the battle experience.",
+    "loading": "Initializing systems"
+  },
   "auth": {
     "subtitle": "Authenticate to enter the battlefield",
     "login": "Login",
