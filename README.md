@@ -83,6 +83,9 @@ Hoje ela cobre:
 - criaÃ§Ã£o de usuÃ¡rio
 - criaÃ§Ã£o de perfil inicial
 - transaÃ§Ã£o para criar usuÃ¡rio + perfil
+- relaÃ§Ãµes de amizade em `friendships`
+- pedidos pendentes recebidos e enviados
+- presenÃ§a online/offline por socket autenticado
 
 VariÃ¡veis de ambiente aceitas:
 
@@ -105,6 +108,43 @@ No startup, o servidor tenta:
 1. abrir conexÃ£o com o banco
 2. executar `SELECT 1`
 3. contar usuÃ¡rios da tabela `users`
+
+ObservaÃ§Ã£o sobre amizades:
+
+- a tabela `public.friendships` precisa existir no PostgreSQL
+- se ela for criada manualmente por um usuÃ¡rio admin, o usuÃ¡rio `dragon_app` tambÃ©m precisa de permissÃµes de `SELECT/INSERT/UPDATE/DELETE` na tabela
+- o `dragon_app` tambÃ©m precisa de `USAGE/SELECT` na sequence `public.friendships_id_seq`
+
+## Sistema Social
+
+O cliente agora possui uma **friend list** integrada Ã  tela inicial.
+
+Hoje o fluxo cobre:
+
+- painel `Amigos` no canto inferior direito
+- expandir/minimizar painel
+- badge de notificaÃ§Ãµes para novos pedidos recebidos
+- envio de amizade por `nickname + tag`
+- listagem de amigos com nome, tag e status online/offline
+- pedidos recebidos com `aceitar` e `recusar`
+- modal central para pedidos pendentes enviados
+- cancelamento de pedidos enviados
+- menu contextual customizado com clique direito em um amigo
+- exclusÃ£o de amizade com modal de confirmaÃ§Ã£o
+
+Backend principal do sistema social:
+
+- [FriendshipRepository.h](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/social/FriendshipRepository.h)
+- [FriendshipRepository.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/social/FriendshipRepository.cpp)
+- [NetworkHandler.h](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/NetworkHandler.h)
+- [NetworkHandler.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/NetworkHandler.cpp)
+
+Frontend principal do sistema social:
+
+- [FriendListPanel.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/FriendListPanel/FriendListPanel.tsx)
+- [FriendListPanel.css](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/FriendListPanel/FriendListPanel.css)
+- [HomeScreen.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/HomeScreen/HomeScreen.tsx)
+- [App.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/App.tsx)
 
 ## Fluxo de Rede
 
