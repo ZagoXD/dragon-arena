@@ -62,6 +62,25 @@
     "subtitle": "Review your profile, track your resources and enter whenever you want.",
     "enterArena": "Enter the arena"
   },
+  "profile": {
+    "eyebrow": "Summoner profile",
+    "title": "Your battle profile",
+    "subtitle": "Check your current identity, key resources and your account level.",
+    "avatarPlaceholder": "Avatar coming soon",
+    "identityHint": "These details will support future profile customization.",
+    "nickname": "Nickname",
+    "coins": "Coins",
+    "level": "Level",
+    "tag": "Tag"
+  },
+  "collection": {
+    "eyebrow": "Collection",
+    "title": "Available legends",
+    "subtitle": "Review the current characters, their abilities and each role inside the arena.",
+    "availableStatus": "Available now",
+    "starterRarity": "Starter",
+    "description": "A balanced fighter with solid dueling presence, area pressure and finishing potential."
+  },
   "friends": {
     "title": "Friends",
     "messageAction": "Message",
@@ -124,6 +143,7 @@
     "eyebrow": "System",
     "title": "Settings",
     "close": "Close panel",
+    "navigation": "Menu",
     "cancel": "Cancel",
     "confirm": "Confirm",
     "displayMode": "Display mode",
@@ -139,6 +159,11 @@
     "languageConfirmEyebrow": "Language switch",
     "languageConfirmTitle": "Apply new language?",
     "languageConfirmText": "If you confirm the language change, you will be redirected to the login screen.",
+    "menu": {
+      "home": "Home",
+      "profile": "Profile",
+      "collection": "Collection"
+    },
     "logout": "Logout",
     "quit": "Quit game"
   },

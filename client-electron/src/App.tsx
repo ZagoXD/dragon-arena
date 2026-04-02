@@ -2,8 +2,12 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { NameScreen } from './components/NameScreen/NameScreen'
 import { HomeScreen } from './components/HomeScreen/HomeScreen'
 import { FriendListEntry, IncomingFriendRequest, OutgoingFriendRequest } from './components/FriendListPanel/FriendListPanel'
+import { FriendListPanel } from './components/FriendListPanel/FriendListPanel'
 import { PrivateChatMessage } from './components/PrivateChatPanel/PrivateChatPanel'
+import { PrivateChatPanel } from './components/PrivateChatPanel/PrivateChatPanel'
 import { SelectScreen } from './components/SelectScreen/SelectScreen'
+import { ProfileScreen } from './components/ProfileScreen/ProfileScreen'
+import { CollectionScreen } from './components/CollectionScreen/CollectionScreen'
 import { Arena } from './components/Arena/Arena'
 import { LoadingScreen } from './components/LoadingScreen/LoadingScreen'
 import { SplashScreen } from './components/SplashScreen/SplashScreen'
@@ -14,7 +18,7 @@ import i18n, { AppLanguage, supportedLanguages } from './i18n'
 import { translateBackendError } from './i18n/translateBackendError'
 import './App.css'
 
-type Screen = 'splash' | 'name' | 'loading' | 'home' | 'select' | 'arena'
+type Screen = 'splash' | 'name' | 'loading' | 'home' | 'profile' | 'collection' | 'select' | 'arena'
 const AUTH_SESSION_STORAGE_KEY = 'dragon-arena-auth-session'
 const SHELL_SETTINGS_STORAGE_KEY = 'dragon-arena-shell-settings'
 const MAX_OPEN_PRIVATE_CHATS = 4
@@ -99,7 +103,9 @@ function App() {
     ? i18n.language
     : 'pt-BR') as AppLanguage
   const showTitleBar = shellSettings.displayMode !== 'fullscreen'
-  const showSettingsButton = screen === 'home'
+  const isAuthenticatedScreen = ['home', 'profile', 'collection', 'select', 'arena'].includes(screen)
+  const showSettingsButton = isAuthenticatedScreen
+  const activeMenuView = screen === 'profile' || screen === 'collection' ? screen : 'home'
 
   const applyAccountSnapshot = useCallback((payload: Pick<AuthSuccessPayload, 'user' | 'profile'>) => {
     setPlayerUserId(payload.user.id)
@@ -393,6 +399,14 @@ function App() {
   const handleReturnToHome = useCallback(() => {
     setSelectionLockedUntil(null)
     setScreen('home')
+  }, [])
+
+  const handleOpenProfile = useCallback(() => {
+    setScreen('profile')
+  }, [])
+
+  const handleOpenCollection = useCallback(() => {
+    setScreen('collection')
   }, [])
 
   const handleToggleFriendPanel = useCallback(() => {
@@ -707,7 +721,7 @@ function App() {
       return
     }
 
-    if (screen !== 'home' && screen !== 'select') {
+    if (!['home', 'profile', 'collection', 'select', 'arena'].includes(screen)) {
       return
     }
 
@@ -1011,17 +1025,40 @@ function App() {
         <main className={`app-shell__viewport ${showTitleBar ? '' : 'app-shell__viewport--fullscreen'}`}>
           <div className="app-shell__stage">
             {showSettingsButton && (
-              <button
-                type="button"
-                className="app-shell__settings-button"
-                onClick={() => setSettingsOpen(true)}
-                title={i18n.t('settings.title')}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M10.5 2h3l.6 2.45a7.86 7.86 0 0 1 1.9.79l2.19-1.23 2.12 2.12-1.23 2.19c.31.6.58 1.24.79 1.9L22 10.5v3l-2.45.6a7.86 7.86 0 0 1-.79 1.9l1.23 2.19-2.12 2.12-2.19-1.23a7.86 7.86 0 0 1-1.9.79L13.5 22h-3l-.6-2.45a7.86 7.86 0 0 1-1.9-.79l-2.19 1.23-2.12-2.12 1.23-2.19a7.86 7.86 0 0 1-.79-1.9L2 13.5v-3l2.45-.6c.17-.66.44-1.3.79-1.9L4.01 5.81l2.12-2.12 2.19 1.23c.6-.31 1.24-.58 1.9-.79L10.5 2Z" stroke="currentColor" strokeWidth="1.5"/>
-                  <circle cx="12" cy="12" r="3.25" stroke="currentColor" strokeWidth="1.5"/>
-                </svg>
-              </button>
+              <div className="app-shell__top-actions">
+                <button
+                  type="button"
+                  className={`app-shell__nav-button ${activeMenuView === 'home' ? 'is-active' : ''}`}
+                  onClick={handleReturnToHome}
+                >
+                  {i18n.t('settings.menu.home')}
+                </button>
+                <button
+                  type="button"
+                  className={`app-shell__nav-button ${activeMenuView === 'profile' ? 'is-active' : ''}`}
+                  onClick={handleOpenProfile}
+                >
+                  {i18n.t('settings.menu.profile')}
+                </button>
+                <button
+                  type="button"
+                  className={`app-shell__nav-button ${activeMenuView === 'collection' ? 'is-active' : ''}`}
+                  onClick={handleOpenCollection}
+                >
+                  {i18n.t('settings.menu.collection')}
+                </button>
+                <button
+                  type="button"
+                  className="app-shell__settings-button"
+                  onClick={() => setSettingsOpen(true)}
+                  title={i18n.t('settings.title')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M10.5 2h3l.6 2.45a7.86 7.86 0 0 1 1.9.79l2.19-1.23 2.12 2.12-1.23 2.19c.31.6.58 1.24.79 1.9L22 10.5v3l-2.45.6a7.86 7.86 0 0 1-.79 1.9l1.23 2.19-2.12 2.12-2.19-1.23a7.86 7.86 0 0 1-1.9.79L13.5 22h-3l-.6-2.45a7.86 7.86 0 0 1-1.9-.79l-2.19 1.23-2.12-2.12 1.23-2.19a7.86 7.86 0 0 1-.79-1.9L2 13.5v-3l2.45-.6c.17-.66.44-1.3.79-1.9L4.01 5.81l2.12-2.12 2.19 1.23c.6-.31 1.24-.58 1.9-.79L10.5 2Z" stroke="currentColor" strokeWidth="1.5"/>
+                    <circle cx="12" cy="12" r="3.25" stroke="currentColor" strokeWidth="1.5"/>
+                  </svg>
+                </button>
+              </div>
             )}
             <div key={screen} className={`app-scene app-scene--${screen}`}>
               {screen === 'splash' && <SplashScreen />}
@@ -1048,29 +1085,17 @@ function App() {
                   nickname={`${playerName}${playerTag}`}
                   coins={playerCoins}
                   isBusy={enterArenaPending}
-                  friendPanelExpanded={friendPanelExpanded}
-                  friendNotificationCount={friendNotificationCount + closedChatUnreadCount}
-                  friends={friends}
-                  privateUnreadByFriendId={privateUnreadByFriendId}
-                  incomingRequests={incomingFriendRequests}
-                  outgoingRequests={outgoingFriendRequests}
-                  openPrivateChats={openPrivateChats}
-                  friendSendBusy={friendSendBusy}
-                  friendSendError={friendSendError}
-                  friendSendInfo={friendSendInfo}
-                  friendActionBusyRequestId={friendActionBusyRequestId}
-                  onToggleFriendPanel={handleToggleFriendPanel}
-                  onOpenChat={handleOpenPrivateChat}
-                  onTogglePrivateChatMinimized={handleTogglePrivateChatMinimized}
-                  onClosePrivateChat={handleClosePrivateChat}
-                  onSendPrivateMessage={handleSendPrivateMessage}
-                  onSendFriendRequest={handleSendFriendRequest}
-                  onRespondFriendRequest={handleRespondFriendRequest}
-                  onCancelOutgoingRequest={handleCancelOutgoingFriendRequest}
-                  onRemoveFriend={handleRemoveFriend}
                   onEnterArena={handleEnterArena}
                 />
               )}
+              {screen === 'profile' && (
+                <ProfileScreen
+                  nickname={playerName}
+                  tag={playerTag}
+                  coins={playerCoins}
+                />
+              )}
+              {screen === 'collection' && <CollectionScreen />}
               {screen === 'select' && (
                 <SelectScreen
                   playerName={playerName}
@@ -1104,8 +1129,46 @@ function App() {
             onQuit={handleQuitGame}
             onUpdateSettings={applyShellSettings}
             settings={shellSettings}
-            showLogout={screen === 'home'}
+            showLogout={isAuthenticatedScreen}
           />
+        )}
+        {isAuthenticatedScreen && (
+          <>
+            <FriendListPanel
+              expanded={friendPanelExpanded}
+              unreadCount={friendNotificationCount + closedChatUnreadCount}
+              friends={friends}
+              privateUnreadByFriendId={privateUnreadByFriendId}
+              incomingRequests={incomingFriendRequests}
+              outgoingRequests={outgoingFriendRequests}
+              sendBusy={friendSendBusy}
+              sendError={friendSendError}
+              sendInfo={friendSendInfo}
+              actionBusyRequestId={friendActionBusyRequestId}
+              onToggleExpanded={handleToggleFriendPanel}
+              onOpenChat={handleOpenPrivateChat}
+              onSendRequest={handleSendFriendRequest}
+              onRespondRequest={handleRespondFriendRequest}
+              onCancelOutgoingRequest={handleCancelOutgoingFriendRequest}
+              onRemoveFriend={handleRemoveFriend}
+            />
+
+            {openPrivateChats.map((chat, index) => (
+              <PrivateChatPanel
+                key={chat.friend.userId}
+                friendLabel={`${chat.friend.nickname}${chat.friend.tag}`}
+                online={chat.friend.online}
+                unreadCount={chat.unreadCount}
+                minimized={chat.minimized}
+                messages={chat.messages}
+                sendBusy={chat.sendBusy}
+                style={{ right: `${396 + index * 344}px` }}
+                onToggleMinimized={() => handleTogglePrivateChatMinimized(chat.friend.userId)}
+                onClose={() => handleClosePrivateChat(chat.friend.userId)}
+                onSend={(body) => handleSendPrivateMessage(chat.friend.userId, body)}
+              />
+            ))}
+          </>
         )}
       </div>
     </div>

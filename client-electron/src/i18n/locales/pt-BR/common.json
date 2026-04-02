@@ -62,6 +62,25 @@
     "subtitle": "Revise seu perfil, acompanhe seus recursos e entre quando quiser.",
     "enterArena": "Entrar na arena"
   },
+  "profile": {
+    "eyebrow": "Perfil do invocador",
+    "title": "Seu perfil de batalha",
+    "subtitle": "Veja sua identidade atual, recursos principais e o nivel da sua conta.",
+    "avatarPlaceholder": "Avatar em breve",
+    "identityHint": "Esses dados serao a base para futuras personalizacoes do seu perfil.",
+    "nickname": "Nickname",
+    "coins": "Coins",
+    "level": "Nivel",
+    "tag": "Tag"
+  },
+  "collection": {
+    "eyebrow": "Colecao",
+    "title": "Lendas disponiveis",
+    "subtitle": "Consulte os personagens atuais, suas habilidades e o papel de cada um na arena.",
+    "availableStatus": "Disponivel agora",
+    "starterRarity": "Inicial",
+    "description": "Um combatente equilibrado, com boa presenca em duelos, pressao de area e potencial de finalizacao."
+  },
   "friends": {
     "title": "Amigos",
     "messageAction": "Mensagem",
@@ -124,6 +143,7 @@
     "eyebrow": "Sistema",
     "title": "Configurações",
     "close": "Fechar painel",
+    "navigation": "Menu",
     "cancel": "Cancelar",
     "confirm": "Confirmar",
     "displayMode": "Modo de exibição",
@@ -139,6 +159,11 @@
     "languageConfirmEyebrow": "Troca de idioma",
     "languageConfirmTitle": "Aplicar novo idioma?",
     "languageConfirmText": "Ao confirmar a troca de idioma, você será redirecionado para a tela de login.",
+    "menu": {
+      "home": "Inicio",
+      "profile": "Perfil",
+      "collection": "Colecao"
+    },
     "logout": "Logout",
     "quit": "Sair do jogo"
   },
