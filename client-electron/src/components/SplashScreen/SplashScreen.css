@@ -132,6 +132,70 @@
   text-transform: uppercase;
 }
 
+.splash-screen__attempt {
+  color: rgba(242, 233, 219, 0.54);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.splash-screen__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.splash-screen__error-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 91, 91, 0.14);
+  color: #ff8c72;
+  font-size: 1.4rem;
+  font-weight: 900;
+}
+
+.splash-screen__error-title {
+  color: #f6efe4;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.splash-screen__error-message {
+  margin: 0;
+  color: rgba(242, 233, 219, 0.72);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.splash-screen__retry-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 22px;
+  background: linear-gradient(135deg, #ff8b34 0%, #ff5a20 100%);
+  color: #100d0a;
+  font-size: 0.84rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.splash-screen__retry-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.splash-screen__retry-btn:active {
+  transform: translateY(0);
+}
+
 @keyframes splashRotate {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

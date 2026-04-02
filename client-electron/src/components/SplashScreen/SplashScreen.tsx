@@ -1,7 +1,14 @@
 import { useTranslation } from 'react-i18next'
 import './SplashScreen.css'
 
-export function SplashScreen() {
+interface Props {
+  status: string
+  retryCount: number
+  error: string | null
+  onRetry: () => void
+}
+
+export function SplashScreen({ status, retryCount, error, onRetry }: Props) {
   const { t } = useTranslation()
 
   return (
@@ -19,10 +26,24 @@ export function SplashScreen() {
         <p className="splash-screen__subtitle">{t('splash.subtitle')}</p>
 
         <div className="splash-screen__loading">
-          <div className="splash-screen__bar">
-            <div className="splash-screen__bar-fill" />
-          </div>
-          <span className="splash-screen__loading-text">{t('splash.loading')}</span>
+          {!error ? (
+            <>
+              <div className="splash-screen__bar">
+                <div className="splash-screen__bar-fill" />
+              </div>
+              <span className="splash-screen__loading-text">{status || t('splash.loading')}</span>
+              <span className="splash-screen__attempt">{t('loading.attempt', { count: retryCount })}</span>
+            </>
+          ) : (
+            <div className="splash-screen__error">
+              <div className="splash-screen__error-icon">!</div>
+              <span className="splash-screen__error-title">{t('loading.connectionFailed')}</span>
+              <p className="splash-screen__error-message">{error}</p>
+              <button type="button" className="splash-screen__retry-btn" onClick={onRetry}>
+                {t('loading.tryAgain')}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

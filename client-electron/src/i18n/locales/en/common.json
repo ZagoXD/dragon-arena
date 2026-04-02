@@ -8,6 +8,7 @@
   "app": {
     "initializing": "Initializing...",
     "connectingServer": "Connecting to the Dragon Arena server...",
+    "successPreparingLogin": "Success! Preparing login screen...",
     "successPreparingHome": "Success! Preparing home screen...",
     "connectionTimeout": "Connection timeout",
     "serverUnreachable": "Server unreachable",

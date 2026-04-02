@@ -164,42 +164,38 @@ function App() {
 
   const serverUrl = (import.meta.env.VITE_SERVER_URL || 'ws://localhost:3001').replace('http', 'ws')
 
-  const testConnection = useCallback(async () => {
-    setScreen('loading')
+  const testConnection = useCallback(async (options?: { targetScreen?: Screen, preserveCurrentScreen?: boolean }) => {
+    if (!options?.preserveCurrentScreen) {
+      setScreen('loading')
+    }
     setConnError(null)
 
-    for (let i = 1; i <= 6; i++) {
-      setRetryCount(i)
-      setLoadingStatus(i18n.t('app.connectingServer'))
+    setRetryCount(current => current + 1)
+    setLoadingStatus(i18n.t('app.connectingServer'))
 
-      try {
-        await new Promise((resolve, reject) => {
-          const ws = new WebSocket(serverUrl)
-          const timeout = setTimeout(() => {
-            ws.close()
-            reject(new Error(i18n.t('app.connectionTimeout')))
-          }, 3500)
+    try {
+      await new Promise((resolve, reject) => {
+        const ws = new WebSocket(serverUrl)
+        const timeout = setTimeout(() => {
+          ws.close()
+          reject(new Error(i18n.t('app.connectionTimeout')))
+        }, 3500)
 
-          ws.onopen = () => {
-            clearTimeout(timeout)
-            setTimeout(() => { ws.close(); resolve(true) }, 100)
-          }
-          ws.onerror = () => {
-            clearTimeout(timeout)
-            reject(new Error(i18n.t('app.serverUnreachable')))
-          }
-        })
-
-        setLoadingStatus(i18n.t('app.successPreparingHome'))
-        setTimeout(() => setScreen('home'), 500)
-        return
-      } catch {
-        if (i === 6) {
-          setConnError(i18n.t('app.connectionError'))
-        } else {
-          await new Promise(r => setTimeout(r, i * 500))
+        ws.onopen = () => {
+          clearTimeout(timeout)
+          setTimeout(() => { ws.close(); resolve(true) }, 100)
         }
-      }
+        ws.onerror = () => {
+          clearTimeout(timeout)
+          reject(new Error(i18n.t('app.serverUnreachable')))
+        }
+      })
+
+      const nextScreen = options?.targetScreen || 'home'
+      setLoadingStatus(i18n.t(nextScreen === 'name' ? 'app.successPreparingLogin' : 'app.successPreparingHome'))
+      window.setTimeout(() => setScreen(nextScreen), 350)
+    } catch {
+      setConnError(i18n.t('app.connectionError'))
     }
   }, [serverUrl])
 
@@ -695,7 +691,10 @@ function App() {
 
     const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY)
     if (!raw) {
-      setScreen('name')
+      void testConnection({
+        targetScreen: 'name',
+        preserveCurrentScreen: true,
+      })
       return
     }
 
@@ -703,7 +702,10 @@ function App() {
       const session = JSON.parse(raw) as StoredAuthSession
       if (!session.token || !session.expiresAtMs || session.expiresAtMs <= Date.now()) {
         clearPersistedSession()
-        setScreen('name')
+        void testConnection({
+          targetScreen: 'name',
+          preserveCurrentScreen: true,
+        })
         return
       }
 
@@ -724,9 +726,12 @@ function App() {
       })
     } catch {
       clearPersistedSession()
-      setScreen('name')
+      void testConnection({
+        targetScreen: 'name',
+        preserveCurrentScreen: true,
+      })
     }
-  }, [bootReady, clearPersistedSession, handleNameEnter])
+  }, [bootReady, clearPersistedSession, handleNameEnter, testConnection])
 
   useEffect(() => {
     if (authIntent?.mode !== 'session' || !authIntent.sessionToken) {
@@ -1079,7 +1084,19 @@ function App() {
               </div>
             )}
             <div key={screen} className={`app-scene app-scene--${screen}`}>
-              {screen === 'splash' && <SplashScreen />}
+              {screen === 'splash' && (
+                <SplashScreen
+                  status={loadingStatus || i18n.t('splash.loading')}
+                  retryCount={Math.max(1, retryCount)}
+                  error={connError}
+                  onRetry={() => {
+                    void testConnection({
+                      targetScreen: 'name',
+                      preserveCurrentScreen: true,
+                    })
+                  }}
+                />
+              )}
               {screen === 'name' && (
                 <NameScreen
                   authError={authError}
