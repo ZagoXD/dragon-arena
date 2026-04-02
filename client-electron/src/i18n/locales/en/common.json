@@ -139,8 +139,29 @@
       "commands": {
         "add": "Sends a friend request.",
         "whisper": "Sends a private message to a friend.",
-        "reply": "Replies to the last whisper you received."
+        "reply": "Replies to the last whisper you received.",
+        "report": "Opens the player report modal."
       }
+    }
+  },
+  "report": {
+    "eyebrow": "Arena safety",
+    "title": "Report player",
+    "subtitle": "Describe what happened so the admin team can review the case.",
+    "reasonLabel": "Report reasons",
+    "reasonHint": "{{count}} of {{max}} reasons selected",
+    "descriptionPlaceholder": "Explain what happened in detail...",
+    "cancel": "Cancel",
+    "submit": "Send report",
+    "sending": "Sending...",
+    "reasons": {
+      "cheating": "Cheating",
+      "griefing": "Griefing",
+      "feeding": "Feeding",
+      "toxicity": "Toxicity",
+      "spam": "Spam",
+      "offensive_name": "Offensive name",
+      "other": "Other"
     }
   },
   "settings": {
@@ -167,6 +188,7 @@
       "home": "Home",
       "profile": "Profile",
       "collection": "Collection",
+      "report": "Report",
       "admin": "Admin"
     },
     "logout": "Logout",
@@ -176,8 +198,25 @@
     "eyebrow": "Administration",
     "title": "Moderation center",
     "subtitle": "Search for a player by nickname and tag, review account data and apply administrative actions.",
+    "tabs": {
+      "users": "Users",
+      "reports": "Reports ({{count}})"
+    },
     "search": "Search user",
     "searching": "Searching...",
+    "refreshReports": "Refresh reports",
+    "reportsOpenLabel": "Moderation queue",
+    "reportsTitle": "Open reports",
+    "reportDetailLabel": "Report details",
+    "noReports": "There are no open reports right now.",
+    "reportAgainst": "Reported by {{reporter}}",
+    "reporter": "Reporter",
+    "reportReasons": "Selected reasons",
+    "reportDescription": "Submitted description",
+    "reportChatLog": "Arena chat from the last hour",
+    "reportChatEmpty": "No arena messages were found in the last hour.",
+    "acceptReport": "Accept and ban",
+    "rejectReport": "Reject report",
     "resultLabel": "Search result",
     "username": "Username",
     "email": "Email",
@@ -216,7 +255,9 @@
     "success": {
       "force_add_friend": "Friendship added successfully.",
       "ban_user": "Penalty applied successfully.",
-      "unban_user": "Penalty removed successfully."
+      "unban_user": "Penalty removed successfully.",
+      "accept_report": "Report accepted successfully.",
+      "reject_report": "Report rejected successfully."
     }
   },
   "select": {
@@ -332,7 +373,14 @@
       "admin_self_ban_forbidden": "You cannot ban your own account.",
       "admin_ban_reason_required": "A reason is required to apply a penalty.",
       "admin_ban_already_active": "This user already has an active ban.",
-      "admin_ban_not_found": "No active ban was found for this user."
+      "admin_ban_not_found": "No active ban was found for this user.",
+      "report_target_required": "Enter the reported player's nickname and tag.",
+      "report_target_not_found": "The reported player was not found.",
+      "report_self_forbidden": "You cannot report yourself.",
+      "report_description_required": "A report description is required.",
+      "report_description_too_long": "The report description exceeds the maximum length.",
+      "report_invalid_reason": "One or more report reasons are invalid.",
+      "report_invalid_reason_count": "Select between 1 and 3 reasons for the report."
     }
   }
 }

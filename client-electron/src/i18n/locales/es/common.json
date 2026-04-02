@@ -139,8 +139,29 @@
       "commands": {
         "add": "Envía una solicitud de amistad.",
         "whisper": "Envía un mensaje privado a un amigo.",
-        "reply": "Responde al último susurro recibido."
+        "reply": "Responde al último susurro recibido.",
+        "report": "Abre el modal de denuncia de jugador."
       }
+    }
+  },
+  "report": {
+    "eyebrow": "Seguridad de la arena",
+    "title": "Reportar jugador",
+    "subtitle": "Describe lo ocurrido para que el equipo administrativo pueda revisar el caso.",
+    "reasonLabel": "Motivos de la denuncia",
+    "reasonHint": "{{count}} de {{max}} motivos seleccionados",
+    "descriptionPlaceholder": "Explica con detalle lo que ocurrió...",
+    "cancel": "Cancelar",
+    "submit": "Enviar denuncia",
+    "sending": "Enviando...",
+    "reasons": {
+      "cheating": "Cheating",
+      "griefing": "Arruinando la partida",
+      "feeding": "Entregando partida",
+      "toxicity": "Toxicidad",
+      "spam": "Spam",
+      "offensive_name": "Nombre ofensivo",
+      "other": "Otro"
     }
   },
   "settings": {
@@ -167,6 +188,7 @@
       "home": "Inicio",
       "profile": "Perfil",
       "collection": "Coleccion",
+      "report": "Reportar",
       "admin": "Admin"
     },
     "logout": "Logout",
@@ -176,8 +198,25 @@
     "eyebrow": "Administracion",
     "title": "Centro de moderacion",
     "subtitle": "Busca un jugador por nickname y tag, revisa datos de la cuenta y aplica acciones administrativas.",
+    "tabs": {
+      "users": "Usuarios",
+      "reports": "Denuncias ({{count}})"
+    },
     "search": "Buscar usuario",
     "searching": "Buscando...",
+    "refreshReports": "Actualizar denuncias",
+    "reportsOpenLabel": "Cola de moderacion",
+    "reportsTitle": "Denuncias abiertas",
+    "reportDetailLabel": "Detalles de la denuncia",
+    "noReports": "No hay denuncias abiertas en este momento.",
+    "reportAgainst": "Denunciado por {{reporter}}",
+    "reporter": "Denunciante",
+    "reportReasons": "Motivos seleccionados",
+    "reportDescription": "Descripcion informada",
+    "reportChatLog": "Chat de la arena de la ultima hora",
+    "reportChatEmpty": "No se encontraron mensajes de la arena en la ultima hora.",
+    "acceptReport": "Aceptar y banear",
+    "rejectReport": "Rechazar denuncia",
     "resultLabel": "Resultado de la busqueda",
     "username": "Username",
     "email": "Email",
@@ -216,7 +255,9 @@
     "success": {
       "force_add_friend": "Amistad agregada con exito.",
       "ban_user": "Penalizacion aplicada con exito.",
-      "unban_user": "Penalizacion removida con exito."
+      "unban_user": "Penalizacion removida con exito.",
+      "accept_report": "Denuncia aceptada con exito.",
+      "reject_report": "Denuncia rechazada con exito."
     }
   },
   "select": {
@@ -332,7 +373,14 @@
       "admin_self_ban_forbidden": "No puedes banear tu propia cuenta.",
       "admin_ban_reason_required": "Se requiere un motivo para aplicar la penalizacion.",
       "admin_ban_already_active": "Este usuario ya tiene un ban activo.",
-      "admin_ban_not_found": "No se encontro un ban activo para este usuario."
+      "admin_ban_not_found": "No se encontro un ban activo para este usuario.",
+      "report_target_required": "Ingresa nickname y tag del jugador denunciado.",
+      "report_target_not_found": "No se encontro al jugador denunciado.",
+      "report_self_forbidden": "No puedes denunciarte a ti mismo.",
+      "report_description_required": "La denuncia necesita una descripcion.",
+      "report_description_too_long": "La descripcion de la denuncia supera el limite permitido.",
+      "report_invalid_reason": "Uno o mas motivos de la denuncia son invalidos.",
+      "report_invalid_reason_count": "Selecciona entre 1 y 3 motivos para la denuncia."
     }
   }
 }

@@ -7,6 +7,7 @@
 #include <ctime>
 #include <iostream>
 #include <set>
+#include <unordered_set>
 
 namespace {
 bool hasString(const json& payload, const char* key) {
@@ -71,6 +72,58 @@ bool parseNicknameAndTagToken(const std::string& token, std::string* nickname, s
 }
 
 constexpr const char* MAIN_ARENA_KEY = "main";
+
+const std::unordered_set<std::string> kAllowedReportReasons = {
+    "cheating",
+    "griefing",
+    "feeding",
+    "toxicity",
+    "spam",
+    "offensive_name",
+    "other"
+};
+
+bool isAllowedReportReason(const std::string& reason) {
+    return kAllowedReportReasons.find(reason) != kAllowedReportReasons.end();
+}
+
+json buildLookupPayloadJson(
+    const UserLookupWithProfile& target,
+    bool alreadyFriends,
+    bool online,
+    const std::optional<ActiveBanRecord>& activeBan
+) {
+    return {
+        {"event", "adminUserLookupResult"},
+        {"user", {
+            {"id", target.user.id},
+            {"nickname", target.user.nickname},
+            {"tag", target.user.tag},
+            {"username", target.user.username},
+            {"email", target.user.email},
+            {"role", target.user.role},
+            {"online", online},
+            {"alreadyFriends", alreadyFriends}
+        }},
+        {"profile", {
+            {"userId", target.profile.userId},
+            {"level", target.profile.level},
+            {"xp", target.profile.xp},
+            {"coins", target.profile.coins}
+        }},
+        {"activeBan", activeBan.has_value()
+            ? json{
+                {"id", activeBan->id},
+                {"reason", activeBan->reason},
+                {"isPermanent", activeBan->isPermanent},
+                {"createdAtMs", activeBan->createdAtMs},
+                {"bannedUntilMs", activeBan->bannedUntilMs},
+                {"bannedByDisplay", activeBan->bannedByNickname + activeBan->bannedByTag}
+            }
+            : json(nullptr)},
+        {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+    };
+}
 }
 
 NetworkHandler::NetworkHandler(GameWorld &world, int port, Database& database)
@@ -79,6 +132,7 @@ NetworkHandler::NetworkHandler(GameWorld &world, int port, Database& database)
       database(database),
       userRepository(database),
       moderationRepository(database),
+      reportRepository(database),
       friendshipRepository(database),
       privateChatRepository(database),
       arenaChatRepository(database),
@@ -253,6 +307,154 @@ json NetworkHandler::buildPrivateChatsSyncPayload(long long userId, std::string*
     return payload;
 }
 
+json NetworkHandler::buildAdminUserLookupPayload(
+    long long requesterUserId,
+    const std::string& nickname,
+    const std::string& tag,
+    std::string* error
+) {
+    std::string repositoryError;
+    std::optional<UserLookupWithProfile> target = userRepository.findWithProfileByNicknameAndTag(nickname, tag, &repositoryError);
+    if (!target.has_value()) {
+        if (error != nullptr) {
+            *error = repositoryError.empty() ? "Target user was not found" : repositoryError;
+        }
+        return json();
+    }
+
+    repositoryError.clear();
+    std::optional<ActiveBanRecord> activeBan = moderationRepository.findActiveBanByUserId(target->user.id, &repositoryError);
+    if (!repositoryError.empty()) {
+        if (error != nullptr) {
+            *error = repositoryError;
+        }
+        return json();
+    }
+
+    repositoryError.clear();
+    bool alreadyFriends = friendshipRepository.findAcceptedLink(requesterUserId, target->user.id, &repositoryError).has_value();
+    if (!repositoryError.empty()) {
+        if (error != nullptr) {
+            *error = repositoryError;
+        }
+        return json();
+    }
+
+    return buildLookupPayloadJson(target.value(), alreadyFriends, isUserOnline(target->user.id), activeBan);
+}
+
+json NetworkHandler::buildAdminReportsSyncPayload(std::string* error) {
+    std::string repositoryError;
+    std::vector<PlayerReportRecord> openReports = reportRepository.listOpenReports(&repositoryError);
+    if (!repositoryError.empty()) {
+        if (error != nullptr) {
+            *error = repositoryError;
+        }
+        return json();
+    }
+
+    json payload = {
+        {"event", "adminReportsSync"},
+        {"reports", json::array()},
+        {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+    };
+
+    for (const PlayerReportRecord& report : openReports) {
+        repositoryError.clear();
+        std::optional<UserLookupWithProfile> target = userRepository.findWithProfileByNicknameAndTag(
+            report.targetNickname,
+            report.targetTag,
+            &repositoryError
+        );
+        if (!repositoryError.empty()) {
+            if (error != nullptr) {
+                *error = repositoryError;
+            }
+            return json();
+        }
+
+        repositoryError.clear();
+        std::optional<ActiveBanRecord> activeBan = moderationRepository.findActiveBanByUserId(report.targetUserId, &repositoryError);
+        if (!repositoryError.empty()) {
+            if (error != nullptr) {
+                *error = repositoryError;
+            }
+            return json();
+        }
+
+        repositoryError.clear();
+        std::vector<ArenaMessageRecord> recentMessages = arenaChatRepository.listRecentMessagesBySender(
+            report.targetUserId,
+            60,
+            100,
+            &repositoryError
+        );
+        if (!repositoryError.empty()) {
+            if (error != nullptr) {
+                *error = repositoryError;
+            }
+            return json();
+        }
+
+        json reportPayload = {
+            {"id", report.id},
+            {"createdAtMs", report.createdAtMs},
+            {"status", report.status},
+            {"description", report.description},
+            {"reasonCodes", json::parse(report.reasonCodesJson.empty() ? "[]" : report.reasonCodesJson)},
+            {"reporter", {
+                {"userId", report.reporterUserId},
+                {"nickname", report.reporterNickname},
+                {"tag", report.reporterTag}
+            }},
+            {"target", {
+                {"userId", report.targetUserId},
+                {"nickname", report.targetNickname.empty() ? report.targetNicknameSnapshot : report.targetNickname},
+                {"tag", report.targetTag.empty() ? report.targetTagSnapshot : report.targetTag}
+            }},
+            {"activeBan", activeBan.has_value()
+                ? json{
+                    {"id", activeBan->id},
+                    {"reason", activeBan->reason},
+                    {"isPermanent", activeBan->isPermanent},
+                    {"createdAtMs", activeBan->createdAtMs},
+                    {"bannedUntilMs", activeBan->bannedUntilMs},
+                    {"bannedByDisplay", activeBan->bannedByNickname + activeBan->bannedByTag}
+                }
+                : json(nullptr)},
+            {"arenaMessages", json::array()}
+        };
+
+        if (target.has_value()) {
+            reportPayload["targetProfile"] = {
+                {"username", target->user.username},
+                {"email", target->user.email},
+                {"role", target->user.role},
+                {"online", isUserOnline(target->user.id)},
+                {"coins", target->profile.coins}
+            };
+        } else {
+            reportPayload["targetProfile"] = nullptr;
+        }
+
+        for (const ArenaMessageRecord& message : recentMessages) {
+            reportPayload["arenaMessages"].push_back({
+                {"id", message.id},
+                {"type", message.messageType.empty() ? "public" : message.messageType},
+                {"body", message.body},
+                {"createdAt", message.createdAtMs},
+                {"arenaKey", message.arenaKey},
+                {"senderNickname", message.senderNickname},
+                {"senderTag", message.senderTag}
+            });
+        }
+
+        payload["reports"].push_back(reportPayload);
+    }
+
+    return payload;
+}
+
 void NetworkHandler::sendFriendsSyncToSocket(uWS::WebSocket<false, true, PerSocketData>* ws, long long userId) {
     std::string error;
     json payload = buildFriendsSyncPayload(userId, &error);
@@ -330,6 +532,39 @@ void NetworkHandler::sendPrivateChatsSyncToUsers(const std::vector<long long>& u
     std::set<long long> uniqueIds(userIds.begin(), userIds.end());
     for (long long userId : uniqueIds) {
         sendPrivateChatsSyncToUser(userId);
+    }
+}
+
+void NetworkHandler::sendAdminReportsSyncToUser(long long userId) {
+    std::vector<uWS::WebSocket<false, true, PerSocketData>*> sockets;
+    {
+        std::lock_guard<std::mutex> lock(social_mtx);
+        auto it = authenticatedSockets.find(userId);
+        if (it == authenticatedSockets.end()) {
+            return;
+        }
+        sockets.assign(it->second.begin(), it->second.end());
+    }
+
+    for (uWS::WebSocket<false, true, PerSocketData>* socket : sockets) {
+        PerSocketData* socketData = socket->getUserData();
+        if (socketData == nullptr || socketData->role != "admin") {
+            continue;
+        }
+
+        std::string error;
+        json payload = buildAdminReportsSyncPayload(&error);
+        if (payload.is_null() || payload.empty()) {
+            socket->send(ProtocolPayloadBuilder::buildActionRejected(
+                "adminReportsSync",
+                "database_error",
+                error.empty() ? "Could not load reports" : error,
+                world.getCurrentTick()
+            ).dump(), uWS::OpCode::TEXT);
+            continue;
+        }
+
+        socket->send(payload.dump(), uWS::OpCode::TEXT);
     }
 }
 
@@ -1021,6 +1256,109 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
             }).dump(), uWS::OpCode::TEXT);
         }
+        else if (event == "submitPlayerReport") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("submitPlayerReport", "not_authenticated", "Client must authenticate before submitting reports", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!hasString(data, "nickname") || !hasString(data, "tag") || !hasString(data, "description") || !data.contains("reasonCodes") || !data["reasonCodes"].is_array()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("submitPlayerReport", "invalid_payload", "submitPlayerReport requires nickname, tag, description and reasonCodes", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const std::string nickname = trimCopy(data["nickname"]);
+            const std::string tag = trimCopy(data["tag"]);
+            const std::string description = trimCopy(data["description"]);
+            if (nickname.empty() || tag.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("submitPlayerReport", "report_target_required", "Nickname and tag are required", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (description.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("submitPlayerReport", "report_description_required", "A description is required", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (description.size() > 500) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("submitPlayerReport", "report_description_too_long", "Description exceeds the maximum length", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            std::vector<std::string> reasonCodes;
+            for (const auto& entry : data["reasonCodes"]) {
+                if (!entry.is_string()) {
+                    ws->send(ProtocolPayloadBuilder::buildActionRejected("submitPlayerReport", "invalid_payload", "reasonCodes must contain strings only", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                    return;
+                }
+                const std::string reasonCode = trimCopy(entry.get<std::string>());
+                if (!isAllowedReportReason(reasonCode)) {
+                    ws->send(ProtocolPayloadBuilder::buildActionRejected("submitPlayerReport", "report_invalid_reason", "One or more report reasons are invalid", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                    return;
+                }
+                if (std::find(reasonCodes.begin(), reasonCodes.end(), reasonCode) == reasonCodes.end()) {
+                    reasonCodes.push_back(reasonCode);
+                }
+            }
+
+            if (reasonCodes.empty() || reasonCodes.size() > 3) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("submitPlayerReport", "report_invalid_reason_count", "Select between 1 and 3 report reasons", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            std::string repositoryError;
+            std::optional<UserRecord> targetUser = userRepository.findByNicknameAndTag(nickname, tag, &repositoryError);
+            if (!targetUser.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "submitPlayerReport",
+                    repositoryError.empty() ? "report_target_not_found" : "database_error",
+                    repositoryError.empty() ? "Target user was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            if (targetUser->id == userData->userId) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("submitPlayerReport", "report_self_forbidden", "You cannot report yourself", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            PlayerReportRecord createdReport;
+            if (!reportRepository.createReport(
+                userData->userId,
+                targetUser->id,
+                targetUser->nickname,
+                targetUser->tag,
+                json(reasonCodes).dump(),
+                description,
+                &createdReport,
+                &repositoryError
+            )) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("submitPlayerReport", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            ws->send(json({
+                {"event", "playerReportSubmitted"},
+                {"reportId", createdReport.id},
+                {"targetUserId", targetUser->id},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }).dump(), uWS::OpCode::TEXT);
+
+            std::set<long long> adminUserIds;
+            {
+                std::lock_guard<std::mutex> lock(social_mtx);
+                for (const auto& [authenticatedUserId, sockets] : authenticatedSockets) {
+                    for (uWS::WebSocket<false, true, PerSocketData>* socket : sockets) {
+                        PerSocketData* socketData = socket->getUserData();
+                        if (socketData != nullptr && socketData->role == "admin") {
+                            adminUserIds.insert(authenticatedUserId);
+                            break;
+                        }
+                    }
+                }
+            }
+            for (long long adminUserId : adminUserIds) {
+                sendAdminReportsSyncToUser(adminUserId);
+            }
+        }
         else if (event == "adminLookupUser") {
             if (!userData->authenticated || userData->userId <= 0) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("adminLookupUser", "not_authenticated", "Client must authenticate before using admin tools", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
@@ -1038,61 +1376,35 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             const std::string nickname = trimCopy(data["nickname"]);
             const std::string tag = trimCopy(data["tag"]);
             std::string repositoryError;
-            std::optional<UserLookupWithProfile> target = userRepository.findWithProfileByNicknameAndTag(nickname, tag, &repositoryError);
-            if (!target.has_value()) {
+            json payload = buildAdminUserLookupPayload(userData->userId, nickname, tag, &repositoryError);
+            if (payload.is_null() || payload.empty()) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected(
                     "adminLookupUser",
-                    repositoryError.empty() ? "admin_target_not_found" : "database_error",
+                    repositoryError == "Target user was not found" ? "admin_target_not_found" : "database_error",
                     repositoryError.empty() ? "Target user was not found" : repositoryError,
                     world.getCurrentTick()
                 ).dump(), uWS::OpCode::TEXT);
                 return;
             }
-
-            repositoryError.clear();
-            std::optional<ActiveBanRecord> activeBan = moderationRepository.findActiveBanByUserId(target->user.id, &repositoryError);
-            if (!repositoryError.empty()) {
-                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminLookupUser", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+            ws->send(payload.dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "adminReportsSync") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminReportsSync", "not_authenticated", "Client must authenticate before using admin tools", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (userData->role != "admin") {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminReportsSync", "admin_forbidden", "Only admins can use this action", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
                 return;
             }
 
-            repositoryError.clear();
-            bool alreadyFriends = friendshipRepository.findAcceptedLink(userData->userId, target->user.id, &repositoryError).has_value();
-            if (!repositoryError.empty()) {
-                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminLookupUser", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+            std::string repositoryError;
+            json payload = buildAdminReportsSyncPayload(&repositoryError);
+            if (payload.is_null() || payload.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminReportsSync", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
                 return;
             }
 
-            json payload = {
-                {"event", "adminUserLookupResult"},
-                {"user", {
-                    {"id", target->user.id},
-                    {"nickname", target->user.nickname},
-                    {"tag", target->user.tag},
-                    {"username", target->user.username},
-                    {"email", target->user.email},
-                    {"role", target->user.role},
-                    {"online", isUserOnline(target->user.id)},
-                    {"alreadyFriends", alreadyFriends}
-                }},
-                {"profile", {
-                    {"userId", target->profile.userId},
-                    {"level", target->profile.level},
-                    {"xp", target->profile.xp},
-                    {"coins", target->profile.coins}
-                }},
-                {"activeBan", activeBan.has_value()
-                    ? json{
-                        {"id", activeBan->id},
-                        {"reason", activeBan->reason},
-                        {"isPermanent", activeBan->isPermanent},
-                        {"createdAtMs", activeBan->createdAtMs},
-                        {"bannedUntilMs", activeBan->bannedUntilMs},
-                        {"bannedByDisplay", activeBan->bannedByNickname + activeBan->bannedByTag}
-                    }
-                    : json(nullptr)},
-                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
-            };
             ws->send(payload.dump(), uWS::OpCode::TEXT);
         }
         else if (event == "adminForceAddFriend") {
@@ -1255,6 +1567,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 {"targetUserId", targetUserId},
                 {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
             }).dump(), uWS::OpCode::TEXT);
+            sendAdminReportsSyncToUser(userData->userId);
         }
         else if (event == "adminUnbanUser") {
             if (!userData->authenticated || userData->userId <= 0) {
@@ -1295,6 +1608,48 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 {"targetUserId", targetUserId},
                 {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
             }).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "adminResolveReport") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminResolveReport", "not_authenticated", "Client must authenticate before using admin tools", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (userData->role != "admin") {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminResolveReport", "admin_forbidden", "Only admins can use this action", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!data.contains("reportId") || !data["reportId"].is_number_integer() || !hasString(data, "action")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminResolveReport", "invalid_payload", "adminResolveReport requires reportId and action", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const long long reportId = data["reportId"];
+            const std::string action = trimCopy(data["action"]);
+            if (action != "accept" && action != "reject") {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminResolveReport", "invalid_payload", "adminResolveReport action must be accept or reject", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            std::string repositoryError;
+            PlayerReportRecord resolvedReport;
+            if (!reportRepository.resolveReport(
+                reportId,
+                action == "accept" ? "accepted" : "rejected",
+                userData->userId,
+                &resolvedReport,
+                &repositoryError
+            )) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminResolveReport", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            ws->send(json({
+                {"event", "adminActionSuccess"},
+                {"action", action == "accept" ? "accept_report" : "reject_report"},
+                {"reportId", resolvedReport.id},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }).dump(), uWS::OpCode::TEXT);
+            sendAdminReportsSyncToUser(userData->userId);
         }
         else if (event == "arenaMessageSend") {
             if (!userData->authenticated || userData->userId <= 0) {

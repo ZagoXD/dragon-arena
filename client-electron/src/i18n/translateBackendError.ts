@@ -58,6 +58,13 @@ const moderationErrorKeyByCode: Record<string, string> = {
   admin_ban_reason_required: 'errors.moderation.admin_ban_reason_required',
   admin_ban_already_active: 'errors.moderation.admin_ban_already_active',
   admin_ban_not_found: 'errors.moderation.admin_ban_not_found',
+  report_target_required: 'errors.moderation.report_target_required',
+  report_target_not_found: 'errors.moderation.report_target_not_found',
+  report_self_forbidden: 'errors.moderation.report_self_forbidden',
+  report_description_required: 'errors.moderation.report_description_required',
+  report_description_too_long: 'errors.moderation.report_description_too_long',
+  report_invalid_reason: 'errors.moderation.report_invalid_reason',
+  report_invalid_reason_count: 'errors.moderation.report_invalid_reason_count',
   user_banned: 'errors.auth.user_banned'
 }
 

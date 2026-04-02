@@ -8,7 +8,8 @@ import { PrivateChatPanel } from './components/PrivateChatPanel/PrivateChatPanel
 import { SelectScreen } from './components/SelectScreen/SelectScreen'
 import { ProfileScreen } from './components/ProfileScreen/ProfileScreen'
 import { CollectionScreen } from './components/CollectionScreen/CollectionScreen'
-import { AdminLookupResult, AdminScreen } from './components/AdminScreen/AdminScreen'
+import { AdminLookupResult, AdminReportRecord, AdminScreen } from './components/AdminScreen/AdminScreen'
+import { ReportModal, ReportReasonCode } from './components/ReportModal/ReportModal'
 import { Arena } from './components/Arena/Arena'
 import { LoadingScreen } from './components/LoadingScreen/LoadingScreen'
 import { SplashScreen } from './components/SplashScreen/SplashScreen'
@@ -67,6 +68,11 @@ interface LobbyContentPayload {
   passives: Record<string, AuthoritativePassiveDefinition>
 }
 
+interface ReportTargetDraft {
+  nickname: string
+  tag: string
+}
+
 function App() {
   const [shellSettings, setShellSettings] = useState<ShellSettings>(DEFAULT_SHELL_SETTINGS)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -107,14 +113,21 @@ function App() {
   const [friendSendInfo, setFriendSendInfo] = useState<string | null>(null)
   const [friendActionBusyRequestId, setFriendActionBusyRequestId] = useState<number | null>(null)
   const [adminLookupResult, setAdminLookupResult] = useState<AdminLookupResult | null>(null)
+  const [adminReports, setAdminReports] = useState<AdminReportRecord[]>([])
   const [adminLookupBusy, setAdminLookupBusy] = useState(false)
+  const [adminReportsBusy, setAdminReportsBusy] = useState(false)
   const [adminActionBusy, setAdminActionBusy] = useState(false)
   const [adminFeedbackError, setAdminFeedbackError] = useState<string | null>(null)
   const [adminFeedbackInfo, setAdminFeedbackInfo] = useState<string | null>(null)
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportBusy, setReportBusy] = useState(false)
+  const [reportError, setReportError] = useState<string | null>(null)
+  const [reportInitialTarget, setReportInitialTarget] = useState<ReportTargetDraft | null>(null)
   const attemptedStoredSessionRef = useRef(false)
   const lobbySocketRef = useRef<WebSocket | null>(null)
   const lastIncomingRequestIdsRef = useRef<number[]>([])
   const lastAdminLookupRef = useRef<{ nickname: string, tag: string } | null>(null)
+  const pendingAcceptedReportIdRef = useRef<number | null>(null)
   const openPrivateChatFriendIdsRef = useRef<number[]>([])
   const privateChatMinimizedByFriendIdRef = useRef<Record<number, boolean>>({})
   const currentLanguage = (supportedLanguages.includes(i18n.language as AppLanguage)
@@ -391,6 +404,18 @@ function App() {
     setFriendSendError(null)
     setFriendSendInfo(null)
     setFriendActionBusyRequestId(null)
+    setAdminLookupResult(null)
+    setAdminReports([])
+    setAdminLookupBusy(false)
+    setAdminReportsBusy(false)
+    setAdminActionBusy(false)
+    setAdminFeedbackError(null)
+    setAdminFeedbackInfo(null)
+    setReportModalOpen(false)
+    setReportBusy(false)
+    setReportError(null)
+    setReportInitialTarget(null)
+    pendingAcceptedReportIdRef.current = null
     lastIncomingRequestIdsRef.current = []
     setAuthError(message)
     setNameScreenMode('login')
@@ -450,6 +475,10 @@ function App() {
       return
     }
     setScreen('admin')
+    if (lobbySocketRef.current?.readyState === WebSocket.OPEN) {
+      lobbySocketRef.current.send(JSON.stringify({ event: 'adminReportsSync' }))
+      setAdminReportsBusy(true)
+    }
   }, [playerRole])
 
   const handleToggleFriendPanel = useCallback(() => {
@@ -633,13 +662,14 @@ function App() {
     }))
   }, [])
 
-  const handleAdminBanUser = useCallback((targetUserId: number, reason: string, durationMs: number | null, isPermanent: boolean) => {
+  const handleAdminBanUser = useCallback((targetUserId: number, reason: string, durationMs: number | null, isPermanent: boolean, reportId?: number) => {
     if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
       setAdminFeedbackError(i18n.t('friends.connectionUnavailable'))
       setAdminFeedbackInfo(null)
       return
     }
 
+    pendingAcceptedReportIdRef.current = reportId ?? null
     setAdminActionBusy(true)
     setAdminFeedbackError(null)
     setAdminFeedbackInfo(null)
@@ -665,6 +695,63 @@ function App() {
     lobbySocketRef.current.send(JSON.stringify({
       event: 'adminUnbanUser',
       targetUserId,
+    }))
+  }, [])
+
+  const handleOpenReportModal = useCallback((target?: Partial<ReportTargetDraft>) => {
+    setReportInitialTarget(target?.nickname && target?.tag
+      ? { nickname: target.nickname, tag: target.tag }
+      : null)
+    setReportError(null)
+    setReportModalOpen(true)
+  }, [])
+
+  const handleSubmitReport = useCallback((nickname: string, tag: string, reasonCodes: ReportReasonCode[], description: string) => {
+    if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setReportError(i18n.t('friends.connectionUnavailable'))
+      return
+    }
+
+    setReportBusy(true)
+    setReportError(null)
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'submitPlayerReport',
+      nickname,
+      tag,
+      reasonCodes,
+      description,
+    }))
+  }, [])
+
+  const handleRefreshAdminReports = useCallback(() => {
+    if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setAdminFeedbackError(i18n.t('friends.connectionUnavailable'))
+      setAdminFeedbackInfo(null)
+      return
+    }
+
+    setAdminReportsBusy(true)
+    setAdminFeedbackError(null)
+    setAdminFeedbackInfo(null)
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'adminReportsSync',
+    }))
+  }, [])
+
+  const handleResolveAdminReport = useCallback((reportId: number, action: 'accept' | 'reject') => {
+    if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setAdminFeedbackError(i18n.t('friends.connectionUnavailable'))
+      setAdminFeedbackInfo(null)
+      return
+    }
+
+    setAdminActionBusy(true)
+    setAdminFeedbackError(null)
+    setAdminFeedbackInfo(null)
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'adminResolveReport',
+      reportId,
+      action,
     }))
   }, [])
 
@@ -695,10 +782,17 @@ function App() {
     setFriendSendInfo(null)
     setFriendActionBusyRequestId(null)
     setAdminLookupResult(null)
+    setAdminReports([])
     setAdminLookupBusy(false)
+    setAdminReportsBusy(false)
     setAdminActionBusy(false)
     setAdminFeedbackError(null)
     setAdminFeedbackInfo(null)
+    setReportModalOpen(false)
+    setReportBusy(false)
+    setReportError(null)
+    setReportInitialTarget(null)
+    pendingAcceptedReportIdRef.current = null
     lastAdminLookupRef.current = null
     lastIncomingRequestIdsRef.current = []
     setPlayerCoins(0)
@@ -883,6 +977,9 @@ function App() {
       ws.send(JSON.stringify({ event: 'contentSync' }))
       ws.send(JSON.stringify({ event: 'friendsSync' }))
       ws.send(JSON.stringify({ event: 'privateChatsSync' }))
+      if (playerRole === 'admin') {
+        ws.send(JSON.stringify({ event: 'adminReportsSync' }))
+      }
     }
 
     ws.onopen = () => {
@@ -1065,11 +1162,37 @@ function App() {
         return
       }
 
-      if (data.event === 'adminActionSuccess') {
-        setAdminLookupBusy(false)
+      if (data.event === 'adminReportsSync') {
+        setAdminReportsBusy(false)
         setAdminActionBusy(false)
         setAdminFeedbackError(null)
+        setAdminReports((data.reports || []) as AdminReportRecord[])
+        return
+      }
+
+      if (data.event === 'playerReportSubmitted') {
+        setReportBusy(false)
+        setReportError(null)
+        setReportModalOpen(false)
+        setReportInitialTarget(null)
+        return
+      }
+
+      if (data.event === 'adminActionSuccess') {
+        setAdminLookupBusy(false)
+        setAdminFeedbackError(null)
         setAdminFeedbackInfo(i18n.t(`admin.success.${data.action}`))
+
+        if (data.action === 'ban_user' && pendingAcceptedReportIdRef.current && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            event: 'adminResolveReport',
+            reportId: pendingAcceptedReportIdRef.current,
+            action: 'accept',
+          }))
+          pendingAcceptedReportIdRef.current = null
+        } else {
+          setAdminActionBusy(false)
+        }
 
         if (lastAdminLookupRef.current) {
           ws.send(JSON.stringify({
@@ -1095,11 +1218,18 @@ function App() {
       if (data.event === 'actionRejected' || data.event === 'protocolError') {
         const translatedMessage = translateBackendError(i18n.t.bind(i18n), data.code, data.reason)
         setFriendSendBusy(false)
+        setReportBusy(false)
         setPrivateChatSendBusyByFriendId({})
         setFriendActionBusyRequestId(null)
         setFriendSendInfo(null)
-        if (typeof data.requestEvent === 'string' && data.requestEvent.startsWith('admin')) {
+        if (typeof data.requestEvent === 'string' && data.requestEvent === 'submitPlayerReport') {
+          setReportError(translatedMessage)
+        } else if (typeof data.requestEvent === 'string' && data.requestEvent.startsWith('admin')) {
+          if (data.requestEvent === 'adminBanUser') {
+            pendingAcceptedReportIdRef.current = null
+          }
           setAdminLookupBusy(false)
+          setAdminReportsBusy(false)
           setAdminActionBusy(false)
           setAdminFeedbackInfo(null)
           setAdminFeedbackError(translatedMessage)
@@ -1132,7 +1262,7 @@ function App() {
       }
       ws = null
     }
-  }, [applyAccountSnapshot, authIntent, friendPanelExpanded, formatAuthErrorMessage, handleAuthFailure, handleClosePrivateChat, persistStoredSession, screen, serverUrl, sessionExpiresAtMs, shouldPersistSession])
+  }, [applyAccountSnapshot, authIntent, friendPanelExpanded, formatAuthErrorMessage, handleAuthFailure, handleClosePrivateChat, persistStoredSession, playerRole, screen, serverUrl, sessionExpiresAtMs, shouldPersistSession])
 
   const privateUnreadByFriendId = useMemo(() => {
     const next: Record<number, number> = {}
@@ -1223,6 +1353,13 @@ function App() {
                 >
                   {i18n.t('settings.menu.collection')}
                 </button>
+                <button
+                  type="button"
+                  className="app-shell__nav-button"
+                  onClick={() => handleOpenReportModal()}
+                >
+                  {i18n.t('settings.menu.report')}
+                </button>
                 {playerRole === 'admin' && (
                   <button
                     type="button"
@@ -1296,14 +1433,18 @@ function App() {
               {screen === 'admin' && playerRole === 'admin' && (
                 <AdminScreen
                   result={adminLookupResult}
+                  reports={adminReports}
                   searchBusy={adminLookupBusy}
+                  reportsBusy={adminReportsBusy}
                   actionBusy={adminActionBusy}
                   feedbackError={adminFeedbackError}
                   feedbackInfo={adminFeedbackInfo}
                   onSearch={handleAdminSearch}
+                  onRefreshReports={handleRefreshAdminReports}
                   onForceAddFriend={handleAdminForceAddFriend}
                   onBan={handleAdminBanUser}
                   onUnban={handleAdminUnbanUser}
+                  onResolveReport={handleResolveAdminReport}
                 />
               )}
               {screen === 'select' && (
@@ -1322,6 +1463,7 @@ function App() {
                   onAuthenticated={handleAuthenticated}
                   onAuthFailure={handleAuthFailure}
                   onArenaChatMessage={handleArenaChatMessage}
+                  onOpenReportModal={handleOpenReportModal}
                   replyTarget={arenaReplyTarget}
                   onReturnToHome={handleReturnToHome}
                   onReturnToSelect={handleReturnToSelect}
@@ -1342,6 +1484,19 @@ function App() {
             showLogout={isAuthenticatedScreen}
           />
         )}
+        <ReportModal
+          open={reportModalOpen}
+          busy={reportBusy}
+          error={reportError}
+          initialNickname={reportInitialTarget?.nickname}
+          initialTag={reportInitialTarget?.tag}
+          onClose={() => {
+            setReportModalOpen(false)
+            setReportError(null)
+            setReportInitialTarget(null)
+          }}
+          onSubmit={handleSubmitReport}
+        />
         {isLobbyScreen && (
           <>
             <FriendListPanel

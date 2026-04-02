@@ -130,6 +130,7 @@ add_executable(DragonArenaServer
     database/Database.cpp
     database/UserRepository.cpp
     moderation/ModerationRepository.cpp
+    moderation/ReportRepository.cpp
     social/FriendshipRepository.cpp
     social/PrivateChatRepository.cpp
     social/ArenaChatRepository.cpp
@@ -189,6 +190,7 @@ add_executable(DragonArenaGameplayTests
     database/Database.cpp
     database/UserRepository.cpp
     moderation/ModerationRepository.cpp
+    moderation/ReportRepository.cpp
     social/FriendshipRepository.cpp
     social/PrivateChatRepository.cpp
     social/ArenaChatRepository.cpp

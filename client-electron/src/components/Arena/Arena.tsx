@@ -18,6 +18,7 @@ interface Props {
   onAuthenticated: (payload: AuthSuccessPayload) => void
   onAuthFailure: (message: string) => void
   onArenaChatMessage: (message: ArenaChatMessage) => void
+  onOpenReportModal: (target?: { nickname?: string, tag?: string }) => void
   replyTarget: { userId: number, label: string } | null
   onReturnToHome: () => void
   onReturnToSelect: (respawnAvailableAt?: number) => void
@@ -31,6 +32,7 @@ export function Arena({
   onAuthenticated,
   onAuthFailure,
   onArenaChatMessage,
+  onOpenReportModal,
   replyTarget,
   onReturnToHome,
   onReturnToSelect,
@@ -301,7 +303,29 @@ export function Arena({
             messages={arenaChatMessages}
             localUserId={playerUserId}
             replyTarget={replyTarget}
-            onSend={emitArenaChat}
+            onSend={(body) => {
+              const trimmed = body.trim()
+              if (trimmed.toLowerCase() === '/report') {
+                onOpenReportModal()
+                return
+              }
+
+              if (trimmed.toLowerCase().startsWith('/report ')) {
+                const target = trimmed.slice('/report '.length).trim()
+                const hashIndex = target.lastIndexOf('#')
+                if (hashIndex > 0 && hashIndex < target.length - 1) {
+                  onOpenReportModal({
+                    nickname: target.slice(0, hashIndex),
+                    tag: target.slice(hashIndex),
+                  })
+                } else {
+                  onOpenReportModal()
+                }
+                return
+              }
+
+              emitArenaChat(body)
+            }}
             onInputActiveChange={setChatInputActive}
           />
         )}

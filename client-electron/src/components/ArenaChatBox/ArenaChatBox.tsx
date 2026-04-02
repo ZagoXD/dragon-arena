@@ -44,6 +44,11 @@ export function ArenaChatBox({
       usage: '/r mensagem',
       description: t('chat.arena.commands.reply'),
     },
+    {
+      command: '/report',
+      usage: '/report Nick#TAG',
+      description: t('chat.arena.commands.report'),
+    },
   ]), [t])
 
   const visibleMessages = useMemo(

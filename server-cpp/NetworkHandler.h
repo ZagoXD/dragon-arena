@@ -13,6 +13,7 @@
 #include "database/UserRepository.h"
 #include "GameWorld.h"
 #include "moderation/ModerationRepository.h"
+#include "moderation/ReportRepository.h"
 #include "social/ArenaChatRepository.h"
 #include "social/FriendshipRepository.h"
 #include "social/PrivateChatRepository.h"
@@ -40,6 +41,7 @@ private:
     Database& database;
     UserRepository userRepository;
     ModerationRepository moderationRepository;
+    ReportRepository reportRepository;
     FriendshipRepository friendshipRepository;
     PrivateChatRepository privateChatRepository;
     ArenaChatRepository arenaChatRepository;
@@ -63,12 +65,15 @@ private:
     bool isUserOnline(long long userId);
     json buildFriendsSyncPayload(long long userId, std::string* error = nullptr);
     json buildPrivateChatsSyncPayload(long long userId, std::string* error = nullptr);
+    json buildAdminUserLookupPayload(long long requesterUserId, const std::string& nickname, const std::string& tag, std::string* error = nullptr);
+    json buildAdminReportsSyncPayload(std::string* error = nullptr);
     void sendFriendsSyncToSocket(uWS::WebSocket<false, true, PerSocketData>* ws, long long userId);
     void sendFriendsSyncToUser(long long userId);
     void sendFriendsSyncToUsers(const std::vector<long long>& userIds);
     void sendPrivateChatsSyncToSocket(uWS::WebSocket<false, true, PerSocketData>* ws, long long userId);
     void sendPrivateChatsSyncToUser(long long userId);
     void sendPrivateChatsSyncToUsers(const std::vector<long long>& userIds);
+    void sendAdminReportsSyncToUser(long long userId);
     void notifyFriendsPresenceChanged(long long userId);
     void sendArenaPublicMessage(const json& payload);
     void sendPrivateMessageToUser(long long userId, const json& payload, bool alsoSendArenaWhisper = false);

@@ -31,8 +31,31 @@
   text-transform: uppercase;
 }
 
+.admin-screen__tabs {
+  display: flex;
+  gap: 12px;
+}
+
+.admin-screen__tab {
+  border: 1px solid rgba(255, 213, 150, 0.12);
+  border-radius: 999px;
+  padding: 12px 16px;
+  background: rgba(17, 20, 31, 0.72);
+  color: #f6efe4;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-screen__tab.is-active {
+  background: linear-gradient(135deg, #ff8b34 0%, #ff5a20 100%);
+  color: #100d0a;
+}
+
 .admin-screen__search-card,
-.admin-screen__result-card {
+.admin-screen__result-card,
+.admin-screen__reports-list-card,
+.admin-screen__report-detail-card {
   border: 1px solid rgba(255, 213, 150, 0.1);
   border-radius: 28px;
   background: linear-gradient(180deg, rgba(12, 13, 22, 0.82) 0%, rgba(8, 9, 16, 0.82) 100%);
@@ -42,6 +65,12 @@
 
 .admin-screen__search-card {
   padding: 24px;
+}
+
+.admin-screen__reports-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 20px;
 }
 
 .admin-screen__search-form {
@@ -133,6 +162,60 @@
   gap: 22px;
 }
 
+.admin-screen__reports-list-card,
+.admin-screen__report-detail-card {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.admin-screen__reports-header,
+.admin-screen__report-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.admin-screen__reports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-screen__report-item {
+  border: 1px solid rgba(255, 213, 150, 0.1);
+  border-radius: 18px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(17, 20, 31, 0.76);
+  color: #f6efe4;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-screen__report-item.is-selected {
+  border-color: rgba(255, 140, 61, 0.42);
+  background: rgba(255, 112, 42, 0.12);
+}
+
+.admin-screen__report-item span,
+.admin-screen__report-item small,
+.admin-screen__chat-empty {
+  color: rgba(242, 233, 219, 0.68);
+}
+
+.admin-screen__reports-empty {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(17, 20, 31, 0.76);
+  color: rgba(242, 233, 219, 0.72);
+}
+
 .admin-screen__result-topline,
 .admin-screen__actions,
 .admin-screen__modal-actions {
@@ -183,6 +266,21 @@
   gap: 10px;
 }
 
+.admin-screen__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-screen__chip {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 140, 61, 0.14);
+  color: #ffd8b0;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .admin-screen__ban-status {
   display: flex;
   flex-direction: column;
@@ -195,6 +293,32 @@
 
 .admin-screen__ban-status.is-active {
   border: 1px solid rgba(255, 121, 107, 0.24);
+}
+
+.admin-screen__chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.admin-screen__chat-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(17, 20, 31, 0.78);
+}
+
+.admin-screen__chat-entry strong {
+  color: #ffd8b0;
+  font-size: 0.82rem;
+}
+
+.admin-screen__chat-entry span {
+  color: rgba(242, 233, 219, 0.86);
 }
 
 .admin-screen__modal-backdrop {
@@ -241,10 +365,14 @@
     padding: 32px 20px 220px;
   }
 
+  .admin-screen__tabs,
+  .admin-screen__reports-layout,
   .admin-screen__search-form,
   .admin-screen__actions,
   .admin-screen__result-topline,
-  .admin-screen__modal-actions {
+  .admin-screen__modal-actions,
+  .admin-screen__reports-header,
+  .admin-screen__report-topline {
     flex-direction: column;
     align-items: stretch;
   }

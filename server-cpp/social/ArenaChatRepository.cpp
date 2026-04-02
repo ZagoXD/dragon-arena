@@ -76,6 +76,52 @@ std::vector<ArenaMessageRecord> ArenaChatRepository::listRecentMessages(
     return messages;
 }
 
+std::vector<ArenaMessageRecord> ArenaChatRepository::listRecentMessagesBySender(
+    long long senderUserId,
+    int minutes,
+    int limit,
+    std::string* error
+) const {
+    DatabaseQueryResult result = database.execute(
+        "SELECT id, arena_key, sender_user_id, sender_nickname, sender_tag, message_type, body, target_user_id, "
+        "       CAST(EXTRACT(EPOCH FROM created_at) * 1000 AS BIGINT) AS created_at_ms "
+        "FROM ("
+        "  SELECT id, arena_key, sender_user_id, sender_nickname, sender_tag, message_type, body, target_user_id, created_at "
+        "  FROM arena_messages "
+        "  WHERE sender_user_id = $1 "
+        "    AND created_at >= NOW() - ($2::text || ' minutes')::interval "
+        "  ORDER BY created_at DESC LIMIT $3"
+        ") recent_messages "
+        "ORDER BY created_at ASC",
+        {std::to_string(senderUserId), std::to_string(minutes), std::to_string(limit)}
+    );
+
+    if (!result.ok) {
+        if (error != nullptr) {
+            *error = result.error;
+        }
+        return {};
+    }
+
+    std::vector<ArenaMessageRecord> messages;
+    messages.reserve(result.rows.size());
+    for (const DatabaseRow& row : result.rows) {
+        ArenaMessageRecord message;
+        message.id = parseLongLong(row.get("id"));
+        message.arenaKey = row.get("arena_key").value_or("");
+        message.senderUserId = parseLongLong(row.get("sender_user_id"));
+        message.senderNickname = row.get("sender_nickname").value_or("");
+        message.senderTag = row.get("sender_tag").value_or("");
+        message.messageType = row.get("message_type").value_or("");
+        message.body = row.get("body").value_or("");
+        message.targetUserId = parseLongLong(row.get("target_user_id"));
+        message.createdAtMs = parseLongLong(row.get("created_at_ms"));
+        messages.push_back(message);
+    }
+
+    return messages;
+}
+
 bool ArenaChatRepository::createMessage(
     const std::string& arenaKey,
     long long senderUserId,

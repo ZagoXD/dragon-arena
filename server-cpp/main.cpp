@@ -1,6 +1,7 @@
 #include "database/Database.h"
 #include "database/UserRepository.h"
 #include "moderation/ModerationRepository.h"
+#include "moderation/ReportRepository.h"
 #include "social/FriendshipRepository.h"
 #include "social/PrivateChatRepository.h"
 #include "social/ArenaChatRepository.h"
@@ -26,6 +27,7 @@ int main() {
 
         UserRepository users(database);
         ModerationRepository moderation(database);
+        ReportRepository reports(database);
         FriendshipRepository friendships(database);
         PrivateChatRepository privateChats(database);
         ArenaChatRepository arenaChats(database);
@@ -64,6 +66,13 @@ int main() {
             std::cout << "[Database] user_bans schema ready." << std::endl;
         } else {
             std::cerr << "[Database] Could not ensure user_bans schema: " << moderationSchemaError << std::endl;
+        }
+
+        std::string reportSchemaError;
+        if (reports.ensureSchema(&reportSchemaError)) {
+            std::cout << "[Database] player_reports schema ready." << std::endl;
+        } else {
+            std::cerr << "[Database] Could not ensure player_reports schema: " << reportSchemaError << std::endl;
         }
 
         std::string privateChatCleanupError;

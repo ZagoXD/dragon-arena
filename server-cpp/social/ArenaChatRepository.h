@@ -32,6 +32,12 @@ public:
         int limit = 30,
         std::string* error = nullptr
     ) const;
+    std::vector<ArenaMessageRecord> listRecentMessagesBySender(
+        long long senderUserId,
+        int minutes = 60,
+        int limit = 100,
+        std::string* error = nullptr
+    ) const;
     bool createMessage(
         const std::string& arenaKey,
         long long senderUserId,
