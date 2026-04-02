@@ -25,17 +25,11 @@ function getVerticalRelativeRotation(angle: number) {
 
 export function buildPlayer(
   frameTextureCache: Map<string, Texture>,
-  playerName: string,
-  role: string | undefined,
   character: ResolvedCharacterConfig,
   x: number,
   y: number,
   direction: NetPlayer['direction'],
   animRow: number,
-  hp: number,
-  shieldHp: number,
-  shieldMaxHp: number,
-  isLocalPlayer: boolean,
   isDashing?: boolean,
   dashAngle?: number
 ) {
@@ -120,6 +114,28 @@ export function buildPlayer(
     container.addChild(aura)
   }
 
+  container.addChild(shadow, sprite)
+  return container
+}
+
+export function buildPlayerOverhead(
+  playerName: string,
+  role: string | undefined,
+  character: ResolvedCharacterConfig,
+  x: number,
+  y: number,
+  hp: number,
+  shieldHp: number,
+  shieldMaxHp: number,
+  isLocalPlayer: boolean
+) {
+  const container = new Container()
+  container.x = x
+  container.y = y
+  container.zIndex = 999999
+
+  const renderedHeight = character.frameHeight * character.renderScale
+  const verticalOffset = renderedHeight - character.colliderHeight
   const effectiveShieldMax = Math.max(0, shieldMaxHp)
   const effectiveShield = Math.max(0, Math.min(shieldHp, effectiveShieldMax))
   const totalPool = Math.max(1, character.maxHp + effectiveShieldMax)
@@ -127,7 +143,7 @@ export function buildPlayer(
   const totalVisiblePercentage = Math.max(0, (hp + effectiveShield) / totalPool)
   const barColor = isLocalPlayer ? 0x4caf50 : 0xf44336
 
-  const overheadY = -verticalOffset - 28
+  const overheadY = -verticalOffset - 14
   const hpWidth = 88
   const showAdminBadge = (role || '').toLowerCase() === 'admin'
   const overheadShiftY = showAdminBadge ? 16 : 0
@@ -182,9 +198,9 @@ export function buildPlayer(
   hpFill.y = overheadY - overheadShiftY + 4
 
   if (adminLabel) {
-    container.addChild(shadow, adminLabel, nameLabel, hpTrack, shieldFill, hpFill, sprite)
+    container.addChild(adminLabel, nameLabel, hpTrack, shieldFill, hpFill)
   } else {
-    container.addChild(shadow, nameLabel, hpTrack, shieldFill, hpFill, sprite)
+    container.addChild(nameLabel, hpTrack, shieldFill, hpFill)
   }
   return container
 }

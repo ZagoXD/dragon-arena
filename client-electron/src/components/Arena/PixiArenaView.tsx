@@ -10,7 +10,7 @@ import {
 import { VIEWPORT_HEIGHT, VIEWPORT_WIDTH } from '../../config/spriteMap'
 import { PASSIVE_VISUALS } from '../../config/visualConfig'
 import { buildAimingArrow, buildBurnEffect, buildImpactEffect, buildSkillEffect } from './pixi/pixiEffects'
-import { buildDummy, buildPlayer, buildProjectile, PIXI_STATIC_ASSET_URLS } from './pixi/pixiEntities'
+import { buildDummy, buildPlayer, buildPlayerOverhead, buildProjectile, PIXI_STATIC_ASSET_URLS } from './pixi/pixiEntities'
 import { buildMapLayer, getTilesetInfo } from './pixi/pixiMap'
 import { destroyTextureCache } from './pixi/pixiTextureCache'
 import { PixiArenaViewProps, TilesetInfo } from './pixi/pixiTypes'
@@ -126,7 +126,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
 
       entities.sortableChildren = true
 
-      world.addChild(background, entities, overlay, foreground)
+      world.addChild(background, entities, foreground, overlay)
       app.stage.addChild(world)
 
       appRef.current = app
@@ -259,19 +259,26 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       nextEntities.push(
         buildPlayer(
           frameTextureCacheRef.current,
-          player.name,
-          player.role,
           player.character,
           player.x,
           player.y,
           player.direction,
           player.animRow,
+          player.isDashing,
+          player.dashAngle
+        )
+      )
+      nextOverlay.push(
+        buildPlayerOverhead(
+          player.name,
+          player.role,
+          player.character,
+          player.x,
+          player.y,
           player.hp,
           player.shieldHp,
           player.shieldMaxHp,
-          false,
-          player.isDashing,
-          player.dashAngle
+          false
         )
       )
     })
@@ -280,19 +287,26 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       nextEntities.push(
         buildPlayer(
           frameTextureCacheRef.current,
-          props.localPlayer.name,
-          props.localPlayer.role,
           props.localPlayer.character,
           props.localPlayer.x,
           props.localPlayer.y,
           props.localPlayer.direction,
           props.localPlayer.animRow,
+          props.localPlayer.isDashing,
+          props.localPlayer.dashAngle
+        )
+      )
+      nextOverlay.push(
+        buildPlayerOverhead(
+          props.localPlayer.name,
+          props.localPlayer.role,
+          props.localPlayer.character,
+          props.localPlayer.x,
+          props.localPlayer.y,
           props.localPlayer.hp,
           props.localPlayer.shieldHp,
           props.localPlayer.shieldMaxHp,
-          true,
-          props.localPlayer.isDashing,
-          props.localPlayer.dashAngle
+          true
         )
       )
     }
@@ -400,6 +414,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
     }
 
     entities.sortableChildren = true
+    overlay.sortableChildren = true
     replaceChildren(entities, nextEntities)
     replaceChildren(overlay, nextOverlay)
   }, [

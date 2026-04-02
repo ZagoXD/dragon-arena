@@ -32,11 +32,29 @@ void testGameConfigValidation() {
     const auto& charizard = GameConfig::getCharacterDefinition("charizard");
     assert(charizard.autoAttackSpellId == "ember");
     assert(charizard.skillIds.size() == 3);
+    assert(charizard.skillIds[0] == "dragon_dive");
+    assert(charizard.skillIds[1] == "flamethrower");
+    assert(charizard.skillIds[2] == "fire_blast");
     assert(charizard.passiveId == "burn");
+
     const auto& hydra = GameConfig::getCharacterDefinition("hydra");
     assert(hydra.autoAttackSpellId == "scratch");
     assert(hydra.skillIds.size() == 3);
+    assert(hydra.skillIds[0] == "poison_flash");
+    assert(hydra.skillIds[1] == "poison_shield");
+    assert(hydra.skillIds[2] == "seed_bite");
     assert(hydra.passiveId == "poison");
+
+    const auto& poisonShield = GameConfig::getSpellDefinition("poison_shield");
+    assert(poisonShield.cooldownMs > 0);
+    assert(poisonShield.effectDurationMs > 0);
+
+    const auto& poisonFlash = GameConfig::getSpellDefinition("poison_flash");
+    assert(poisonFlash.range > 0.0f);
+
+    const auto& scratch = GameConfig::getSpellDefinition("scratch");
+    assert(scratch.cooldownMs == 800);
+
     assert(!GameConfig::getLoadedConfigPath().empty());
     assert(GameConfig::getLoadedConfigPath().find("config") != std::string::npos);
     assert(!GameConfig::getContentHash().empty());
@@ -102,6 +120,8 @@ void testCombatShieldAbsorption() {
     const auto& definition = GameConfig::getCharacterDefinition("hydra");
     Player victim("v", "Victim", definition);
     victim.grantShield(100, 3000, 1000);
+    assert(victim.shieldHp == 100);
+    assert(victim.shieldMaxHp == 100);
 
     PlayerDamageResult firstHit = CombatSystem::applyAttackToPlayer(victim, nullptr, 90, false);
     assert(firstHit.newHp == definition.maxHp);
