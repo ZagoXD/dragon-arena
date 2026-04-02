@@ -217,8 +217,11 @@ void GameWorld::updatePlayerRespawns(NetworkHandler* network, long long now_ms) 
 void GameWorld::updatePendingAutoAttacks(NetworkHandler* network, long long now_ms) {
     ProjectileSystem::releasePendingAutoAttacks(
         players,
+        dummies,
         pendingAutoAttacks,
         activeProjectiles,
+        activeBurnStatuses,
+        worldDefinition,
         worldTick,
         now_ms,
         network

@@ -124,6 +124,8 @@ bool SkillSystem::requestAutoAttack(
             {"tick", worldTick},
             {"playerId", playerId},
             {"spellId", player.autoAttackSpellId},
+            {"originX", originX},
+            {"originY", originY},
             {"angle", angle},
             {"castTimeMs", spell.castTimeMs},
             {"cooldownMs", spell.cooldownMs}

@@ -1,0 +1,11 @@
+{
+  "id": "scratch",
+  "name": "Scratch",
+  "damage": 42,
+  "range": 72.0,
+  "castTimeMs": 0,
+  "cooldownMs": 800,
+  "projectileSpeed": 0.0,
+  "projectileRadius": 34.0,
+  "effectDurationMs": 800
+}

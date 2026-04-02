@@ -194,6 +194,51 @@ export function useArenaNetworkState({
   }, [resolveProjectile])
 
   const handleAutoAttackStarted = useCallback((event: AutoAttackStartedEvent) => {
+    const currentBootstrap = bootstrapRef.current
+    if (currentBootstrap) {
+      const owner =
+        event.playerId === socketIdRef.current
+          ? currentBootstrap.player
+          : otherPlayersRef.current[event.playerId]
+
+      if (owner) {
+        const resolvedCharacter = resolveCharacterConfig(owner.characterId, currentBootstrap.characters, currentBootstrap.spells, currentBootstrap.passives)
+        const resolvedSpell = resolvedCharacter?.autoAttack
+
+        if (resolvedSpell?.effectKind === 'melee_slash') {
+          const fallbackOwnerX =
+            event.playerId === socketIdRef.current
+              ? (authoritativePosition?.x ?? owner.x)
+              : owner.x
+          const fallbackOwnerY =
+            event.playerId === socketIdRef.current
+              ? (authoritativePosition?.y ?? owner.y)
+              : owner.y
+          const centerX = event.originX ?? (fallbackOwnerX + owner.colliderWidth / 2)
+          const centerY = event.originY ?? (fallbackOwnerY + owner.colliderHeight / 2)
+          const slashOffset = Math.cos(event.angle) >= 0 ? 72 : 22
+          const originX = centerX + Math.cos(event.angle) * slashOffset
+          const originY = centerY + Math.sin(event.angle) * slashOffset
+          setActiveSkillEffects(prev => [
+            ...prev,
+            {
+              id: `${event.playerId}-${event.spellId}-${performance.now()}`,
+              ownerId: event.playerId,
+              spellId: event.spellId,
+              spell: resolvedSpell,
+              x: originX,
+              y: originY,
+              angle: event.angle,
+              warmupMs: 0,
+              activeDurationMs: event.cooldownMs,
+              life: event.cooldownMs,
+              maxLife: event.cooldownMs,
+            },
+          ])
+        }
+      }
+    }
+
     if (event.playerId !== socketIdRef.current) {
       return
     }

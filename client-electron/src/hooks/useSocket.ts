@@ -40,6 +40,8 @@ export interface AutoAttackStartedEvent {
   tick?: number
   playerId: string
   spellId: string
+  originX?: number
+  originY?: number
   angle: number
   castTimeMs: number
   cooldownMs: number

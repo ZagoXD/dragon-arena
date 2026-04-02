@@ -1,6 +1,7 @@
 import charizardSrc from '../assets/characters/charizard.png'
 import hydraSrc from '../assets/characters/hydra.png'
 import emberSrc from '../assets/spells/ember.png'
+import scratchSrc from '../assets/spells/scratch.png'
 import dragonDiveSrc from '../assets/spells/dragon_dive.png'
 import flamethrowerSrc from '../assets/spells/flamethrower.png'
 import fireBlastSrc from '../assets/spells/fire_blast.png'
@@ -23,7 +24,7 @@ export interface VisualSpellConfig {
   frameCount?: number
   aimingWidth?: number
   aimingStyle?: 'arrow' | 'beam'
-  effectKind?: 'projectile' | 'beam' | 'tile_burst'
+  effectKind?: 'projectile' | 'beam' | 'tile_burst' | 'melee_slash'
   renderMode?: 'directional_sheet' | 'single_rotated'
   iconMode?: 'sheet_focus' | 'single_fit'
   rotationOffsetRad?: number
@@ -72,6 +73,18 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
     aimingWidth: 32,
     renderMode: 'single_rotated',
     iconMode: 'single_fit',
+  },
+  scratch: {
+    id: 'scratch',
+    description: 'O dragão arranha ferozmente seus adversários, podendo envenená-los no processo.',
+    imageSrc: scratchSrc,
+    frameSize: 64,
+    frameWidth: 64,
+    frameHeight: 64,
+    frameCount: 17,
+    effectKind: 'melee_slash',
+    renderMode: 'single_rotated',
+    iconFrameIndex: 2,
   },
   dragon_dive: {
     id: 'dragon_dive',

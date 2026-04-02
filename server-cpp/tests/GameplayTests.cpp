@@ -33,14 +33,18 @@ void testGameConfigValidation() {
     assert(charizard.autoAttackSpellId == "ember");
     assert(charizard.skillIds.size() == 3);
     assert(charizard.passiveId == "burn");
+    const auto& hydra = GameConfig::getCharacterDefinition("hydra");
+    assert(hydra.autoAttackSpellId == "scratch");
+    assert(hydra.skillIds.size() == 3);
+    assert(hydra.passiveId == "poison");
     assert(!GameConfig::getLoadedConfigPath().empty());
     assert(GameConfig::getLoadedConfigPath().find("config") != std::string::npos);
     assert(!GameConfig::getContentHash().empty());
 
     json summary = GameConfig::buildContentSummary();
-    assert(summary["characters"]["count"] == 1);
-    assert(summary["spells"]["count"] == 4);
-    assert(summary["passives"]["count"] == 1);
+    assert(summary["characters"]["count"] == 2);
+    assert(summary["spells"]["count"] == 6);
+    assert(summary["passives"]["count"] == 2);
 }
 
 void testMovementIntentAndBounds() {
@@ -114,6 +118,8 @@ void testAutoAttackCastAndProjectileLifecycle() {
 
     std::vector<PendingAutoAttack> pendingAutoAttacks;
     std::vector<ActiveProjectile> activeProjectiles;
+    std::map<std::string, DummyEntity> dummies;
+    std::vector<ActiveBurnStatus> activeBurnStatuses;
     const auto& ember = GameConfig::getSpellDefinition("ember");
 
     bool accepted = SkillSystem::requestAutoAttack(players, pendingAutoAttacks, 10, "attacker", 500.0f, 32.0f, nullptr);
@@ -122,12 +128,20 @@ void testAutoAttackCastAndProjectileLifecycle() {
     assert(!SkillSystem::requestAutoAttack(players, pendingAutoAttacks, 10, "attacker", 500.0f, 32.0f, nullptr));
 
     pendingAutoAttacks[0].releaseTimeMs = 0;
-    ProjectileSystem::releasePendingAutoAttacks(players, pendingAutoAttacks, activeProjectiles, 11, 1, nullptr);
+    ProjectileSystem::releasePendingAutoAttacks(
+        players,
+        dummies,
+        pendingAutoAttacks,
+        activeProjectiles,
+        activeBurnStatuses,
+        GameConfig::getWorldDefinition(),
+        11,
+        1,
+        nullptr
+    );
     assert(pendingAutoAttacks.empty());
     assert(activeProjectiles.size() == 1);
 
-    std::map<std::string, DummyEntity> dummies;
-    std::vector<ActiveBurnStatus> activeBurnStatuses;
     std::vector<BurnZone> burnZones;
     MapLoader unloadedMap;
     ProjectileSystem::updateProjectiles(

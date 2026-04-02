@@ -172,6 +172,24 @@ export function buildSkillEffect(
     return container
   }
 
+  if (effect.spell.effectKind === 'melee_slash') {
+    const container = new Container()
+    container.x = effect.x
+    container.y = effect.y
+    container.rotation = effect.angle
+    container.zIndex = effect.y + 105
+
+    const sprite = new Sprite(frameTexture)
+    sprite.anchor.set(0.5)
+    sprite.width = frameWidth
+    sprite.height = frameHeight
+    sprite.alpha = 0.98
+    sprite.roundPixels = true
+
+    container.addChild(sprite)
+    return container
+  }
+
   if (effect.spell.effectKind !== 'beam') {
     return null
   }

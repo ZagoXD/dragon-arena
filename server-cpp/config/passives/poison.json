@@ -7,6 +7,7 @@
   "movementSlowPct": 0.3,
   "applicationChances": {
     "ember": 10.0,
+    "scratch": 10.0,
     "dragon_dive": 10.0,
     "flamethrower": 10.0,
     "fire_blast": 100.0,

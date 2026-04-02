@@ -14,6 +14,9 @@ constexpr int SEED_BITE_TICK_COUNT = 3;
 constexpr int SEED_BITE_TICK_DAMAGE[SEED_BITE_TICK_COUNT] = {100, 220, 100};
 constexpr long long SEED_BITE_TICK_TIMES_MS[SEED_BITE_TICK_COUNT] = {0, 750, 2000};
 constexpr long long SEED_BITE_ROOT_DURATION_MS = 1250;
+constexpr float SCRATCH_START_OFFSET = 12.0f;
+constexpr float SCRATCH_FORWARD_RANGE = 62.0f;
+constexpr float SCRATCH_HALF_WIDTH = 34.0f;
 
 float getFlamethrowerHalfWidthAtDistance(float axialDistance, float maxRange, float maxHalfWidth) {
     if (maxRange <= 0.0f) {
@@ -52,6 +55,31 @@ bool isPersistentProjectile(const std::string& spellId) {
     return spellId == "fire_blast";
 }
 
+bool isInsideScratch(
+    float targetCenterX,
+    float targetCenterY,
+    float targetRadius,
+    float originX,
+    float originY,
+    float angle
+) {
+    const float forwardX = std::cos(angle);
+    const float forwardY = std::sin(angle);
+    const float rightX = -forwardY;
+    const float rightY = forwardX;
+
+    const float scratchOriginX = originX + forwardX * SCRATCH_START_OFFSET;
+    const float scratchOriginY = originY + forwardY * SCRATCH_START_OFFSET;
+    const float dx = targetCenterX - scratchOriginX;
+    const float dy = targetCenterY - scratchOriginY;
+    const float axial = dx * forwardX + dy * forwardY;
+    const float lateral = std::abs(dx * rightX + dy * rightY);
+
+    return axial >= -targetRadius &&
+           axial <= SCRATCH_FORWARD_RANGE + targetRadius &&
+           lateral <= SCRATCH_HALF_WIDTH + targetRadius;
+}
+
 bool isInsideSeedBite(
     float targetCenterX,
     float targetCenterY,
@@ -72,8 +100,11 @@ int scaleDamageForCharacter(const Player& player, int baseDamage) {
 
 void ProjectileSystem::releasePendingAutoAttacks(
     std::map<std::string, Player>& players,
+    std::map<std::string, DummyEntity>& dummies,
     std::vector<PendingAutoAttack>& pendingAutoAttacks,
     std::vector<ActiveProjectile>& activeProjectiles,
+    std::vector<ActiveBurnStatus>& activeBurnStatuses,
+    const WorldDefinition& worldDefinition,
     unsigned long long worldTick,
     long long nowMs,
     NetworkHandler* network
@@ -88,6 +119,72 @@ void ProjectileSystem::releasePendingAutoAttacks(
         }
 
         if (!players.count(cast.playerId) || players[cast.playerId].hp <= 0) {
+            continue;
+        }
+
+        const auto& spell = GameConfig::getSpellDefinition(cast.spellId);
+
+        if (cast.spellId == "scratch") {
+            Player& owner = players[cast.playerId];
+            const int damage = scaleDamageForCharacter(owner, spell.damage);
+
+            for (auto& [targetId, target] : players) {
+                if (targetId == cast.playerId || target.hp <= 0) {
+                    continue;
+                }
+
+                const float targetCenterX = target.x + target.colliderWidth / 2.0f;
+                const float targetCenterY = target.y + target.colliderHeight / 2.0f;
+                const float targetRadius = std::max(target.colliderWidth, target.colliderHeight) / 2.0f;
+                if (!isInsideScratch(targetCenterX, targetCenterY, targetRadius, cast.originX, cast.originY, cast.angle)) {
+                    continue;
+                }
+
+                PlayerDamageResult damageResult = CombatSystem::applyAttackToPlayer(target, &owner, damage, true);
+                BurnSystem::tryApplyToPlayer(target, owner, cast.spellId, activeBurnStatuses, worldTick, nowMs, network);
+
+                if (network) {
+                    network->broadcast(json({
+                        {"event", "playerDamaged"},
+                        {"tick", worldTick},
+                        {"id", targetId},
+                        {"hp", damageResult.newHp}
+                    }).dump());
+                    if (damageResult.killed) {
+                        network->broadcast(json({
+                            {"event", "playerScored"},
+                            {"tick", worldTick},
+                            {"victimId", targetId},
+                            {"attackerId", cast.playerId},
+                            {"targetDeaths", damageResult.victimDeaths},
+                            {"attackerKills", damageResult.attackerKills}
+                        }).dump());
+                    }
+                }
+            }
+
+            for (auto& [dummyId, dummy] : dummies) {
+                if (dummy.hp <= 0) {
+                    continue;
+                }
+
+                if (!isInsideScratch(dummy.x, dummy.y, worldDefinition.dummyColliderSize / 2.0f, cast.originX, cast.originY, cast.angle)) {
+                    continue;
+                }
+
+                DummyDamageResult damageResult = CombatSystem::applyDamageToDummy(dummy, damage, nowMs);
+                BurnSystem::tryApplyToDummy(dummy, owner, cast.spellId, activeBurnStatuses, worldTick, nowMs, network);
+
+                if (network) {
+                    network->broadcast(json({
+                        {"event", "dummyDamaged"},
+                        {"tick", worldTick},
+                        {"id", dummyId},
+                        {"hp", damageResult.newHp}
+                    }).dump());
+                }
+            }
+
             continue;
         }
 

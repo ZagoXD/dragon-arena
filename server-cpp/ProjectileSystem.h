@@ -14,8 +14,11 @@ class ProjectileSystem {
 public:
     static void releasePendingAutoAttacks(
         std::map<std::string, Player>& players,
+        std::map<std::string, DummyEntity>& dummies,
         std::vector<PendingAutoAttack>& pendingAutoAttacks,
         std::vector<ActiveProjectile>& activeProjectiles,
+        std::vector<ActiveBurnStatus>& activeBurnStatuses,
+        const WorldDefinition& worldDefinition,
         unsigned long long worldTick,
         long long nowMs,
         NetworkHandler* network

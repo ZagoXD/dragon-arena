@@ -8,7 +8,7 @@
   "damageMultiplier": 0.8,
   "colliderWidth": 64.0,
   "colliderHeight": 64.0,
-  "autoAttackSpellId": "ember",
+  "autoAttackSpellId": "scratch",
   "skillIds": ["dragon_dive", "flamethrower", "seed_bite"],
   "passiveId": "poison"
 }

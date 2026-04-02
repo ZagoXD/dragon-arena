@@ -183,6 +183,7 @@
     "bootstrapFooter": "Datos numéricos autoritativos vía bootstrap",
     "backendFooter": "Aplicada autoritativamente por el backend",
     "spellNames": {
+      "scratch": "Scratch",
       "dragon_dive": "Dragon Dive",
       "flamethrower": "Flamethrower",
       "fire_blast": "Fire Blast",
