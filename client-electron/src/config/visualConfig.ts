@@ -15,10 +15,12 @@ import {
   AuthoritativePassiveDefinition,
   AuthoritativeSpellDefinition,
 } from '../types/gameplay'
+import i18n from '../i18n'
 
 export interface VisualSpellConfig {
   id: string
   description: string
+  descriptionKey?: string
   imageSrc: string
   frameSize: number
   frameWidth?: number
@@ -51,6 +53,7 @@ export interface VisualPassiveConfig {
   id: string
   name: string
   description: string
+  descriptionKey?: string
   imageSrc: string
   frameWidth: number
   frameHeight: number
@@ -70,7 +73,8 @@ export interface ResolvedCharacterConfig extends AuthoritativeCharacterDefinitio
 export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
   ember: {
     id: 'ember',
-    description: 'O dragao cospe fogo, causando dano a quem for atingido.',
+    description: 'O dragão cospe fogo, causando dano a quem for atingido.',
+    descriptionKey: 'select.spellDescriptions.ember',
     imageSrc: emberSrc,
     frameSize: 64,
     aimingWidth: 32,
@@ -80,6 +84,7 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
   scratch: {
     id: 'scratch',
     description: 'O dragão arranha ferozmente seus adversários, podendo envenená-los no processo.',
+    descriptionKey: 'select.spellDescriptions.scratch',
     imageSrc: scratchSrc,
     frameSize: 64,
     frameWidth: 64,
@@ -92,6 +97,7 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
   poison_flash: {
     id: 'poison_flash',
     description: 'Um clarão venenoso dispara à frente do dragão, ferindo os inimigos e podendo envenená-los.',
+    descriptionKey: 'select.spellDescriptions.poison_flash',
     imageSrc: poisonFlashSrc,
     frameSize: 64,
     frameWidth: 64,
@@ -106,6 +112,7 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
   poison_shield: {
     id: 'poison_shield',
     description: 'Uma barreira venenosa envolve o dragão, concedendo um escudo temporário.',
+    descriptionKey: 'select.spellDescriptions.poison_shield',
     imageSrc: poisonShieldSrc,
     frameSize: 256,
     frameWidth: 256,
@@ -118,7 +125,8 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
   },
   dragon_dive: {
     id: 'dragon_dive',
-    description: 'O dragao realiza um avanco feroz, causando dano ao longo do trajeto.',
+    description: 'O dragão realiza um avanço feroz, causando dano ao longo do trajeto.',
+    descriptionKey: 'select.spellDescriptions.dragon_dive',
     imageSrc: dragonDiveSrc,
     frameSize: 64,
     aimingWidth: 32,
@@ -127,7 +135,8 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
   },
   flamethrower: {
     id: 'flamethrower',
-    description: 'O dragao expele uma lufada curta e densa de fogo, queimando tudo no trajeto.',
+    description: 'O dragão expele uma lufada curta e densa de fogo, queimando tudo no trajeto.',
+    descriptionKey: 'select.spellDescriptions.flamethrower',
     imageSrc: flamethrowerSrc,
     frameSize: 129,
     frameWidth: 129,
@@ -141,7 +150,8 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
   },
   fire_blast: {
     id: 'fire_blast',
-    description: 'O dragao dispara um boneco de chamas que avanca em linha reta e continua queimando quem permanecer no trajeto.',
+    description: 'O dragão dispara um projétil de chamas que avança em linha reta e continua queimando quem permanecer no trajeto.',
+    descriptionKey: 'select.spellDescriptions.fire_blast',
     imageSrc: fireBlastSrc,
     frameSize: 128,
     frameWidth: 128,
@@ -156,7 +166,8 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
   },
   seed_bite: {
     id: 'seed_bite',
-    description: 'Varias sementes de planta carnivora surgem ao redor do dragao para prender e machucar seu alvo.',
+    description: 'Várias sementes de planta carnívora surgem ao redor do dragão para prender e machucar seu alvo.',
+    descriptionKey: 'select.spellDescriptions.seed_bite',
     imageSrc: seedBiteSrc,
     frameSize: 64,
     frameWidth: 64,
@@ -172,7 +183,8 @@ export const PASSIVE_VISUALS: Record<string, VisualPassiveConfig> = {
   burn: {
     id: 'burn',
     name: 'Burn',
-    description: 'Queima o alvo por 3 segundos, causando dano periodico.',
+    description: 'Queima o alvo por 3 segundos, causando dano periódico.',
+    descriptionKey: 'select.passiveDescriptions.burn',
     imageSrc: burnSrc,
     frameWidth: 64,
     frameHeight: 64,
@@ -182,7 +194,8 @@ export const PASSIVE_VISUALS: Record<string, VisualPassiveConfig> = {
   poison: {
     id: 'poison',
     name: 'Poison',
-    description: 'Envenena o alvo por mais tempo, causando dano periodico e reduzindo sua velocidade.',
+    description: 'Envenena o alvo por mais tempo, causando dano periódico e reduzindo sua velocidade.',
+    descriptionKey: 'select.passiveDescriptions.poison',
     imageSrc: poisonSrc,
     frameWidth: 64,
     frameHeight: 64,
@@ -205,6 +218,9 @@ export function resolvePassiveConfig(
   return {
     ...gameplay,
     ...visual,
+    description: visual.descriptionKey
+      ? i18n.t(visual.descriptionKey, visual.description)
+      : visual.description,
   }
 }
 
@@ -249,6 +265,9 @@ export function resolveSpellConfig(
   return {
     ...gameplay,
     ...visual,
+    description: visual.descriptionKey
+      ? i18n.t(visual.descriptionKey, visual.description)
+      : visual.description,
   }
 }
 

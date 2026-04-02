@@ -196,14 +196,14 @@
     "quit": "Sair do jogo"
   },
   "admin": {
-    "eyebrow": "Administracao",
-    "title": "Central de moderacao",
-    "subtitle": "Pesquise um jogador por nickname e tag, revise dados da conta e aplique acoes administrativas.",
+    "eyebrow": "Administração",
+    "title": "Central de moderação",
+    "subtitle": "Pesquise um jogador por nickname e tag, revise dados da conta e aplique ações administrativas.",
     "tabs": {
       "users": "Usuários",
       "reports": "Denúncias ({{count}})"
     },
-    "search": "Buscar usuario",
+    "search": "Buscar usuário",
     "searching": "Buscando...",
     "refreshReports": "Atualizar denúncias",
     "reportsOpenLabel": "Fila de moderação",
@@ -223,23 +223,23 @@
     "email": "Email",
     "coins": "Coins",
     "role": "Cargo",
-    "moderationStatus": "Status da moderacao",
-    "noActiveBan": "Este usuario nao possui penalidade ativa.",
+    "moderationStatus": "Status da moderação",
+    "noActiveBan": "Este usuário não possui penalidade ativa.",
     "banActivePermanent": "Banimento permanente ativo",
-    "banActiveUntil": "Banimento ativo ate {{date}}",
+    "banActiveUntil": "Banimento ativo até {{date}}",
     "banReasonLabel": "Motivo: {{reason}}",
     "banByLabel": "Aplicado por: {{admin}}",
     "alreadyFriends": "Já são amigos",
     "forceAddFriend": "Adicionar amigo diretamente",
     "banAction": "Banir",
     "unbanAction": "Desbanir",
-    "banModalEyebrow": "Aplicar penalizacao",
+    "banModalEyebrow": "Aplicar penalização",
     "banModalTitle": "Banir jogador",
     "banModalTarget": "Alvo: {{name}}",
-    "reasonPlaceholder": "Descreva o motivo da penalizacao...",
+    "reasonPlaceholder": "Descreva o motivo da penalização...",
     "cancel": "Cancelar",
     "confirmBan": "Confirmar banimento",
-    "unbanModalEyebrow": "Revogar penalizacao",
+    "unbanModalEyebrow": "Revogar penalização",
     "unbanModalTitle": "Desbanir jogador",
     "unbanModalTarget": "Remover o banimento ativo de {{name}}?",
     "confirmUnban": "Confirmar desbanimento",
@@ -248,15 +248,15 @@
       "twoDays": "2 dias",
       "oneWeek": "1 semana",
       "fifteenDays": "15 dias",
-      "oneMonth": "1 mes",
+      "oneMonth": "1 mês",
       "threeMonths": "3 meses",
       "oneYear": "1 ano",
       "forever": "Para sempre"
     },
     "success": {
       "force_add_friend": "Amizade adicionada com sucesso.",
-      "ban_user": "Penalizacao aplicada com sucesso.",
-      "unban_user": "Penalizacao removida com sucesso.",
+      "ban_user": "Penalização aplicada com sucesso.",
+      "unban_user": "Penalização removida com sucesso.",
       "accept_report": "Denúncia aceita com sucesso.",
       "reject_report": "Denúncia recusada com sucesso."
     }
@@ -282,6 +282,20 @@
       "fire_blast": "Fire Blast",
       "ember": "Ember",
       "seed_bite": "Seed Bite"
+    },
+    "spellDescriptions": {
+      "ember": "O dragão cospe fogo, causando dano a quem for atingido.",
+      "scratch": "O dragão arranha ferozmente seus adversários, podendo envenená-los no processo.",
+      "poison_flash": "Um clarão venenoso dispara à frente do dragão, ferindo os inimigos e podendo envenená-los.",
+      "poison_shield": "Uma barreira venenosa envolve o dragão, concedendo um escudo temporário.",
+      "dragon_dive": "O dragão realiza um avanço feroz, causando dano ao longo do trajeto.",
+      "flamethrower": "O dragão expele uma lufada curta e densa de fogo, queimando tudo no trajeto.",
+      "fire_blast": "O dragão dispara um projétil de chamas que avança em linha reta e continua queimando quem permanecer no trajeto.",
+      "seed_bite": "Várias sementes de planta carnívora surgem ao redor do dragão para prender e machucar seu alvo."
+    },
+    "passiveDescriptions": {
+      "burn": "Queima o alvo por 3 segundos, causando dano periódico.",
+      "poison": "Envenena o alvo por mais tempo, causando dano periódico e reduzindo sua velocidade."
     }
   },
   "arena": {

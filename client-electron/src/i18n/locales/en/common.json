@@ -282,6 +282,20 @@
       "fire_blast": "Fire Blast",
       "ember": "Ember",
       "seed_bite": "Seed Bite"
+    },
+    "spellDescriptions": {
+      "ember": "The dragon spits fire, damaging whoever gets hit.",
+      "scratch": "The dragon fiercely scratches its enemies and may poison them in the process.",
+      "poison_flash": "A poisonous flash erupts in front of the dragon, damaging enemies and potentially poisoning them.",
+      "poison_shield": "A poisonous barrier surrounds the dragon, granting a temporary shield.",
+      "dragon_dive": "The dragon lunges forward ferociously, dealing damage along its path.",
+      "flamethrower": "The dragon exhales a short, dense burst of fire, burning everything in its path.",
+      "fire_blast": "The dragon launches a blazing projectile that travels forward and keeps burning anyone caught in its path.",
+      "seed_bite": "Several carnivorous plant seeds sprout around the dragon to trap and hurt its target."
+    },
+    "passiveDescriptions": {
+      "burn": "Burns the target for 3 seconds, dealing periodic damage.",
+      "poison": "Poisons the target for longer, dealing periodic damage and reducing movement speed."
     }
   },
   "arena": {

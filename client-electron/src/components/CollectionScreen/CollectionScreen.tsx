@@ -139,7 +139,7 @@ export function CollectionScreen({ characters }: Props) {
                       <div className="collection-screen__ability-icon" style={getSpellIconStyle(skill)} />
                       <div>
                         <strong>{t(`select.spellNames.${skill.id}`)}</strong>
-                        <span>{skill.description}</span>
+                        <span>{t(skill.descriptionKey || '', skill.description)}</span>
                       </div>
                     </div>
                   ))}
@@ -148,7 +148,7 @@ export function CollectionScreen({ characters }: Props) {
                     <div className="collection-screen__ability-icon" style={getPassiveIconStyle(passive)} />
                     <div>
                       <strong>{passive.name}</strong>
-                      <span>{passive.description}</span>
+                      <span>{t(passive.descriptionKey || '', passive.description)}</span>
                     </div>
                   </div>
                 </div>

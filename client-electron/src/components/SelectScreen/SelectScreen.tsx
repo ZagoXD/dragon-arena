@@ -210,7 +210,7 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
             <span className="tooltip-name">{t(`select.spellNames.${hoveredSkill.id}`)}</span>
             <span className="tooltip-type">{hoveredSkill.id === 'ember' ? t('select.tooltipBasic') : t('select.tooltipSkill')}</span>
           </div>
-          <p className="tooltip-text">{hoveredSkill.description}</p>
+          <p className="tooltip-text">{t(hoveredSkill.descriptionKey || '', hoveredSkill.description)}</p>
           <div className="tooltip-footer">
             <span>{t('select.bootstrapFooter')}</span>
           </div>
@@ -230,7 +230,7 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
             <span className="tooltip-name">{hoveredPassive.name}</span>
             <span className="tooltip-type">{t('select.tooltipPassive')}</span>
           </div>
-          <p className="tooltip-text">{hoveredPassive.description}</p>
+          <p className="tooltip-text">{t(hoveredPassive.descriptionKey || '', hoveredPassive.description)}</p>
           <div className="tooltip-footer">
             <span>{t('select.backendFooter')}</span>
           </div>

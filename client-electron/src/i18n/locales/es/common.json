@@ -67,15 +67,15 @@
     "eyebrow": "Perfil del invocador",
     "title": "Tu perfil de batalla",
     "subtitle": "Consulta tu identidad actual, recursos clave y el nivel de tu cuenta.",
-    "avatarPlaceholder": "Avatar proximamente",
-    "identityHint": "Estos datos serviran como base para futuras personalizaciones del perfil.",
+    "avatarPlaceholder": "Avatar próximamente",
+    "identityHint": "Estos datos servirán como base para futuras personalizaciones del perfil.",
     "nickname": "Nickname",
     "coins": "Coins",
     "level": "Nivel",
     "tag": "Tag"
   },
   "collection": {
-    "eyebrow": "Coleccion",
+    "eyebrow": "Colección",
     "title": "Leyendas disponibles",
     "subtitle": "Consulta los personajes actuales, sus habilidades y el rol de cada uno dentro de la arena.",
     "availableStatus": "Disponible ahora",
@@ -169,7 +169,7 @@
     "eyebrow": "Sistema",
     "title": "Configuración",
     "close": "Cerrar panel",
-    "navigation": "Menu",
+    "navigation": "Menú",
     "cancel": "Cancelar",
     "confirm": "Confirmar",
     "displayMode": "Modo de pantalla",
@@ -188,7 +188,7 @@
     "menu": {
       "home": "Inicio",
       "profile": "Perfil",
-      "collection": "Coleccion",
+      "collection": "Colección",
       "report": "Reportar",
       "admin": "Admin"
     },
@@ -196,8 +196,8 @@
     "quit": "Salir del juego"
   },
   "admin": {
-    "eyebrow": "Administracion",
-    "title": "Centro de moderacion",
+    "eyebrow": "Administración",
+    "title": "Centro de moderación",
     "subtitle": "Busca un jugador por nickname y tag, revisa datos de la cuenta y aplica acciones administrativas.",
     "tabs": {
       "users": "Usuarios",
@@ -206,25 +206,25 @@
     "search": "Buscar usuario",
     "searching": "Buscando...",
     "refreshReports": "Actualizar denuncias",
-    "reportsOpenLabel": "Cola de moderacion",
+    "reportsOpenLabel": "Cola de moderación",
     "reportsTitle": "Denuncias abiertas",
     "reportDetailLabel": "Detalles de la denuncia",
     "noReports": "No hay denuncias abiertas en este momento.",
     "reportAgainst": "Denunciado por {{reporter}}",
     "reporter": "Denunciante",
     "reportReasons": "Motivos seleccionados",
-    "reportDescription": "Descripcion informada",
-    "reportChatLog": "Chat de la arena de la ultima hora",
-    "reportChatEmpty": "No se encontraron mensajes de la arena en la ultima hora.",
+    "reportDescription": "Descripción informada",
+    "reportChatLog": "Chat de la arena de la última hora",
+    "reportChatEmpty": "No se encontraron mensajes de la arena en la última hora.",
     "acceptReport": "Aceptar y banear",
     "rejectReport": "Rechazar denuncia",
-    "resultLabel": "Resultado de la busqueda",
+    "resultLabel": "Resultado de la búsqueda",
     "username": "Username",
     "email": "Email",
     "coins": "Coins",
     "role": "Rol",
-    "moderationStatus": "Estado de moderacion",
-    "noActiveBan": "Este usuario no tiene penalizacion activa.",
+    "moderationStatus": "Estado de moderación",
+    "noActiveBan": "Este usuario no tiene penalización activa.",
     "banActivePermanent": "Ban permanente activo",
     "banActiveUntil": "Ban activo hasta {{date}}",
     "banReasonLabel": "Motivo: {{reason}}",
@@ -233,32 +233,32 @@
     "forceAddFriend": "Agregar amigo directamente",
     "banAction": "Banear",
     "unbanAction": "Desbanear",
-    "banModalEyebrow": "Aplicar penalizacion",
+    "banModalEyebrow": "Aplicar penalización",
     "banModalTitle": "Banear jugador",
     "banModalTarget": "Objetivo: {{name}}",
-    "reasonPlaceholder": "Describe el motivo de la penalizacion...",
+    "reasonPlaceholder": "Describe el motivo de la penalización...",
     "cancel": "Cancelar",
     "confirmBan": "Confirmar ban",
-    "unbanModalEyebrow": "Revocar penalizacion",
+    "unbanModalEyebrow": "Revocar penalización",
     "unbanModalTitle": "Desbanear jugador",
     "unbanModalTarget": "Eliminar el ban activo de {{name}}?",
     "confirmUnban": "Confirmar desban",
     "banDurations": {
-      "oneDay": "1 dia",
-      "twoDays": "2 dias",
+      "oneDay": "1 día",
+      "twoDays": "2 días",
       "oneWeek": "1 semana",
-      "fifteenDays": "15 dias",
+      "fifteenDays": "15 días",
       "oneMonth": "1 mes",
       "threeMonths": "3 meses",
-      "oneYear": "1 ano",
+      "oneYear": "1 año",
       "forever": "Para siempre"
     },
     "success": {
-      "force_add_friend": "Amistad agregada con exito.",
-      "ban_user": "Penalizacion aplicada con exito.",
-      "unban_user": "Penalizacion removida con exito.",
-      "accept_report": "Denuncia aceptada con exito.",
-      "reject_report": "Denuncia rechazada con exito."
+      "force_add_friend": "Amistad agregada con éxito.",
+      "ban_user": "Penalización aplicada con éxito.",
+      "unban_user": "Penalización removida con éxito.",
+      "accept_report": "Denuncia aceptada con éxito.",
+      "reject_report": "Denuncia rechazada con éxito."
     }
   },
   "select": {
@@ -282,6 +282,20 @@
       "fire_blast": "Fire Blast",
       "ember": "Ember",
       "seed_bite": "Seed Bite"
+    },
+    "spellDescriptions": {
+      "ember": "El dragón escupe fuego y daña a quien sea alcanzado.",
+      "scratch": "El dragón araña ferozmente a sus adversarios y puede envenenarlos en el proceso.",
+      "poison_flash": "Un destello venenoso se dispara frente al dragón, hiere a los enemigos y puede envenenarlos.",
+      "poison_shield": "Una barrera venenosa envuelve al dragón y le otorga un escudo temporal.",
+      "dragon_dive": "El dragón realiza una embestida feroz, causando daño a lo largo del trayecto.",
+      "flamethrower": "El dragón exhala una ráfaga corta y densa de fuego, quemando todo a su paso.",
+      "fire_blast": "El dragón lanza un proyectil de llamas que avanza en línea recta y sigue quemando a quien permanezca en su trayectoria.",
+      "seed_bite": "Varias semillas de planta carnívora surgen alrededor del dragón para atrapar y dañar a su objetivo."
+    },
+    "passiveDescriptions": {
+      "burn": "Quema al objetivo durante 3 segundos, causando daño periódico.",
+      "poison": "Envenena al objetivo por más tiempo, causando daño periódico y reduciendo su velocidad."
     }
   },
   "arena": {
@@ -369,18 +383,18 @@
       "chat_reply_target_missing": "No hay un objetivo reciente para responder."
     },
     "moderation": {
-      "admin_forbidden": "No tienes permiso para usar esta accion administrativa.",
+      "admin_forbidden": "No tienes permiso para usar esta acción administrativa.",
       "admin_target_not_found": "El usuario seleccionado no fue encontrado.",
       "admin_self_ban_forbidden": "No puedes banear tu propia cuenta.",
-      "admin_ban_reason_required": "Se requiere un motivo para aplicar la penalizacion.",
+      "admin_ban_reason_required": "Se requiere un motivo para aplicar la penalización.",
       "admin_ban_already_active": "Este usuario ya tiene un ban activo.",
-      "admin_ban_not_found": "No se encontro un ban activo para este usuario.",
+      "admin_ban_not_found": "No se encontró un ban activo para este usuario.",
       "report_target_required": "Ingresa nickname y tag del jugador denunciado.",
-      "report_target_not_found": "No se encontro al jugador denunciado.",
+      "report_target_not_found": "No se encontró al jugador denunciado.",
       "report_self_forbidden": "No puedes denunciarte a ti mismo.",
-      "report_description_required": "La denuncia necesita una descripcion.",
-      "report_description_too_long": "La descripcion de la denuncia supera el limite permitido.",
-      "report_invalid_reason": "Uno o mas motivos de la denuncia son invalidos.",
+      "report_description_required": "La denuncia necesita una descripción.",
+      "report_description_too_long": "La descripción de la denuncia supera el límite permitido.",
+      "report_invalid_reason": "Uno o más motivos de la denuncia son inválidos.",
       "report_invalid_reason_count": "Selecciona entre 1 y 3 motivos para la denuncia."
     }
   }
