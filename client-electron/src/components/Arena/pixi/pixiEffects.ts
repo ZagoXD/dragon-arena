@@ -111,7 +111,7 @@ export function buildSkillEffect(
   frameTextureCache: Map<string, Texture>,
   effect: ActiveSkillEffectView
 ) {
-  if (effect.spell.effectKind !== 'beam' || effect.warmupMs > 0) {
+  if (effect.warmupMs > 0) {
     return null
   }
 
@@ -139,6 +139,40 @@ export function buildSkillEffect(
   )
 
   if (!frameTexture) {
+    return null
+  }
+
+  if (effect.spell.effectKind === 'tile_burst') {
+    const container = new Container()
+    const tileSize = frameWidth
+    const offsets: Array<[number, number]> = []
+
+    for (let tileY = -3; tileY <= 3; tileY += 1) {
+      for (let tileX = -3; tileX <= 3; tileX += 1) {
+        offsets.push([tileX, tileY])
+      }
+    }
+
+    container.zIndex = effect.y + tileSize * 4
+
+    offsets.forEach(([tileX, tileY]) => {
+      const sprite = new Sprite(frameTexture)
+      sprite.anchor.set(0.5)
+      sprite.x = tileX * tileSize
+      sprite.y = tileY * tileSize
+      sprite.width = frameWidth
+      sprite.height = frameHeight
+      sprite.alpha = 0.96
+      sprite.roundPixels = true
+      container.addChild(sprite)
+    })
+
+    container.x = effect.x
+    container.y = effect.y
+    return container
+  }
+
+  if (effect.spell.effectKind !== 'beam') {
     return null
   }
 

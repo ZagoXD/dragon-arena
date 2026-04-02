@@ -47,6 +47,8 @@ CharacterDefinition parseCharacterDefinition(const json& node) {
     return {
         node.at("id").get<std::string>(),
         node.at("name").get<std::string>(),
+        node.value("description", ""),
+        node.value("descriptionKey", ""),
         node.at("maxHp").get<int>(),
         node.at("movementSpeed").get<float>(),
         node.value("damageMultiplier", 1.0f),
@@ -128,6 +130,12 @@ void validateCharacterDefinition(
     }
     if (character.name.empty()) {
         throw std::runtime_error("CharacterDefinition '" + character.id + "' has empty name");
+    }
+    if (character.description.empty()) {
+        throw std::runtime_error("CharacterDefinition '" + character.id + "' has empty description");
+    }
+    if (character.descriptionKey.empty()) {
+        throw std::runtime_error("CharacterDefinition '" + character.id + "' has empty descriptionKey");
     }
     if (character.maxHp <= 0) {
         throw std::runtime_error("CharacterDefinition '" + character.id + "' has invalid maxHp");
@@ -503,6 +511,8 @@ json GameConfig::to_json(const CharacterDefinition& character) {
     return {
         {"id", character.id},
         {"name", character.name},
+        {"description", character.description},
+        {"descriptionKey", character.descriptionKey},
         {"maxHp", character.maxHp},
         {"movementSpeed", character.movementSpeed},
         {"damageMultiplier", character.damageMultiplier},

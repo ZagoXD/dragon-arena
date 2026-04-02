@@ -296,7 +296,13 @@ export function useArenaController({
       }
       if (e.key === '3' && character.skills[2]) {
         const cd = skillCooldowns[character.skills[2].id] || 0
-        if (cd <= 0) setAimingSkill(character.skills[2])
+        if (cd <= 0) {
+          if (character.skills[2].effectKind === 'tile_burst') {
+            emitUseSkill(character.skills[2].id, playerRef.current.x, playerRef.current.y)
+          } else {
+            setAimingSkill(character.skills[2])
+          }
+        }
       }
       if (e.key === 'Escape') {
         if (aimingSkillRef.current) {

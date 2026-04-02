@@ -573,6 +573,14 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
 
             ws->send(ProtocolPayloadBuilder::buildProfileSync(AuthenticatedUser{*user, *profile}).dump(), uWS::OpCode::TEXT);
         }
+        else if (event == "contentSync") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("contentSync", "not_authenticated", "Client must authenticate before syncing content", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            ws->send(ProtocolPayloadBuilder::buildGameplayContent().dump(), uWS::OpCode::TEXT);
+        }
         else if (event == "friendsSync") {
             if (!userData->authenticated || userData->userId <= 0) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("friendsSync", "not_authenticated", "Client must authenticate before syncing friends", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);

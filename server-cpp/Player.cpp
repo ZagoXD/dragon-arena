@@ -18,6 +18,7 @@ json Player::to_json() const {
         {"animRow", animRow}, {"hp", hp}, {"maxHp", maxHp},
         {"kills", kills}, {"deaths", deaths},
         {"movementSpeed", movementSpeed},
+        {"immobilizedUntilMs", immobilizedUntilMs},
         {"colliderWidth", colliderWidth},
         {"colliderHeight", colliderHeight},
         {"autoAttackSpellId", autoAttackSpellId},
@@ -49,6 +50,7 @@ void Player::respawn(float startX, float startY) {
     x = startX;
     y = startY;
     deathTimeMs = 0;
+    immobilizedUntilMs = 0;
 }
 
 bool Player::canRespawn(long long nowMs, int respawnDelayMs) const {

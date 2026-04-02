@@ -25,6 +25,19 @@ function getSpellIconStyle(spell: VisualSpellConfig): React.CSSProperties {
     }
   }
 
+  if (typeof spell.iconFrameIndex === 'number' && spell.frameCount) {
+    const positionPercent = spell.frameCount > 1
+      ? (spell.iconFrameIndex / (spell.frameCount - 1)) * 100
+      : 0
+
+    return {
+      backgroundImage: `url(${spell.imageSrc})`,
+      backgroundSize: `100% ${spell.frameCount * 100}%`,
+      backgroundPosition: `center ${positionPercent}%`,
+      backgroundRepeat: 'no-repeat',
+    }
+  }
+
   if (spell.iconMode === 'single_fit') {
     return {
       backgroundImage: `url(${spell.imageSrc})`,
@@ -107,7 +120,9 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
           const currentRow = char.idleRows[animIndex % char.idleRows.length]
           const bgPosX = -(2 * portraitSize)
           const bgPosY = -(currentRow * portraitSize)
-          const allSkills = [SPELL_VISUALS.ember, SPELL_VISUALS.dragon_dive, SPELL_VISUALS.flamethrower, SPELL_VISUALS.fire_blast]
+          const allSkills = char.skillIds
+            .map(skillId => SPELL_VISUALS[skillId])
+            .filter((skill): skill is VisualSpellConfig => Boolean(skill))
           const passive = PASSIVE_VISUALS[char.passiveId]
 
           if (!passive) {

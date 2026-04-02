@@ -69,14 +69,14 @@ export function Arena({
     }
 
     const angle = event.angle
-    const direction = getClosest4WayDirection(angle)
-    setDirectionRef.current?.(direction)
-    const totalLockMs =
-      event.skillId === 'flamethrower'
-        ? event.castTimeMs + event.effectDurationMs
-        : event.castTimeMs
+      const direction = getClosest4WayDirection(angle)
+      setDirectionRef.current?.(direction)
+      const totalLockMs =
+        event.skillId === 'flamethrower' || event.skillId === 'seed_bite'
+          ? event.castTimeMs + event.effectDurationMs
+          : event.castTimeMs
 
-    if (totalLockMs > 0) {
+      if (totalLockMs > 0) {
       lockActionRef.current?.(direction, totalLockMs)
     }
   }, [])

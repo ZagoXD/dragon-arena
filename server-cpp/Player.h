@@ -30,6 +30,7 @@ public:
     std::vector<std::string> skillIds;
     std::string passiveId;
     long long deathTimeMs = 0;
+    long long immobilizedUntilMs = 0;
 
     // Dash / Skill 1 State
     bool isDashing = false;

@@ -14,6 +14,7 @@ public:
     static json buildCharactersJson();
     static json buildSpellsJson();
     static json buildPassivesJson();
+    static json buildGameplayContent();
     static json buildBootstrap(
         const WorldDefinition& worldDefinition,
         const std::map<std::string, Player>& players,

@@ -79,7 +79,10 @@
     "subtitle": "Consulta los personajes actuales, sus habilidades y el rol de cada uno dentro de la arena.",
     "availableStatus": "Disponible ahora",
     "starterRarity": "Inicial",
-    "description": "Un combatiente equilibrado, con buena presencia en duelos, presion de area y potencial de remate."
+    "characterDescriptions": {
+      "charizard": "Un dragón equilibrado y agresivo, con fuerte presencia en duelos, presión constante de área y alto potencial de remate.",
+      "hydra": "Un dragón tanque y opresivo, con más vida, control de grupo y zonas peligrosas que desgastan lentamente a sus enemigos."
+    }
   },
   "friends": {
     "title": "Amigos",
@@ -183,7 +186,8 @@
       "dragon_dive": "Dragon Dive",
       "flamethrower": "Flamethrower",
       "fire_blast": "Fire Blast",
-      "ember": "Ember"
+      "ember": "Ember",
+      "seed_bite": "Seed Bite"
     }
   },
   "arena": {

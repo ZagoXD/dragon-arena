@@ -33,6 +33,8 @@ struct PassiveDefinition {
 struct CharacterDefinition {
     std::string id;
     std::string name;
+    std::string description;
+    std::string descriptionKey;
     int maxHp;
     float movementSpeed;
     float damageMultiplier;

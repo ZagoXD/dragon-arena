@@ -1,0 +1,11 @@
+{
+  "id": "seed_bite",
+  "name": "Seed Bite",
+  "damage": 525,
+  "range": 0.0,
+  "castTimeMs": 0,
+  "cooldownMs": 5000,
+  "projectileSpeed": 0.0,
+  "projectileRadius": 0.0,
+  "effectDurationMs": 2250
+}

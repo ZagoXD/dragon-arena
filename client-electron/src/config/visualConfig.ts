@@ -4,6 +4,7 @@ import emberSrc from '../assets/spells/ember.png'
 import dragonDiveSrc from '../assets/spells/dragon_dive.png'
 import flamethrowerSrc from '../assets/spells/flamethrower.png'
 import fireBlastSrc from '../assets/spells/fire_blast.png'
+import seedBiteSrc from '../assets/spells/seed_bite.png'
 import burnSrc from '../assets/spells/burn.png'
 import poisonSrc from '../assets/spells/poison.png'
 import {
@@ -22,16 +23,18 @@ export interface VisualSpellConfig {
   frameCount?: number
   aimingWidth?: number
   aimingStyle?: 'arrow' | 'beam'
-  effectKind?: 'projectile' | 'beam'
+  effectKind?: 'projectile' | 'beam' | 'tile_burst'
   renderMode?: 'directional_sheet' | 'single_rotated'
   iconMode?: 'sheet_focus' | 'single_fit'
   rotationOffsetRad?: number
+  iconFrameIndex?: number
 }
 
 export interface VisualCharacterConfig {
   id: string
   name: string
   passiveId: string
+  skillIds: string[]
   imageSrc: string
   frameWidth: number
   frameHeight: number
@@ -108,6 +111,18 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
     iconMode: 'single_fit',
     rotationOffsetRad: -Math.PI / 2,
   },
+  seed_bite: {
+    id: 'seed_bite',
+    description: 'Varias sementes de planta carnivora surgem ao redor do dragao para prender e machucar seu alvo.',
+    imageSrc: seedBiteSrc,
+    frameSize: 64,
+    frameWidth: 64,
+    frameHeight: 64,
+    frameCount: 9,
+    effectKind: 'tile_burst',
+    renderMode: 'single_rotated',
+    iconFrameIndex: 1,
+  },
 }
 
 export const PASSIVE_VISUALS: Record<string, VisualPassiveConfig> = {
@@ -155,6 +170,7 @@ export const CHARACTER_VISUALS: Record<string, VisualCharacterConfig> = {
     id: 'charizard',
     name: 'Charizard',
     passiveId: 'burn',
+    skillIds: ['dragon_dive', 'flamethrower', 'fire_blast'],
     imageSrc: charizardSrc,
     frameWidth: 256,
     frameHeight: 256,
@@ -166,6 +182,7 @@ export const CHARACTER_VISUALS: Record<string, VisualCharacterConfig> = {
     id: 'hydra',
     name: 'Hydra',
     passiveId: 'poison',
+    skillIds: ['dragon_dive', 'flamethrower', 'seed_bite'],
     imageSrc: hydraSrc,
     frameWidth: 256,
     frameHeight: 256,

@@ -23,6 +23,8 @@ export interface AuthoritativePassiveDefinition {
 export interface AuthoritativeCharacterDefinition {
   id: string
   name: string
+  description: string
+  descriptionKey: string
   maxHp: number
   movementSpeed: number
   damageMultiplier?: number

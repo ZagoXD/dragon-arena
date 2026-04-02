@@ -2,6 +2,7 @@ import { CSSProperties, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CHARACTER_VISUALS, PASSIVE_VISUALS, SPELL_VISUALS, VisualPassiveConfig, VisualSpellConfig } from '../../config/visualConfig'
 import { ANIMATION_FPS } from '../../config/spriteMap'
+import { AuthoritativeCharacterDefinition } from '../../types/gameplay'
 import './CollectionScreen.css'
 
 function getSpellIconStyle(spell: VisualSpellConfig): CSSProperties {
@@ -21,6 +22,19 @@ function getSpellIconStyle(spell: VisualSpellConfig): CSSProperties {
       backgroundImage: `url(${spell.imageSrc})`,
       backgroundSize: '100% 400%',
       backgroundPosition: 'center top',
+      backgroundRepeat: 'no-repeat',
+    }
+  }
+
+  if (typeof spell.iconFrameIndex === 'number' && spell.frameCount) {
+    const positionPercent = spell.frameCount > 1
+      ? (spell.iconFrameIndex / (spell.frameCount - 1)) * 100
+      : 0
+
+    return {
+      backgroundImage: `url(${spell.imageSrc})`,
+      backgroundSize: `100% ${spell.frameCount * 100}%`,
+      backgroundPosition: `center ${positionPercent}%`,
       backgroundRepeat: 'no-repeat',
     }
   }
@@ -50,7 +64,11 @@ function getPassiveIconStyle(passive: VisualPassiveConfig): CSSProperties {
   }
 }
 
-export function CollectionScreen() {
+interface Props {
+  characters?: Record<string, AuthoritativeCharacterDefinition> | null
+}
+
+export function CollectionScreen({ characters }: Props) {
   const { t } = useTranslation()
   const [animIndex, setAnimIndex] = useState(0)
 
@@ -72,17 +90,15 @@ export function CollectionScreen() {
 
       <div className="collection-screen__grid">
         {Object.values(CHARACTER_VISUALS).map(character => {
+          const authoritativeCharacter = characters?.[character.id]
           const portraitSize = 112
           const sheetWidth = portraitSize * 4
           const currentRow = character.idleRows[animIndex % character.idleRows.length]
           const bgPosX = -(2 * portraitSize)
           const bgPosY = -(currentRow * portraitSize)
-          const skills = [
-            SPELL_VISUALS.ember,
-            SPELL_VISUALS.dragon_dive,
-            SPELL_VISUALS.flamethrower,
-            SPELL_VISUALS.fire_blast,
-          ]
+          const skills = character.skillIds
+            .map(skillId => SPELL_VISUALS[skillId])
+            .filter((skill): skill is VisualSpellConfig => Boolean(skill))
           const passive = PASSIVE_VISUALS[character.passiveId]
 
           if (!passive) {
@@ -105,13 +121,17 @@ export function CollectionScreen() {
               <div className="collection-screen__content">
                 <div className="collection-screen__topline">
                   <div>
-                    <h2>{character.name}</h2>
+                    <h2>{authoritativeCharacter?.name || character.name}</h2>
                     <span>{t('collection.availableStatus')}</span>
                   </div>
                   <strong className="collection-screen__rarity">{t('collection.starterRarity')}</strong>
                 </div>
 
-                <p className="collection-screen__description">{t('collection.description')}</p>
+                <p className="collection-screen__description">
+                  {authoritativeCharacter
+                    ? t(authoritativeCharacter.descriptionKey, authoritativeCharacter.description)
+                    : ''}
+                </p>
 
                 <div className="collection-screen__abilities">
                   {skills.map(skill => (

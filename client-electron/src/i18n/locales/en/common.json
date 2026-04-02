@@ -79,7 +79,10 @@
     "subtitle": "Review the current characters, their abilities and each role inside the arena.",
     "availableStatus": "Available now",
     "starterRarity": "Starter",
-    "description": "A balanced fighter with solid dueling presence, area pressure and finishing potential."
+    "characterDescriptions": {
+      "charizard": "A balanced and aggressive dragon with a strong dueling presence, constant area pressure and high finishing potential.",
+      "hydra": "A tanky and oppressive dragon with higher health, crowd control and dangerous zones that slowly wear enemies down."
+    }
   },
   "friends": {
     "title": "Friends",
@@ -183,7 +186,8 @@
       "dragon_dive": "Dragon Dive",
       "flamethrower": "Flamethrower",
       "fire_blast": "Fire Blast",
-      "ember": "Ember"
+      "ember": "Ember",
+      "seed_bite": "Seed Bite"
     }
   },
   "arena": {

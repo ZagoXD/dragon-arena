@@ -65,21 +65,24 @@
   "profile": {
     "eyebrow": "Perfil do invocador",
     "title": "Seu perfil de batalha",
-    "subtitle": "Veja sua identidade atual, recursos principais e o nivel da sua conta.",
+    "subtitle": "Veja sua identidade atual, recursos principais e o nível da sua conta.",
     "avatarPlaceholder": "Avatar em breve",
-    "identityHint": "Esses dados serao a base para futuras personalizacoes do seu perfil.",
+    "identityHint": "Esses dados serão a base para futuras personalizações do seu perfil.",
     "nickname": "Nickname",
     "coins": "Coins",
-    "level": "Nivel",
+    "level": "Nível",
     "tag": "Tag"
   },
   "collection": {
-    "eyebrow": "Colecao",
-    "title": "Lendas disponiveis",
+    "eyebrow": "Coleção",
+    "title": "Lendas disponíveis",
     "subtitle": "Consulte os personagens atuais, suas habilidades e o papel de cada um na arena.",
-    "availableStatus": "Disponivel agora",
+    "availableStatus": "Disponível agora",
     "starterRarity": "Inicial",
-    "description": "Um combatente equilibrado, com boa presenca em duelos, pressao de area e potencial de finalizacao."
+    "characterDescriptions": {
+      "charizard": "Um dragão equilibrado e agressivo, com forte presença em duelos, pressão constante de área e alto potencial de finalização.",
+      "hydra": "Um dragão tanque e opressor, com mais vida, controle de grupo e zonas perigosas que desgastam lentamente seus inimigos."
+    }
   },
   "friends": {
     "title": "Amigos",
@@ -160,9 +163,9 @@
     "languageConfirmTitle": "Aplicar novo idioma?",
     "languageConfirmText": "Ao confirmar a troca de idioma, você será redirecionado para a tela de login.",
     "menu": {
-      "home": "Inicio",
+      "home": "Início",
       "profile": "Perfil",
-      "collection": "Colecao"
+      "collection": "Coleção"
     },
     "logout": "Logout",
     "quit": "Sair do jogo"
@@ -183,7 +186,8 @@
       "dragon_dive": "Dragon Dive",
       "flamethrower": "Flamethrower",
       "fire_blast": "Fire Blast",
-      "ember": "Ember"
+      "ember": "Ember",
+      "seed_bite": "Seed Bite"
     }
   },
   "arena": {

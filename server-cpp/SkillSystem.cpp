@@ -71,14 +71,17 @@ bool SkillSystem::requestAutoAttack(
         return false;
     }
 
+    auto now = std::chrono::steady_clock::now();
+    long long nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
     Player& player = players[playerId];
     if (player.hp <= 0 || player.isDashing) {
         return false;
     }
+    if (player.immobilizedUntilMs > nowMs) {
+        return false;
+    }
 
     const auto& spell = GameConfig::getSpellDefinition(player.autoAttackSpellId);
-    auto now = std::chrono::steady_clock::now();
-    long long nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
     long long lastUse = player.lastSkillUseTimes.count(player.autoAttackSpellId)
         ? player.lastSkillUseTimes[player.autoAttackSpellId]
         : 0;
@@ -144,13 +147,14 @@ bool SkillSystem::useSkill(
     if (!players.count(playerId)) return false;
     if (!GameConfig::getSpellDefinitions().count(skillId)) return false;
 
+    auto now = std::chrono::steady_clock::now();
+    long long nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
     Player& player = players[playerId];
     if (player.isDashing || player.hp <= 0) return false;
+    if (player.immobilizedUntilMs > nowMs) return false;
     if (std::find(player.skillIds.begin(), player.skillIds.end(), skillId) == player.skillIds.end()) return false;
 
     const auto& spell = GameConfig::getSpellDefinition(skillId);
-    auto now = std::chrono::steady_clock::now();
-    long long nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
     long long lastUse = player.lastSkillUseTimes.count(skillId) ? player.lastSkillUseTimes[skillId] : 0;
 
     if (nowMs - lastUse < spell.cooldownMs) {
@@ -241,6 +245,30 @@ bool SkillSystem::useSkill(
                 }}
             }).dump());
         }
+
+        return true;
+    }
+
+    if (skillId == "seed_bite") {
+        const float tileCenterX = static_cast<float>(std::floor(originX / 64.0f) * 64.0f + 32.0f);
+        const float tileCenterY = static_cast<float>(std::floor(originY / 64.0f) * 64.0f + 32.0f);
+
+        player.immobilizedUntilMs = std::max(player.immobilizedUntilMs, nowMs + spell.effectDurationMs);
+        activeAreaEffects.push_back({
+            "area_" + playerId + "_" + std::to_string(nowMs),
+            playerId,
+            skillId,
+            tileCenterX,
+            tileCenterY,
+            0.0f,
+            nowMs,
+            nowMs + spell.effectDurationMs,
+            nowMs,
+            0
+        });
+        player.lastSkillUseTimes[skillId] = nowMs;
+
+        broadcastSkillUsed(network, worldTick, playerId, skillId, tileCenterX, tileCenterY, tileCenterX, tileCenterY, 0.0f, spell);
 
         return true;
     }

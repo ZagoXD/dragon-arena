@@ -1,12 +1,14 @@
 {
   "id": "hydra",
   "name": "Hydra",
+  "description": "Um dragão tanque e opressor, com mais vida, controle de grupo e zonas perigosas que desgastam lentamente seus inimigos.",
+  "descriptionKey": "collection.characterDescriptions.hydra",
   "maxHp": 1400,
   "movementSpeed": 180.0,
   "damageMultiplier": 0.8,
   "colliderWidth": 64.0,
   "colliderHeight": 64.0,
   "autoAttackSpellId": "ember",
-  "skillIds": ["dragon_dive", "flamethrower", "fire_blast"],
+  "skillIds": ["dragon_dive", "flamethrower", "seed_bite"],
   "passiveId": "poison"
 }

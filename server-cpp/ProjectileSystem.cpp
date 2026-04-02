@@ -10,6 +10,10 @@
 namespace {
 constexpr int FLAMETHROWER_TICK_COUNT = 6;
 constexpr long long FIRE_BLAST_REHIT_INTERVAL_MS = 1000;
+constexpr int SEED_BITE_TICK_COUNT = 3;
+constexpr int SEED_BITE_TICK_DAMAGE[SEED_BITE_TICK_COUNT] = {100, 220, 100};
+constexpr long long SEED_BITE_TICK_TIMES_MS[SEED_BITE_TICK_COUNT] = {0, 750, 2000};
+constexpr long long SEED_BITE_ROOT_DURATION_MS = 1250;
 
 float getFlamethrowerHalfWidthAtDistance(float axialDistance, float maxRange, float maxHalfWidth) {
     if (maxRange <= 0.0f) {
@@ -46,6 +50,18 @@ bool isInsideFlamethrower(
 
 bool isPersistentProjectile(const std::string& spellId) {
     return spellId == "fire_blast";
+}
+
+bool isInsideSeedBite(
+    float targetCenterX,
+    float targetCenterY,
+    float targetRadius,
+    const ActiveAreaEffect& effect,
+    float tileSize
+) {
+    const float halfExtent = tileSize * 3.5f;
+    return std::abs(targetCenterX - effect.originX) <= halfExtent + targetRadius &&
+           std::abs(targetCenterY - effect.originY) <= halfExtent + targetRadius;
 }
 
 int scaleDamageForCharacter(const Player& player, int baseDamage) {
@@ -307,6 +323,106 @@ void ProjectileSystem::updateAreaEffects(
         const int scaledBaseDamage = scaleDamageForCharacter(players[effect.ownerId], spell.damage);
         const int tickDamage = std::max(1, scaledBaseDamage / FLAMETHROWER_TICK_COUNT);
         const int tickIntervalMs = std::max(1, spell.effectDurationMs / FLAMETHROWER_TICK_COUNT);
+
+        if (effect.spellId == "seed_bite") {
+            while (effect.ticksApplied < SEED_BITE_TICK_COUNT &&
+                   nowMs >= effect.startTimeMs + SEED_BITE_TICK_TIMES_MS[effect.ticksApplied]) {
+                const int tickIndex = effect.ticksApplied;
+                const int damage = SEED_BITE_TICK_DAMAGE[tickIndex];
+
+                for (auto& [targetId, target] : players) {
+                    if (targetId == effect.ownerId || target.hp <= 0) {
+                        continue;
+                    }
+
+                    const float targetCenterX = target.x + target.colliderWidth / 2.0f;
+                    const float targetCenterY = target.y + target.colliderHeight / 2.0f;
+                    const float targetRadius = std::max(target.colliderWidth, target.colliderHeight) / 2.0f;
+                    if (!isInsideSeedBite(targetCenterX, targetCenterY, targetRadius, effect, static_cast<float>(worldDefinition.tileSize))) {
+                        continue;
+                    }
+
+                    PlayerDamageResult damageResult = CombatSystem::applyAttackToPlayer(target, &players[effect.ownerId], damage, true);
+                    if (tickIndex == 1) {
+                        target.immobilizedUntilMs = std::max(target.immobilizedUntilMs, nowMs + SEED_BITE_ROOT_DURATION_MS);
+                    }
+                    if (tickIndex == 2) {
+                        BurnSystem::tryApplyToPlayer(target, players[effect.ownerId], effect.spellId, activeBurnStatuses, worldTick, nowMs, network);
+                    }
+
+                    ServerDiagnostics::logCombatEvent("seedBiteHitPlayer", {
+                        {"tick", worldTick},
+                        {"effectId", effect.id},
+                        {"targetId", targetId},
+                        {"ownerId", effect.ownerId},
+                        {"damage", damage},
+                        {"tickIndex", tickIndex},
+                        {"killed", damageResult.killed}
+                    });
+
+                    if (network) {
+                        network->broadcast(json({
+                            {"event", "playerDamaged"},
+                            {"tick", worldTick},
+                            {"id", targetId},
+                            {"hp", damageResult.newHp}
+                        }).dump());
+                        if (damageResult.killed) {
+                            network->broadcast(json({
+                                {"event", "playerScored"},
+                                {"tick", worldTick},
+                                {"victimId", targetId},
+                                {"attackerId", effect.ownerId},
+                                {"targetDeaths", damageResult.victimDeaths},
+                                {"attackerKills", damageResult.attackerKills}
+                            }).dump());
+                        }
+                    }
+                }
+
+                for (auto& [dummyId, dummy] : dummies) {
+                    if (dummy.hp <= 0) {
+                        continue;
+                    }
+
+                    if (!isInsideSeedBite(dummy.x, dummy.y, worldDefinition.dummyColliderSize / 2.0f, effect, static_cast<float>(worldDefinition.tileSize))) {
+                        continue;
+                    }
+
+                    DummyDamageResult damageResult = CombatSystem::applyDamageToDummy(dummy, damage, nowMs);
+                    if (tickIndex == 2) {
+                        BurnSystem::tryApplyToDummy(dummy, players[effect.ownerId], effect.spellId, activeBurnStatuses, worldTick, nowMs, network);
+                    }
+
+                    ServerDiagnostics::logCombatEvent("seedBiteHitDummy", {
+                        {"tick", worldTick},
+                        {"effectId", effect.id},
+                        {"dummyId", dummyId},
+                        {"ownerId", effect.ownerId},
+                        {"damage", damage},
+                        {"tickIndex", tickIndex},
+                        {"killed", damageResult.killed}
+                    });
+
+                    if (network) {
+                        network->broadcast(json({
+                            {"event", "dummyDamaged"},
+                            {"tick", worldTick},
+                            {"id", dummyId},
+                            {"hp", damageResult.newHp}
+                        }).dump());
+                    }
+                }
+
+                effect.ticksApplied += 1;
+            }
+
+            if (effect.ticksApplied < SEED_BITE_TICK_COUNT && nowMs < effect.endTimeMs) {
+                remaining.push_back(effect);
+            }
+
+            continue;
+        }
 
         while (effect.nextTickTimeMs <= nowMs && effect.ticksApplied < FLAMETHROWER_TICK_COUNT) {
             for (auto& [targetId, target] : players) {

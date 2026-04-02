@@ -9,6 +9,7 @@
     "ember": 10.0,
     "dragon_dive": 10.0,
     "flamethrower": 10.0,
-    "fire_blast": 100.0
+    "fire_blast": 100.0,
+    "seed_bite": 100.0
   }
 }

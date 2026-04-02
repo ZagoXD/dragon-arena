@@ -304,6 +304,11 @@ void BurnSystem::refreshPlayerMovementModifiers(
     long long nowMs
 ) {
     for (auto& [playerId, player] : players) {
+        if (player.immobilizedUntilMs > nowMs) {
+            player.movementSpeed = 0.0f;
+            continue;
+        }
+
         float maxSlowPct = 0.0f;
 
         for (const auto& status : activeBurnStatuses) {

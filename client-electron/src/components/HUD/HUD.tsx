@@ -34,6 +34,19 @@ function getSpellIconStyle(spell: ResolvedCharacterConfig['autoAttack']): React.
     }
   }
 
+  if (typeof spell.iconFrameIndex === 'number' && spell.frameCount) {
+    const positionPercent = spell.frameCount > 1
+      ? (spell.iconFrameIndex / (spell.frameCount - 1)) * 100
+      : 0
+
+    return {
+      backgroundImage: `url(${spell.imageSrc})`,
+      backgroundSize: `100% ${spell.frameCount * 100}%`,
+      backgroundPosition: `center ${positionPercent}%`,
+      backgroundRepeat: 'no-repeat',
+    }
+  }
+
   if (spell.iconMode === 'single_fit') {
     return {
       backgroundImage: `url(${spell.imageSrc})`,

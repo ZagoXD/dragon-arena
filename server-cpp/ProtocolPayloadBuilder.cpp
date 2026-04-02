@@ -35,6 +35,17 @@ json ProtocolPayloadBuilder::buildPassivesJson() {
     return passivesJson;
 }
 
+json ProtocolPayloadBuilder::buildGameplayContent() {
+    return {
+        {"event", "contentSync"},
+        {"contentHash", GameConfig::getContentHash()},
+        {"characters", buildCharactersJson()},
+        {"spells", buildSpellsJson()},
+        {"passives", buildPassivesJson()},
+        {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+    };
+}
+
 json ProtocolPayloadBuilder::buildBootstrap(
     const WorldDefinition& worldDefinition,
     const std::map<std::string, Player>& players,

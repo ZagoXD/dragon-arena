@@ -1,6 +1,8 @@
 {
   "id": "charizard",
   "name": "Charizard",
+  "description": "Um dragão equilibrado e agressivo, com forte presença em duelos, pressão constante de área e alto potencial de finalização.",
+  "descriptionKey": "collection.characterDescriptions.charizard",
   "maxHp": 1000,
   "movementSpeed": 220.0,
   "damageMultiplier": 1.0,

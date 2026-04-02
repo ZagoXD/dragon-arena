@@ -16,6 +16,7 @@ import { TitleBar } from './components/TitleBar/TitleBar'
 import { ArenaAuthIntent, ArenaChatMessage, AuthSuccessPayload, ProfileSyncPayload } from './hooks/useSocket'
 import i18n, { AppLanguage, supportedLanguages } from './i18n'
 import { translateBackendError } from './i18n/translateBackendError'
+import { AuthoritativeCharacterDefinition, AuthoritativePassiveDefinition, AuthoritativeSpellDefinition } from './types/gameplay'
 import './App.css'
 
 type Screen = 'splash' | 'name' | 'loading' | 'home' | 'profile' | 'collection' | 'select' | 'arena'
@@ -57,6 +58,14 @@ interface PrivateConversationSummary {
   lastMessageAt: number
 }
 
+interface LobbyContentPayload {
+  event: 'contentSync'
+  contentHash?: string
+  characters: Record<string, AuthoritativeCharacterDefinition>
+  spells: Record<string, AuthoritativeSpellDefinition>
+  passives: Record<string, AuthoritativePassiveDefinition>
+}
+
 function App() {
   const [shellSettings, setShellSettings] = useState<ShellSettings>(DEFAULT_SHELL_SETTINGS)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -89,6 +98,7 @@ function App() {
   const [openPrivateChatFriendIds, setOpenPrivateChatFriendIds] = useState<number[]>([])
   const [privateChatMinimizedByFriendId, setPrivateChatMinimizedByFriendId] = useState<Record<number, boolean>>({})
   const [privateChatSendBusyByFriendId, setPrivateChatSendBusyByFriendId] = useState<Record<number, boolean>>({})
+  const [lobbyContent, setLobbyContent] = useState<LobbyContentPayload | null>(null)
   const [arenaReplyTarget, setArenaReplyTarget] = useState<{ userId: number, label: string } | null>(null)
   const [friendSendBusy, setFriendSendBusy] = useState(false)
   const [friendSendError, setFriendSendError] = useState<string | null>(null)
@@ -351,6 +361,7 @@ function App() {
     setOpenPrivateChatFriendIds([])
     setPrivateChatMinimizedByFriendId({})
     setPrivateChatSendBusyByFriendId({})
+    setLobbyContent(null)
     setArenaReplyTarget(null)
     setFriendSendBusy(false)
     setFriendSendError(null)
@@ -745,6 +756,7 @@ function App() {
       }
 
       ws.send(JSON.stringify({ event: 'profileSync' }))
+      ws.send(JSON.stringify({ event: 'contentSync' }))
       ws.send(JSON.stringify({ event: 'friendsSync' }))
       ws.send(JSON.stringify({ event: 'privateChatsSync' }))
     }
@@ -788,6 +800,11 @@ function App() {
             tag: payload.user.tag,
           })
         }
+        return
+      }
+
+      if (data.event === 'contentSync') {
+        setLobbyContent(data as LobbyContentPayload)
         return
       }
 
@@ -1096,7 +1113,7 @@ function App() {
                   coins={playerCoins}
                 />
               )}
-              {screen === 'collection' && <CollectionScreen />}
+              {screen === 'collection' && <CollectionScreen characters={lobbyContent?.characters || null} />}
               {screen === 'select' && (
                 <SelectScreen
                   playerName={playerName}
