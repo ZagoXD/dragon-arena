@@ -263,7 +263,11 @@ export function useArenaNetworkState({
         const resolvedCharacter = resolveCharacterConfig(owner.characterId, currentBootstrap.characters, currentBootstrap.spells, currentBootstrap.passives)
         const resolvedSpell = resolvedCharacter?.skills.find(skill => skill.id === event.skillId)
 
-        if (resolvedSpell?.effectKind === 'beam' || resolvedSpell?.effectKind === 'tile_burst') {
+        if (
+          resolvedSpell?.effectKind === 'beam' ||
+          resolvedSpell?.effectKind === 'tile_burst' ||
+          resolvedSpell?.effectKind === 'line_burst'
+        ) {
           const fallbackOriginX = owner.x + owner.colliderWidth / 2
           const fallbackOriginY = owner.y + owner.colliderHeight / 2
           const originX = event.originX ?? fallbackOriginX

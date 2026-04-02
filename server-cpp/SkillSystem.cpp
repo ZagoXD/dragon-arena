@@ -211,6 +211,29 @@ bool SkillSystem::useSkill(
         return true;
     }
 
+    if (skillId == "poison_flash") {
+        const float clampedTargetX = originX + std::cos(angle) * spell.range;
+        const float clampedTargetY = originY + std::sin(angle) * spell.range;
+
+        activeAreaEffects.push_back({
+            "area_" + playerId + "_" + std::to_string(nowMs),
+            playerId,
+            skillId,
+            originX,
+            originY,
+            angle,
+            nowMs,
+            nowMs + spell.effectDurationMs,
+            nowMs,
+            0
+        });
+        player.lastSkillUseTimes[skillId] = nowMs;
+
+        broadcastSkillUsed(network, worldTick, playerId, skillId, clampedTargetX, clampedTargetY, originX, originY, angle, spell);
+
+        return true;
+    }
+
     if (skillId == "fire_blast") {
         const float clampedTargetX = originX + std::cos(angle) * spell.range;
         const float clampedTargetY = originY + std::sin(angle) * spell.range;

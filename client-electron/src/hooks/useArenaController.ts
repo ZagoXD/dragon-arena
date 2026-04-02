@@ -202,7 +202,10 @@ export function useArenaController({
     const originX = playerRef.current.x + character.colliderWidth / 2
     const originY = playerRef.current.y + character.colliderHeight / 2
     const angle = Math.atan2(targetWorldY - originY, targetWorldX - originX)
-    const usesFixedRange = activeSkill.id === 'flamethrower' || activeSkill.id === 'fire_blast'
+    const usesFixedRange =
+      activeSkill.id === 'flamethrower' ||
+      activeSkill.id === 'fire_blast' ||
+      activeSkill.id === 'poison_flash'
     const resolvedTargetX = usesFixedRange
       ? originX + Math.cos(angle) * activeSkill.range
       : targetWorldX
@@ -344,12 +347,18 @@ export function useArenaController({
       const originY = playerRef.current.y + character.colliderHeight / 2
       const dx = targetWorldX - originX
       const dy = targetWorldY - originY
-      const dist = aimingSkillRef.current.id === 'flamethrower'
+      const usesFixedRange =
+        aimingSkillRef.current.id === 'flamethrower' ||
+        aimingSkillRef.current.id === 'fire_blast' ||
+        aimingSkillRef.current.id === 'poison_flash'
+      const dist = usesFixedRange
         ? aimingSkillRef.current.range
         : Math.min(aimingSkillRef.current.range, Math.hypot(dx, dy))
       const angle = Math.atan2(dy, dx)
       const usesBeamStyle =
-        aimingSkillRef.current.id === 'flamethrower' || aimingSkillRef.current.id === 'fire_blast'
+        aimingSkillRef.current.id === 'flamethrower' ||
+        aimingSkillRef.current.id === 'fire_blast' ||
+        aimingSkillRef.current.id === 'poison_flash'
       const aimingStyle =
         aimingSkillRef.current.id === 'fire_blast'
           ? 'beam_constant'

@@ -172,6 +172,30 @@ export function buildSkillEffect(
     return container
   }
 
+  if (effect.spell.effectKind === 'line_burst') {
+    const container = new Container()
+    container.x = effect.x
+    container.y = effect.y
+    container.zIndex = effect.y + 105
+
+    const forwardX = Math.cos(effect.angle)
+    const forwardY = Math.sin(effect.angle)
+
+    for (let step = 1; step <= 5; step += 1) {
+      const sprite = new Sprite(frameTexture)
+      sprite.anchor.set(0.5)
+      sprite.x = forwardX * frameWidth * step
+      sprite.y = forwardY * frameHeight * step
+      sprite.width = frameWidth
+      sprite.height = frameHeight
+      sprite.alpha = 0.98
+      sprite.roundPixels = true
+      container.addChild(sprite)
+    }
+
+    return container
+  }
+
   if (effect.spell.effectKind === 'melee_slash') {
     const container = new Container()
     container.x = effect.x

@@ -14,6 +14,8 @@ constexpr int SEED_BITE_TICK_COUNT = 3;
 constexpr int SEED_BITE_TICK_DAMAGE[SEED_BITE_TICK_COUNT] = {100, 220, 100};
 constexpr long long SEED_BITE_TICK_TIMES_MS[SEED_BITE_TICK_COUNT] = {0, 750, 2000};
 constexpr long long SEED_BITE_ROOT_DURATION_MS = 1250;
+constexpr float POISON_FLASH_TILE_SIZE = 64.0f;
+constexpr int POISON_FLASH_TILE_COUNT = 5;
 constexpr float SCRATCH_START_OFFSET = 12.0f;
 constexpr float SCRATCH_FORWARD_RANGE = 62.0f;
 constexpr float SCRATCH_HALF_WIDTH = 34.0f;
@@ -90,6 +92,27 @@ bool isInsideSeedBite(
     const float halfExtent = tileSize * 3.5f;
     return std::abs(targetCenterX - effect.originX) <= halfExtent + targetRadius &&
            std::abs(targetCenterY - effect.originY) <= halfExtent + targetRadius;
+}
+
+bool isInsidePoisonFlash(
+    float targetCenterX,
+    float targetCenterY,
+    float targetRadius,
+    const ActiveAreaEffect& effect
+) {
+    const float forwardX = std::cos(effect.angle);
+    const float forwardY = std::sin(effect.angle);
+
+    for (int step = 1; step <= POISON_FLASH_TILE_COUNT; step += 1) {
+        const float tileCenterX = effect.originX + forwardX * POISON_FLASH_TILE_SIZE * static_cast<float>(step);
+        const float tileCenterY = effect.originY + forwardY * POISON_FLASH_TILE_SIZE * static_cast<float>(step);
+        if (std::abs(targetCenterX - tileCenterX) <= 32.0f + targetRadius &&
+            std::abs(targetCenterY - tileCenterY) <= 32.0f + targetRadius) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 int scaleDamageForCharacter(const Player& player, int baseDamage) {
@@ -420,6 +443,89 @@ void ProjectileSystem::updateAreaEffects(
         const int scaledBaseDamage = scaleDamageForCharacter(players[effect.ownerId], spell.damage);
         const int tickDamage = std::max(1, scaledBaseDamage / FLAMETHROWER_TICK_COUNT);
         const int tickIntervalMs = std::max(1, spell.effectDurationMs / FLAMETHROWER_TICK_COUNT);
+
+        if (effect.spellId == "poison_flash") {
+            if (effect.ticksApplied == 0) {
+                for (auto& [targetId, target] : players) {
+                    if (targetId == effect.ownerId || target.hp <= 0) {
+                        continue;
+                    }
+
+                    const float targetCenterX = target.x + target.colliderWidth / 2.0f;
+                    const float targetCenterY = target.y + target.colliderHeight / 2.0f;
+                    const float targetRadius = std::max(target.colliderWidth, target.colliderHeight) / 2.0f;
+                    if (!isInsidePoisonFlash(targetCenterX, targetCenterY, targetRadius, effect)) {
+                        continue;
+                    }
+
+                    PlayerDamageResult damageResult = CombatSystem::applyAttackToPlayer(target, &players[effect.ownerId], scaledBaseDamage, true);
+                    BurnSystem::tryApplyToPlayer(target, players[effect.ownerId], effect.spellId, activeBurnStatuses, worldTick, nowMs, network);
+
+                    ServerDiagnostics::logCombatEvent("poisonFlashHitPlayer", {
+                        {"tick", worldTick},
+                        {"effectId", effect.id},
+                        {"targetId", targetId},
+                        {"ownerId", effect.ownerId},
+                        {"damage", scaledBaseDamage},
+                        {"killed", damageResult.killed}
+                    });
+
+                    if (network) {
+                        network->broadcast(json({
+                            {"event", "playerDamaged"},
+                            {"tick", worldTick},
+                            {"id", targetId},
+                            {"hp", damageResult.newHp}
+                        }).dump());
+                        if (damageResult.killed) {
+                            network->broadcast(json({
+                                {"event", "playerScored"},
+                                {"tick", worldTick},
+                                {"victimId", targetId},
+                                {"attackerId", effect.ownerId},
+                                {"targetDeaths", damageResult.victimDeaths},
+                                {"attackerKills", damageResult.attackerKills}
+                            }).dump());
+                        }
+                    }
+                }
+
+                for (auto& [dummyId, dummy] : dummies) {
+                    if (dummy.hp <= 0) {
+                        continue;
+                    }
+
+                    if (!isInsidePoisonFlash(dummy.x, dummy.y, worldDefinition.dummyColliderSize / 2.0f, effect)) {
+                        continue;
+                    }
+
+                    DummyDamageResult damageResult = CombatSystem::applyDamageToDummy(dummy, scaledBaseDamage, nowMs);
+                    BurnSystem::tryApplyToDummy(dummy, players[effect.ownerId], effect.spellId, activeBurnStatuses, worldTick, nowMs, network);
+
+                    ServerDiagnostics::logCombatEvent("poisonFlashHitDummy", {
+                        {"tick", worldTick},
+                        {"effectId", effect.id},
+                        {"dummyId", dummyId},
+                        {"ownerId", effect.ownerId},
+                        {"damage", scaledBaseDamage},
+                        {"killed", damageResult.killed}
+                    });
+
+                    if (network) {
+                        network->broadcast(json({
+                            {"event", "dummyDamaged"},
+                            {"tick", worldTick},
+                            {"id", dummyId},
+                            {"hp", damageResult.newHp}
+                        }).dump());
+                    }
+                }
+
+                effect.ticksApplied = 1;
+            }
+
+            continue;
+        }
 
         if (effect.spellId == "seed_bite") {
             while (effect.ticksApplied < SEED_BITE_TICK_COUNT &&

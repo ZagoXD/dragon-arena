@@ -1,0 +1,11 @@
+{
+  "id": "poison_flash",
+  "name": "Poison Flash",
+  "damage": 180,
+  "range": 320.0,
+  "castTimeMs": 0,
+  "cooldownMs": 4000,
+  "projectileSpeed": 0.0,
+  "projectileRadius": 32.0,
+  "effectDurationMs": 800
+}

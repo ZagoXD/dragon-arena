@@ -43,7 +43,7 @@ void testGameConfigValidation() {
 
     json summary = GameConfig::buildContentSummary();
     assert(summary["characters"]["count"] == 2);
-    assert(summary["spells"]["count"] == 6);
+    assert(summary["spells"]["count"] == 7);
     assert(summary["passives"]["count"] == 2);
 }
 

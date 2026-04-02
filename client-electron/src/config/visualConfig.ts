@@ -2,6 +2,7 @@ import charizardSrc from '../assets/characters/charizard.png'
 import hydraSrc from '../assets/characters/hydra.png'
 import emberSrc from '../assets/spells/ember.png'
 import scratchSrc from '../assets/spells/scratch.png'
+import poisonFlashSrc from '../assets/spells/poison_flash.png'
 import dragonDiveSrc from '../assets/spells/dragon_dive.png'
 import flamethrowerSrc from '../assets/spells/flamethrower.png'
 import fireBlastSrc from '../assets/spells/fire_blast.png'
@@ -23,8 +24,8 @@ export interface VisualSpellConfig {
   frameHeight?: number
   frameCount?: number
   aimingWidth?: number
-  aimingStyle?: 'arrow' | 'beam'
-  effectKind?: 'projectile' | 'beam' | 'tile_burst' | 'melee_slash'
+  aimingStyle?: 'arrow' | 'beam' | 'beam_constant'
+  effectKind?: 'projectile' | 'beam' | 'tile_burst' | 'melee_slash' | 'line_burst'
   renderMode?: 'directional_sheet' | 'single_rotated'
   iconMode?: 'sheet_focus' | 'single_fit'
   rotationOffsetRad?: number
@@ -85,6 +86,20 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
     effectKind: 'melee_slash',
     renderMode: 'single_rotated',
     iconFrameIndex: 2,
+  },
+  poison_flash: {
+    id: 'poison_flash',
+    description: 'Um clarão venenoso dispara à frente do dragão, ferindo os inimigos e podendo envenená-los.',
+    imageSrc: poisonFlashSrc,
+    frameSize: 64,
+    frameWidth: 64,
+    frameHeight: 64,
+    frameCount: 14,
+    aimingWidth: 64,
+    aimingStyle: 'beam_constant',
+    effectKind: 'line_burst',
+    renderMode: 'single_rotated',
+    iconFrameIndex: 5,
   },
   dragon_dive: {
     id: 'dragon_dive',
@@ -195,7 +210,7 @@ export const CHARACTER_VISUALS: Record<string, VisualCharacterConfig> = {
     id: 'hydra',
     name: 'Hydra',
     passiveId: 'poison',
-    skillIds: ['dragon_dive', 'flamethrower', 'seed_bite'],
+    skillIds: ['poison_flash', 'flamethrower', 'seed_bite'],
     imageSrc: hydraSrc,
     frameWidth: 256,
     frameHeight: 256,
