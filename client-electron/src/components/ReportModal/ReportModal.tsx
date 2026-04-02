@@ -15,6 +15,7 @@ interface Props {
   open: boolean
   busy: boolean
   error: string | null
+  info: string | null
   initialNickname?: string
   initialTag?: string
   onClose: () => void
@@ -35,6 +36,7 @@ export function ReportModal({
   open,
   busy,
   error,
+  info,
   initialNickname = '',
   initialTag = '',
   onClose,
@@ -128,7 +130,8 @@ export function ReportModal({
           placeholder={t('report.descriptionPlaceholder')}
         />
 
-        {error && <div className="report-modal__error">{error}</div>}
+        {error && <div className="report-modal__feedback report-modal__feedback--error">{error}</div>}
+        {info && <div className="report-modal__feedback report-modal__feedback--info">{info}</div>}
 
         <div className="report-modal__actions">
           <button type="button" className="report-modal__ghost" onClick={onClose}>

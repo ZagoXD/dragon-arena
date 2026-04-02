@@ -301,6 +301,16 @@ void testWorldSetupAndProtocolPayloads() {
     assert(rejected["event"] == "actionRejected");
     assert(rejected["requestEvent"] == "shoot");
     assert(rejected["skillId"] == "ember");
+
+    json reportRejected = ProtocolPayloadBuilder::buildActionRejected(
+        "submitPlayerReport",
+        "report_target_not_found",
+        "Target user was not found",
+        42
+    );
+    assert(reportRejected["event"] == "actionRejected");
+    assert(reportRejected["requestEvent"] == "submitPlayerReport");
+    assert(reportRejected["code"] == "report_target_not_found");
 }
 }
 

@@ -282,7 +282,7 @@ export function useArenaController({
     if (!character) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!inputEnabled && e.key !== 'Escape') {
+      if (!inputEnabled) {
         return
       }
       if (e.key === 'Tab') {

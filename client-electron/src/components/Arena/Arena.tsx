@@ -14,6 +14,7 @@ interface Props {
   playerUserId: number | null
   playerName: string
   authIntent: ArenaAuthIntent | null
+  reportModalOpen: boolean
   characterId?: string
   onAuthenticated: (payload: AuthSuccessPayload) => void
   onAuthFailure: (message: string) => void
@@ -28,6 +29,7 @@ export function Arena({
   playerUserId,
   playerName,
   authIntent,
+  reportModalOpen,
   characterId = 'charizard',
   onAuthenticated,
   onAuthFailure,
@@ -144,7 +146,7 @@ export function Arena({
   const displayPlayerName = bootstrap?.player?.name || playerName
 
   const controller = useArenaController({
-    inputEnabled: pixiReady && Boolean(bootstrap && character && mapData) && !chatInputActive,
+    inputEnabled: pixiReady && Boolean(bootstrap && character && mapData) && !chatInputActive && !reportModalOpen,
     character,
     speed: movementSpeed || character?.movementSpeed || 0,
     fallbackVisual,
@@ -183,7 +185,7 @@ export function Arena({
         return
       }
 
-      if (chatInputActive) {
+      if (chatInputActive || reportModalOpen) {
         return
       }
 
@@ -199,7 +201,7 @@ export function Arena({
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [chatInputActive, controller.showScoreboard])
+  }, [chatInputActive, controller.showScoreboard, reportModalOpen])
 
   const arenaReady = Boolean(bootstrap && character && mapData && pixiReady)
 

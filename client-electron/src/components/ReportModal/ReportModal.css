@@ -101,12 +101,20 @@
   resize: vertical;
 }
 
-.report-modal__error {
+.report-modal__feedback {
   padding: 12px 14px;
   border-radius: 14px;
+  font-weight: 700;
+}
+
+.report-modal__feedback--error {
   background: rgba(255, 98, 98, 0.14);
   color: #ffb4b4;
-  font-weight: 700;
+}
+
+.report-modal__feedback--info {
+  background: rgba(120, 255, 174, 0.14);
+  color: #c9ffd7;
 }
 
 .report-modal__actions {

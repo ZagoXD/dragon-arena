@@ -122,12 +122,14 @@ function App() {
   const [reportModalOpen, setReportModalOpen] = useState(false)
   const [reportBusy, setReportBusy] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
+  const [reportInfo, setReportInfo] = useState<string | null>(null)
   const [reportInitialTarget, setReportInitialTarget] = useState<ReportTargetDraft | null>(null)
   const attemptedStoredSessionRef = useRef(false)
   const lobbySocketRef = useRef<WebSocket | null>(null)
   const lastIncomingRequestIdsRef = useRef<number[]>([])
   const lastAdminLookupRef = useRef<{ nickname: string, tag: string } | null>(null)
   const pendingAcceptedReportIdRef = useRef<number | null>(null)
+  const reportCloseTimeoutRef = useRef<number | null>(null)
   const openPrivateChatFriendIdsRef = useRef<number[]>([])
   const privateChatMinimizedByFriendIdRef = useRef<Record<number, boolean>>({})
   const currentLanguage = (supportedLanguages.includes(i18n.language as AppLanguage)
@@ -414,6 +416,7 @@ function App() {
     setReportModalOpen(false)
     setReportBusy(false)
     setReportError(null)
+    setReportInfo(null)
     setReportInitialTarget(null)
     pendingAcceptedReportIdRef.current = null
     lastIncomingRequestIdsRef.current = []
@@ -699,21 +702,28 @@ function App() {
   }, [])
 
   const handleOpenReportModal = useCallback((target?: Partial<ReportTargetDraft>) => {
+    if (reportCloseTimeoutRef.current !== null) {
+      window.clearTimeout(reportCloseTimeoutRef.current)
+      reportCloseTimeoutRef.current = null
+    }
     setReportInitialTarget(target?.nickname && target?.tag
       ? { nickname: target.nickname, tag: target.tag }
       : null)
     setReportError(null)
+    setReportInfo(null)
     setReportModalOpen(true)
   }, [])
 
   const handleSubmitReport = useCallback((nickname: string, tag: string, reasonCodes: ReportReasonCode[], description: string) => {
     if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
       setReportError(i18n.t('friends.connectionUnavailable'))
+      setReportInfo(null)
       return
     }
 
     setReportBusy(true)
     setReportError(null)
+    setReportInfo(null)
     lobbySocketRef.current.send(JSON.stringify({
       event: 'submitPlayerReport',
       nickname,
@@ -756,6 +766,10 @@ function App() {
   }, [])
 
   const handleLogout = useCallback(() => {
+    if (reportCloseTimeoutRef.current !== null) {
+      window.clearTimeout(reportCloseTimeoutRef.current)
+      reportCloseTimeoutRef.current = null
+    }
     clearPersistedSession()
     setSettingsOpen(false)
     setPlayerUserId(null)
@@ -788,10 +802,11 @@ function App() {
     setAdminActionBusy(false)
     setAdminFeedbackError(null)
     setAdminFeedbackInfo(null)
-    setReportModalOpen(false)
-    setReportBusy(false)
-    setReportError(null)
-    setReportInitialTarget(null)
+      setReportModalOpen(false)
+      setReportBusy(false)
+      setReportError(null)
+      setReportInfo(null)
+      setReportInitialTarget(null)
     pendingAcceptedReportIdRef.current = null
     lastAdminLookupRef.current = null
     lastIncomingRequestIdsRef.current = []
@@ -1173,8 +1188,16 @@ function App() {
       if (data.event === 'playerReportSubmitted') {
         setReportBusy(false)
         setReportError(null)
-        setReportModalOpen(false)
-        setReportInitialTarget(null)
+        setReportInfo(i18n.t('report.success'))
+        if (reportCloseTimeoutRef.current !== null) {
+          window.clearTimeout(reportCloseTimeoutRef.current)
+        }
+        reportCloseTimeoutRef.current = window.setTimeout(() => {
+          setReportModalOpen(false)
+          setReportInfo(null)
+          setReportInitialTarget(null)
+          reportCloseTimeoutRef.current = null
+        }, 1400)
         return
       }
 
@@ -1219,6 +1242,7 @@ function App() {
         const translatedMessage = translateBackendError(i18n.t.bind(i18n), data.code, data.reason)
         setFriendSendBusy(false)
         setReportBusy(false)
+        setReportInfo(null)
         setPrivateChatSendBusyByFriendId({})
         setFriendActionBusyRequestId(null)
         setFriendSendInfo(null)
@@ -1253,6 +1277,10 @@ function App() {
 
     return () => {
       disposed = true
+      if (reportCloseTimeoutRef.current !== null) {
+        window.clearTimeout(reportCloseTimeoutRef.current)
+        reportCloseTimeoutRef.current = null
+      }
       stopInterval()
       if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
         ws.close()
@@ -1459,6 +1487,7 @@ function App() {
                   playerUserId={playerUserId}
                   playerName={playerName}
                   authIntent={authIntent}
+                  reportModalOpen={reportModalOpen}
                   characterId={characterId}
                   onAuthenticated={handleAuthenticated}
                   onAuthFailure={handleAuthFailure}
@@ -1488,11 +1517,17 @@ function App() {
           open={reportModalOpen}
           busy={reportBusy}
           error={reportError}
+          info={reportInfo}
           initialNickname={reportInitialTarget?.nickname}
           initialTag={reportInitialTarget?.tag}
           onClose={() => {
+            if (reportCloseTimeoutRef.current !== null) {
+              window.clearTimeout(reportCloseTimeoutRef.current)
+              reportCloseTimeoutRef.current = null
+            }
             setReportModalOpen(false)
             setReportError(null)
+            setReportInfo(null)
             setReportInitialTarget(null)
           }}
           onSubmit={handleSubmitReport}

@@ -68,6 +68,8 @@ Hoje a persistência cobre:
 - amizades em `friendships`
 - mensagens privadas em `private_messages`
 - mensagens da arena em `arena_messages`
+- denúncias em `player_reports`
+- banimentos e desbanimentos em `user_bans`
 - pedidos pendentes recebidos e enviados
 - presença online/offline via socket autenticado
 
@@ -92,6 +94,8 @@ As tabelas sociais atuais são:
 - `public.friendships`
 - `public.private_messages`
 - `public.arena_messages`
+- `public.player_reports`
+- `public.user_bans`
 
 O usuário `dragon_app` precisa de `SELECT/INSERT/UPDATE/DELETE` nessas tabelas e `USAGE/SELECT` nas sequences correspondentes.
 
@@ -114,6 +118,60 @@ Arquivos principais:
 - [FriendshipRepository.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/social/FriendshipRepository.cpp)
 - [FriendListPanel.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/FriendListPanel/FriendListPanel.tsx)
 - [App.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/App.tsx)
+
+## Moderação e Reports
+
+O projeto possui dois fluxos administrativos integrados ao backend:
+
+- penalizações (`ban` / `unban`)
+- denúncias de jogadores (`reports`)
+
+### Reports para jogadores
+
+Qualquer jogador autenticado pode abrir o modal `Reportar`:
+
+- pelo botão `Reportar` no menu superior
+- pelo comando `/report` dentro da arena
+
+O modal permite:
+
+- informar `nickname + tag`
+- selecionar de `1` a `3` motivos
+- escrever uma descrição
+- validar no envio se o jogador alvo existe
+- receber feedback visual de sucesso ou erro
+
+### Painel admin
+
+Admins possuem uma tela `Admin` com duas áreas principais:
+
+- `Usuários`
+- `Denúncias`
+
+Hoje a aba `Denúncias` cobre:
+
+- fila de reports abertos
+- detalhes da denúncia
+- log do chat da arena da última `1 hora` do denunciado
+- `Recusar denúncia`
+- `Aceitar e banir`
+
+Hoje a aba `Usuários` cobre:
+
+- busca por `nickname + tag`
+- dados de conta e perfil
+- amizade direta forçada
+- `Banir`
+- `Desbanir`
+
+Arquivos principais:
+
+- [ModerationRepository.h](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/moderation/ModerationRepository.h)
+- [ModerationRepository.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/moderation/ModerationRepository.cpp)
+- [ReportRepository.h](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/moderation/ReportRepository.h)
+- [ReportRepository.cpp](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/moderation/ReportRepository.cpp)
+- [AdminScreen.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/AdminScreen/AdminScreen.tsx)
+- [ReportModal.tsx](C:/Users/gugu_/Documents/github/dragon-arena/client-electron/src/components/ReportModal/ReportModal.tsx)
 
 ## Sistema de Chat
 
@@ -149,6 +207,9 @@ Comandos atuais:
 - `/add Nick#TAG`
 - `/w Nick#TAG mensagem`
 - `/r mensagem`
+- `/report`
+
+Ao abrir o chat da arena ou o modal de `report`, movimento e skills do personagem ficam bloqueados até o fechamento da interface.
 
 Arquivos principais:
 
@@ -163,8 +224,13 @@ Hoje o cliente autenticado possui:
 - `Início`
 - `Perfil`
 - `Coleção`
+- `Reportar`
 - `Seleção de personagem`
 - `Arena`
+
+Admins também possuem:
+
+- `Admin`
 
 O menu superior com `Início`, `Perfil`, `Coleção` e configurações fica disponível nas telas autenticadas fora da arena.
 
@@ -332,6 +398,9 @@ Hoje ele valida, entre outros pontos:
 - auto attack e lifecycle de projéteis
 - skill com cooldown e dash
 - respawn e payloads de protocolo
+- payloads de rejeição também usados pelos fluxos sociais e de report
+
+O suporte de testes/stubs também acompanha os repositórios sociais e de moderação usados pelo `NetworkHandler`, incluindo `ban` e `report`.
 
 ## Estado Atual
 
@@ -342,6 +411,8 @@ Hoje o projeto está consolidado neste modelo:
 - roster com `Charizard` e `Hydra`
 - sistema social completo
 - chat privado e chat da arena
+- reports de jogador
+- moderação com banimento e desbanimento
 - persistência social em PostgreSQL
 - arena autoritativa com status, escudo e HUD
 

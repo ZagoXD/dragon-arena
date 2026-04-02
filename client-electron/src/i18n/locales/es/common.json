@@ -151,6 +151,7 @@
     "reasonLabel": "Motivos de la denuncia",
     "reasonHint": "{{count}} de {{max}} motivos seleccionados",
     "descriptionPlaceholder": "Explica con detalle lo que ocurrió...",
+    "success": "Denuncia creada con éxito.",
     "cancel": "Cancelar",
     "submit": "Enviar denuncia",
     "sending": "Enviando...",
