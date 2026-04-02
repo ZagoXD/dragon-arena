@@ -166,10 +166,58 @@
     "menu": {
       "home": "Início",
       "profile": "Perfil",
-      "collection": "Coleção"
+      "collection": "Coleção",
+      "admin": "Admin"
     },
     "logout": "Logout",
     "quit": "Sair do jogo"
+  },
+  "admin": {
+    "eyebrow": "Administracao",
+    "title": "Central de moderacao",
+    "subtitle": "Pesquise um jogador por nickname e tag, revise dados da conta e aplique acoes administrativas.",
+    "search": "Buscar usuario",
+    "searching": "Buscando...",
+    "resultLabel": "Resultado da busca",
+    "username": "Username",
+    "email": "Email",
+    "coins": "Coins",
+    "role": "Cargo",
+    "moderationStatus": "Status da moderacao",
+    "noActiveBan": "Este usuario nao possui penalidade ativa.",
+    "banActivePermanent": "Banimento permanente ativo",
+    "banActiveUntil": "Banimento ativo ate {{date}}",
+    "banReasonLabel": "Motivo: {{reason}}",
+    "banByLabel": "Aplicado por: {{admin}}",
+    "alreadyFriends": "Já são amigos",
+    "forceAddFriend": "Adicionar amigo diretamente",
+    "banAction": "Banir",
+    "unbanAction": "Desbanir",
+    "banModalEyebrow": "Aplicar penalizacao",
+    "banModalTitle": "Banir jogador",
+    "banModalTarget": "Alvo: {{name}}",
+    "reasonPlaceholder": "Descreva o motivo da penalizacao...",
+    "cancel": "Cancelar",
+    "confirmBan": "Confirmar banimento",
+    "unbanModalEyebrow": "Revogar penalizacao",
+    "unbanModalTitle": "Desbanir jogador",
+    "unbanModalTarget": "Remover o banimento ativo de {{name}}?",
+    "confirmUnban": "Confirmar desbanimento",
+    "banDurations": {
+      "oneDay": "1 dia",
+      "twoDays": "2 dias",
+      "oneWeek": "1 semana",
+      "fifteenDays": "15 dias",
+      "oneMonth": "1 mes",
+      "threeMonths": "3 meses",
+      "oneYear": "1 ano",
+      "forever": "Para sempre"
+    },
+    "success": {
+      "force_add_friend": "Amizade adicionada com sucesso.",
+      "ban_user": "Penalizacao aplicada com sucesso.",
+      "unban_user": "Penalizacao removida com sucesso."
+    }
   },
   "select": {
     "title": "Escolha sua lenda",
@@ -242,7 +290,10 @@
       "password_hash_failed": "Não foi possível processar a senha.",
       "password_verification_failed": "Não foi possível validar a senha.",
       "database_error": "Ocorreu um erro ao acessar o banco de dados.",
-      "auth_error": "Falha na autenticação."
+      "auth_error": "Falha na autenticação.",
+      "user_banned": "Você foi punido e não pode acessar o jogo no momento.",
+      "user_banned_until": "Você foi punido até {{date}}. Motivo: {{reason}}",
+      "user_banned_permanent": "Você foi punido permanentemente. Motivo: {{reason}}"
     },
     "generic": {
       "not_authenticated": "Você precisa se autenticar primeiro.",
@@ -274,6 +325,14 @@
       "chat_message_too_long": "A mensagem ultrapassa o tamanho máximo permitido.",
       "chat_rate_limited": "Você está enviando mensagens rápido demais.",
       "chat_reply_target_missing": "Não há alvo recente para responder."
+    },
+    "moderation": {
+      "admin_forbidden": "Você não tem permissão para usar esta ação administrativa.",
+      "admin_target_not_found": "O usuário selecionado não foi encontrado.",
+      "admin_self_ban_forbidden": "Você não pode banir a própria conta.",
+      "admin_ban_reason_required": "Um motivo é obrigatório para aplicar a penalização.",
+      "admin_ban_already_active": "Este usuário já possui um banimento ativo.",
+      "admin_ban_not_found": "Nenhum banimento ativo foi encontrado para este usuário."
     }
   }
 }

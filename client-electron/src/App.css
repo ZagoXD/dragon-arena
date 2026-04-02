@@ -148,6 +148,11 @@
   animation-duration: 220ms;
 }
 
+.app-scene--admin {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 @keyframes appSceneEnter {
   from {
     opacity: 0;

@@ -144,6 +144,44 @@ std::optional<UserRecord> UserRepository::findByEmailOrUsername(
     return mapUser(result);
 }
 
+std::optional<UserLookupWithProfile> UserRepository::findWithProfileByNicknameAndTag(
+    const std::string& nickname,
+    const std::string& tag,
+    std::string* error
+) const {
+    DatabaseQueryResult result = database.execute(
+        "SELECT u.id, u.email, u.username, u.nickname, u.tag, u.role, u.password_hash, u.created_at, "
+        " p.user_id, p.level, p.xp, p.coins "
+        "FROM users u "
+        "LEFT JOIN player_profiles p ON p.user_id = u.id "
+        "WHERE u.nickname = $1 AND u.tag = $2 "
+        "LIMIT 1",
+        {nickname, tag}
+    );
+
+    if (!result.ok) {
+        if (error != nullptr) {
+            *error = result.error;
+        }
+        return std::nullopt;
+    }
+
+    std::optional<UserRecord> user = mapUser(result);
+    if (!user.has_value()) {
+        return std::nullopt;
+    }
+
+    UserLookupWithProfile output;
+    output.user = *user;
+    if (std::optional<PlayerProfileRecord> profile = mapProfile(result); profile.has_value()) {
+        output.profile = *profile;
+    } else {
+        output.profile.userId = user->id;
+    }
+
+    return output;
+}
+
 std::optional<PlayerProfileRecord> UserRepository::findProfileByUserId(
     long long userId,
     std::string* error

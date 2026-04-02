@@ -166,10 +166,58 @@
     "menu": {
       "home": "Inicio",
       "profile": "Perfil",
-      "collection": "Coleccion"
+      "collection": "Coleccion",
+      "admin": "Admin"
     },
     "logout": "Logout",
     "quit": "Salir del juego"
+  },
+  "admin": {
+    "eyebrow": "Administracion",
+    "title": "Centro de moderacion",
+    "subtitle": "Busca un jugador por nickname y tag, revisa datos de la cuenta y aplica acciones administrativas.",
+    "search": "Buscar usuario",
+    "searching": "Buscando...",
+    "resultLabel": "Resultado de la busqueda",
+    "username": "Username",
+    "email": "Email",
+    "coins": "Coins",
+    "role": "Rol",
+    "moderationStatus": "Estado de moderacion",
+    "noActiveBan": "Este usuario no tiene penalizacion activa.",
+    "banActivePermanent": "Ban permanente activo",
+    "banActiveUntil": "Ban activo hasta {{date}}",
+    "banReasonLabel": "Motivo: {{reason}}",
+    "banByLabel": "Aplicado por: {{admin}}",
+    "alreadyFriends": "Ya son amigos",
+    "forceAddFriend": "Agregar amigo directamente",
+    "banAction": "Banear",
+    "unbanAction": "Desbanear",
+    "banModalEyebrow": "Aplicar penalizacion",
+    "banModalTitle": "Banear jugador",
+    "banModalTarget": "Objetivo: {{name}}",
+    "reasonPlaceholder": "Describe el motivo de la penalizacion...",
+    "cancel": "Cancelar",
+    "confirmBan": "Confirmar ban",
+    "unbanModalEyebrow": "Revocar penalizacion",
+    "unbanModalTitle": "Desbanear jugador",
+    "unbanModalTarget": "Eliminar el ban activo de {{name}}?",
+    "confirmUnban": "Confirmar desban",
+    "banDurations": {
+      "oneDay": "1 dia",
+      "twoDays": "2 dias",
+      "oneWeek": "1 semana",
+      "fifteenDays": "15 dias",
+      "oneMonth": "1 mes",
+      "threeMonths": "3 meses",
+      "oneYear": "1 ano",
+      "forever": "Para siempre"
+    },
+    "success": {
+      "force_add_friend": "Amistad agregada con exito.",
+      "ban_user": "Penalizacion aplicada con exito.",
+      "unban_user": "Penalizacion removida con exito."
+    }
   },
   "select": {
     "title": "Elige tu leyenda",
@@ -242,7 +290,10 @@
       "password_hash_failed": "No fue posible procesar la contraseña.",
       "password_verification_failed": "No fue posible validar la contraseña.",
       "database_error": "Ocurrió un error al acceder a la base de datos.",
-      "auth_error": "Falló la autenticación."
+      "auth_error": "Falló la autenticación.",
+      "user_banned": "Has sido penalizado y no puedes acceder al juego en este momento.",
+      "user_banned_until": "Has sido penalizado hasta {{date}}. Motivo: {{reason}}",
+      "user_banned_permanent": "Has sido penalizado permanentemente. Motivo: {{reason}}"
     },
     "generic": {
       "not_authenticated": "Debes autenticarte primero.",
@@ -274,6 +325,14 @@
       "chat_message_too_long": "El mensaje supera el tamaño máximo permitido.",
       "chat_rate_limited": "Estás enviando mensajes demasiado rápido.",
       "chat_reply_target_missing": "No hay un objetivo reciente para responder."
+    },
+    "moderation": {
+      "admin_forbidden": "No tienes permiso para usar esta accion administrativa.",
+      "admin_target_not_found": "El usuario seleccionado no fue encontrado.",
+      "admin_self_ban_forbidden": "No puedes banear tu propia cuenta.",
+      "admin_ban_reason_required": "Se requiere un motivo para aplicar la penalizacion.",
+      "admin_ban_already_active": "Este usuario ya tiene un ban activo.",
+      "admin_ban_not_found": "No se encontro un ban activo para este usuario."
     }
   }
 }

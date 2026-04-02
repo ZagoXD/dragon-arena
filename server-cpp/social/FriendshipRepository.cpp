@@ -188,6 +188,41 @@ bool FriendshipRepository::createPendingRequest(
     return true;
 }
 
+bool FriendshipRepository::createAcceptedLink(
+    long long requesterId,
+    long long addresseeId,
+    FriendshipLinkRecord* outLink,
+    std::string* error
+) {
+    DatabaseQueryResult result = database.execute(
+        "INSERT INTO friendships (requester_id, addressee_id, status) "
+        "VALUES ($1, $2, 'accepted') "
+        "RETURNING id, requester_id, addressee_id, status",
+        {std::to_string(requesterId), std::to_string(addresseeId)}
+    );
+
+    if (!result.ok) {
+        if (error != nullptr) {
+            *error = result.error;
+        }
+        return false;
+    }
+
+    std::optional<FriendshipLinkRecord> link = mapLink(result);
+    if (!link.has_value()) {
+        if (error != nullptr) {
+            *error = "Accepted friendship insert returned no rows";
+        }
+        return false;
+    }
+
+    if (outLink != nullptr) {
+        *outLink = *link;
+    }
+
+    return true;
+}
+
 bool FriendshipRepository::updateRequestStatus(
     long long requestId,
     const std::string& status,

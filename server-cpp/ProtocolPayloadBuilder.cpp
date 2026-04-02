@@ -176,11 +176,17 @@ json ProtocolPayloadBuilder::buildProfileSync(const AuthenticatedUser& authentic
     };
 }
 
-json ProtocolPayloadBuilder::buildAuthError(const std::string& code, const std::string& reason) {
-    return {
+json ProtocolPayloadBuilder::buildAuthError(const std::string& code, const std::string& reason, const json& extras) {
+    json payload = {
         {"event", "authError"},
         {"code", code},
         {"reason", reason},
         {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
     };
+
+    for (auto it = extras.begin(); it != extras.end(); ++it) {
+        payload[it.key()] = it.value();
+    }
+
+    return payload;
 }

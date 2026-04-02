@@ -29,6 +29,11 @@ struct UserWithProfile {
     PlayerProfileRecord profile;
 };
 
+struct UserLookupWithProfile {
+    UserRecord user;
+    PlayerProfileRecord profile;
+};
+
 struct CreateUserRequest {
     std::string email;
     std::string username;
@@ -53,6 +58,7 @@ public:
     std::optional<UserRecord> findByNickname(const std::string& nickname, std::string* error = nullptr) const;
     std::optional<UserRecord> findByNicknameAndTag(const std::string& nickname, const std::string& tag, std::string* error = nullptr) const;
     std::optional<UserRecord> findByEmailOrUsername(const std::string& value, std::string* error = nullptr) const;
+    std::optional<UserLookupWithProfile> findWithProfileByNicknameAndTag(const std::string& nickname, const std::string& tag, std::string* error = nullptr) const;
     std::optional<PlayerProfileRecord> findProfileByUserId(long long userId, std::string* error = nullptr) const;
     std::vector<std::string> listTagsByNickname(const std::string& nickname, std::string* error = nullptr) const;
 

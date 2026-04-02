@@ -5,11 +5,12 @@ NetworkHandler::NetworkHandler(GameWorld& world, int port, Database& database)
       port(port),
       database(database),
       userRepository(database),
+      moderationRepository(database),
       friendshipRepository(database),
       privateChatRepository(database),
       arenaChatRepository(database),
-      authService(userRepository),
-      sessionService(userRepository) {}
+      authService(userRepository, moderationRepository),
+      sessionService(userRepository, moderationRepository) {}
 
 void NetworkHandler::start() {}
 

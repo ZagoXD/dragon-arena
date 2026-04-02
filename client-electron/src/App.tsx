@@ -8,6 +8,7 @@ import { PrivateChatPanel } from './components/PrivateChatPanel/PrivateChatPanel
 import { SelectScreen } from './components/SelectScreen/SelectScreen'
 import { ProfileScreen } from './components/ProfileScreen/ProfileScreen'
 import { CollectionScreen } from './components/CollectionScreen/CollectionScreen'
+import { AdminLookupResult, AdminScreen } from './components/AdminScreen/AdminScreen'
 import { Arena } from './components/Arena/Arena'
 import { LoadingScreen } from './components/LoadingScreen/LoadingScreen'
 import { SplashScreen } from './components/SplashScreen/SplashScreen'
@@ -19,7 +20,7 @@ import { translateBackendError } from './i18n/translateBackendError'
 import { AuthoritativeCharacterDefinition, AuthoritativePassiveDefinition, AuthoritativeSpellDefinition } from './types/gameplay'
 import './App.css'
 
-type Screen = 'splash' | 'name' | 'loading' | 'home' | 'profile' | 'collection' | 'select' | 'arena'
+type Screen = 'splash' | 'name' | 'loading' | 'home' | 'profile' | 'collection' | 'admin' | 'select' | 'arena'
 const AUTH_SESSION_STORAGE_KEY = 'dragon-arena-auth-session'
 const SHELL_SETTINGS_STORAGE_KEY = 'dragon-arena-shell-settings'
 const MAX_OPEN_PRIVATE_CHATS = 4
@@ -75,6 +76,7 @@ function App() {
   const [playerName, setPlayerName] = useState('')
   const [playerTag, setPlayerTag] = useState('')
   const [playerCoins, setPlayerCoins] = useState(0)
+  const [playerRole, setPlayerRole] = useState('player')
   const [sessionExpiresAtMs, setSessionExpiresAtMs] = useState(0)
   const [shouldPersistSession, setShouldPersistSession] = useState(false)
   const [authIntent, setAuthIntent] = useState<ArenaAuthIntent | null>(null)
@@ -104,25 +106,51 @@ function App() {
   const [friendSendError, setFriendSendError] = useState<string | null>(null)
   const [friendSendInfo, setFriendSendInfo] = useState<string | null>(null)
   const [friendActionBusyRequestId, setFriendActionBusyRequestId] = useState<number | null>(null)
+  const [adminLookupResult, setAdminLookupResult] = useState<AdminLookupResult | null>(null)
+  const [adminLookupBusy, setAdminLookupBusy] = useState(false)
+  const [adminActionBusy, setAdminActionBusy] = useState(false)
+  const [adminFeedbackError, setAdminFeedbackError] = useState<string | null>(null)
+  const [adminFeedbackInfo, setAdminFeedbackInfo] = useState<string | null>(null)
   const attemptedStoredSessionRef = useRef(false)
   const lobbySocketRef = useRef<WebSocket | null>(null)
   const lastIncomingRequestIdsRef = useRef<number[]>([])
+  const lastAdminLookupRef = useRef<{ nickname: string, tag: string } | null>(null)
   const openPrivateChatFriendIdsRef = useRef<number[]>([])
   const privateChatMinimizedByFriendIdRef = useRef<Record<number, boolean>>({})
   const currentLanguage = (supportedLanguages.includes(i18n.language as AppLanguage)
     ? i18n.language
     : 'pt-BR') as AppLanguage
   const showTitleBar = shellSettings.displayMode !== 'fullscreen'
-  const isAuthenticatedScreen = ['home', 'profile', 'collection', 'select', 'arena'].includes(screen)
-  const isLobbyScreen = ['home', 'profile', 'collection', 'select'].includes(screen)
+  const isAuthenticatedScreen = ['home', 'profile', 'collection', 'admin', 'select', 'arena'].includes(screen)
+  const isLobbyScreen = ['home', 'profile', 'collection', 'admin', 'select'].includes(screen)
   const showSettingsButton = isLobbyScreen
-  const activeMenuView = screen === 'profile' || screen === 'collection' ? screen : 'home'
+  const activeMenuView = screen === 'profile' || screen === 'collection' || screen === 'admin' ? screen : 'home'
+
+  const formatAuthErrorMessage = useCallback((payload: { code?: string, reason?: string, isPermanent?: boolean, banReason?: string, bannedUntilMs?: number }) => {
+    if (payload.code === 'user_banned') {
+      const reason = payload.banReason || payload.reason || '-'
+      if (payload.isPermanent) {
+        return i18n.t('errors.auth.user_banned_permanent', { reason })
+      }
+
+      if (typeof payload.bannedUntilMs === 'number' && payload.bannedUntilMs > 0) {
+        const formattedDate = new Intl.DateTimeFormat(i18n.language, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }).format(payload.bannedUntilMs)
+        return i18n.t('errors.auth.user_banned_until', { reason, date: formattedDate })
+      }
+    }
+
+    return translateBackendError(i18n.t.bind(i18n), payload.code, payload.reason)
+  }, [])
 
   const applyAccountSnapshot = useCallback((payload: Pick<AuthSuccessPayload, 'user' | 'profile'>) => {
     setPlayerUserId(payload.user.id)
     setPlayerName(payload.user.nickname || payload.user.username)
     setPlayerTag(payload.user.tag || '')
     setPlayerCoins(payload.profile.coins ?? 0)
+    setPlayerRole(payload.user.role || 'player')
     setAuthIntent(current => {
       if (current?.mode !== 'session') {
         return current
@@ -261,7 +289,7 @@ function App() {
         if (data.event === 'authError') {
           cleanup()
           ws.close()
-          reject(new Error(translateBackendError(i18n.t.bind(i18n), data.code, data.reason)))
+          reject(new Error(formatAuthErrorMessage(data)))
         }
       }
 
@@ -275,7 +303,7 @@ function App() {
         cleanup()
       }
     })
-  }, [serverUrl])
+  }, [formatAuthErrorMessage, serverUrl])
 
   const handleNameEnter = useCallback(async (nextAuthIntent: ArenaAuthIntent) => {
     setAuthError(null)
@@ -417,6 +445,13 @@ function App() {
     setScreen('collection')
   }, [])
 
+  const handleOpenAdmin = useCallback(() => {
+    if (playerRole !== 'admin') {
+      return
+    }
+    setScreen('admin')
+  }, [playerRole])
+
   const handleToggleFriendPanel = useCallback(() => {
     setFriendPanelExpanded(current => {
       const next = !current
@@ -492,8 +527,14 @@ function App() {
   }, [])
 
   const handleSendFriendRequest = useCallback((nickname: string, tag: string) => {
-    if (!nickname || !tag || !lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+    if (!nickname || !tag) {
       setFriendSendError(i18n.t('friends.invalidRequest'))
+      setFriendSendInfo(null)
+      return
+    }
+
+    if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setFriendSendError(i18n.t('friends.connectionUnavailable'))
       setFriendSendInfo(null)
       return
     }
@@ -557,6 +598,76 @@ function App() {
     }))
   }, [])
 
+  const handleAdminSearch = useCallback((nickname: string, tag: string) => {
+    if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setAdminFeedbackError(i18n.t('friends.connectionUnavailable'))
+      setAdminFeedbackInfo(null)
+      return
+    }
+
+    setAdminLookupBusy(true)
+    setAdminActionBusy(false)
+    setAdminFeedbackError(null)
+    setAdminFeedbackInfo(null)
+    lastAdminLookupRef.current = { nickname, tag }
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'adminLookupUser',
+      nickname,
+      tag,
+    }))
+  }, [])
+
+  const handleAdminForceAddFriend = useCallback((targetUserId: number) => {
+    if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setAdminFeedbackError(i18n.t('friends.connectionUnavailable'))
+      setAdminFeedbackInfo(null)
+      return
+    }
+
+    setAdminActionBusy(true)
+    setAdminFeedbackError(null)
+    setAdminFeedbackInfo(null)
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'adminForceAddFriend',
+      targetUserId,
+    }))
+  }, [])
+
+  const handleAdminBanUser = useCallback((targetUserId: number, reason: string, durationMs: number | null, isPermanent: boolean) => {
+    if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setAdminFeedbackError(i18n.t('friends.connectionUnavailable'))
+      setAdminFeedbackInfo(null)
+      return
+    }
+
+    setAdminActionBusy(true)
+    setAdminFeedbackError(null)
+    setAdminFeedbackInfo(null)
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'adminBanUser',
+      targetUserId,
+      reason,
+      durationMs,
+      isPermanent,
+    }))
+  }, [])
+
+  const handleAdminUnbanUser = useCallback((targetUserId: number) => {
+    if (!lobbySocketRef.current || lobbySocketRef.current.readyState !== WebSocket.OPEN) {
+      setAdminFeedbackError(i18n.t('friends.connectionUnavailable'))
+      setAdminFeedbackInfo(null)
+      return
+    }
+
+    setAdminActionBusy(true)
+    setAdminFeedbackError(null)
+    setAdminFeedbackInfo(null)
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'adminUnbanUser',
+      targetUserId,
+    }))
+  }, [])
+
   const handleLogout = useCallback(() => {
     clearPersistedSession()
     setSettingsOpen(false)
@@ -583,8 +694,15 @@ function App() {
     setFriendSendError(null)
     setFriendSendInfo(null)
     setFriendActionBusyRequestId(null)
+    setAdminLookupResult(null)
+    setAdminLookupBusy(false)
+    setAdminActionBusy(false)
+    setAdminFeedbackError(null)
+    setAdminFeedbackInfo(null)
+    lastAdminLookupRef.current = null
     lastIncomingRequestIdsRef.current = []
     setPlayerCoins(0)
+    setPlayerRole('player')
     setPlayerName('')
     setPlayerTag('')
     setSelectionLockedUntil(null)
@@ -712,6 +830,7 @@ function App() {
       setPlayerName(session.nickname || session.username || 'Player')
       setPlayerTag(session.tag || '')
       setPlayerCoins(0)
+      setPlayerRole('player')
       setPlayerUserId(null)
       setSessionExpiresAtMs(session.expiresAtMs)
       setShouldPersistSession(true)
@@ -738,7 +857,7 @@ function App() {
       return
     }
 
-    if (!['home', 'profile', 'collection', 'select', 'arena'].includes(screen)) {
+    if (!['home', 'profile', 'collection', 'admin', 'select', 'arena'].includes(screen)) {
       return
     }
 
@@ -937,12 +1056,39 @@ function App() {
         return
       }
 
+      if (data.event === 'adminUserLookupResult') {
+        setAdminLookupBusy(false)
+        setAdminActionBusy(false)
+        setAdminFeedbackError(null)
+        setAdminFeedbackInfo(null)
+        setAdminLookupResult(data as AdminLookupResult)
+        return
+      }
+
+      if (data.event === 'adminActionSuccess') {
+        setAdminLookupBusy(false)
+        setAdminActionBusy(false)
+        setAdminFeedbackError(null)
+        setAdminFeedbackInfo(i18n.t(`admin.success.${data.action}`))
+
+        if (lastAdminLookupRef.current) {
+          ws.send(JSON.stringify({
+            event: 'adminLookupUser',
+            nickname: lastAdminLookupRef.current.nickname,
+            tag: lastAdminLookupRef.current.tag,
+          }))
+        }
+
+        requestSync()
+        return
+      }
+
       if (data.event === 'authError') {
         stopInterval()
         if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
           ws.close()
         }
-        handleAuthFailure(translateBackendError(i18n.t.bind(i18n), data.code, data.reason))
+        handleAuthFailure(formatAuthErrorMessage(data))
         return
       }
 
@@ -952,7 +1098,14 @@ function App() {
         setPrivateChatSendBusyByFriendId({})
         setFriendActionBusyRequestId(null)
         setFriendSendInfo(null)
-        setFriendSendError(translatedMessage)
+        if (typeof data.requestEvent === 'string' && data.requestEvent.startsWith('admin')) {
+          setAdminLookupBusy(false)
+          setAdminActionBusy(false)
+          setAdminFeedbackInfo(null)
+          setAdminFeedbackError(translatedMessage)
+        } else {
+          setFriendSendError(translatedMessage)
+        }
       }
     }
 
@@ -979,7 +1132,7 @@ function App() {
       }
       ws = null
     }
-  }, [applyAccountSnapshot, authIntent, friendPanelExpanded, handleAuthFailure, handleClosePrivateChat, persistStoredSession, screen, serverUrl, sessionExpiresAtMs, shouldPersistSession])
+  }, [applyAccountSnapshot, authIntent, friendPanelExpanded, formatAuthErrorMessage, handleAuthFailure, handleClosePrivateChat, persistStoredSession, screen, serverUrl, sessionExpiresAtMs, shouldPersistSession])
 
   const privateUnreadByFriendId = useMemo(() => {
     const next: Record<number, number> = {}
@@ -1070,6 +1223,15 @@ function App() {
                 >
                   {i18n.t('settings.menu.collection')}
                 </button>
+                {playerRole === 'admin' && (
+                  <button
+                    type="button"
+                    className={`app-shell__nav-button ${activeMenuView === 'admin' ? 'is-active' : ''}`}
+                    onClick={handleOpenAdmin}
+                  >
+                    {i18n.t('settings.menu.admin')}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="app-shell__settings-button"
@@ -1131,6 +1293,19 @@ function App() {
                 />
               )}
               {screen === 'collection' && <CollectionScreen characters={lobbyContent?.characters || null} />}
+              {screen === 'admin' && playerRole === 'admin' && (
+                <AdminScreen
+                  result={adminLookupResult}
+                  searchBusy={adminLookupBusy}
+                  actionBusy={adminActionBusy}
+                  feedbackError={adminFeedbackError}
+                  feedbackInfo={adminFeedbackInfo}
+                  onSearch={handleAdminSearch}
+                  onForceAddFriend={handleAdminForceAddFriend}
+                  onBan={handleAdminBanUser}
+                  onUnban={handleAdminUnbanUser}
+                />
+              )}
               {screen === 'select' && (
                 <SelectScreen
                   playerName={playerName}

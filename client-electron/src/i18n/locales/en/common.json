@@ -166,10 +166,58 @@
     "menu": {
       "home": "Home",
       "profile": "Profile",
-      "collection": "Collection"
+      "collection": "Collection",
+      "admin": "Admin"
     },
     "logout": "Logout",
     "quit": "Quit game"
+  },
+  "admin": {
+    "eyebrow": "Administration",
+    "title": "Moderation center",
+    "subtitle": "Search for a player by nickname and tag, review account data and apply administrative actions.",
+    "search": "Search user",
+    "searching": "Searching...",
+    "resultLabel": "Search result",
+    "username": "Username",
+    "email": "Email",
+    "coins": "Coins",
+    "role": "Role",
+    "moderationStatus": "Moderation status",
+    "noActiveBan": "This user has no active penalty.",
+    "banActivePermanent": "Permanent ban active",
+    "banActiveUntil": "Ban active until {{date}}",
+    "banReasonLabel": "Reason: {{reason}}",
+    "banByLabel": "Applied by: {{admin}}",
+    "alreadyFriends": "Already friends",
+    "forceAddFriend": "Add friend directly",
+    "banAction": "Ban",
+    "unbanAction": "Unban",
+    "banModalEyebrow": "Apply penalty",
+    "banModalTitle": "Ban player",
+    "banModalTarget": "Target: {{name}}",
+    "reasonPlaceholder": "Describe the reason for the penalty...",
+    "cancel": "Cancel",
+    "confirmBan": "Confirm ban",
+    "unbanModalEyebrow": "Revoke penalty",
+    "unbanModalTitle": "Unban player",
+    "unbanModalTarget": "Remove the active ban from {{name}}?",
+    "confirmUnban": "Confirm unban",
+    "banDurations": {
+      "oneDay": "1 day",
+      "twoDays": "2 days",
+      "oneWeek": "1 week",
+      "fifteenDays": "15 days",
+      "oneMonth": "1 month",
+      "threeMonths": "3 months",
+      "oneYear": "1 year",
+      "forever": "Forever"
+    },
+    "success": {
+      "force_add_friend": "Friendship added successfully.",
+      "ban_user": "Penalty applied successfully.",
+      "unban_user": "Penalty removed successfully."
+    }
   },
   "select": {
     "title": "Choose your legend",
@@ -242,7 +290,10 @@
       "password_hash_failed": "Could not process the password.",
       "password_verification_failed": "Could not verify the password.",
       "database_error": "A database error occurred.",
-      "auth_error": "Authentication failed."
+      "auth_error": "Authentication failed.",
+      "user_banned": "You were penalized and cannot access the game right now.",
+      "user_banned_until": "You were penalized until {{date}}. Reason: {{reason}}",
+      "user_banned_permanent": "You were permanently penalized. Reason: {{reason}}"
     },
     "generic": {
       "not_authenticated": "You must authenticate first.",
@@ -274,6 +325,14 @@
       "chat_message_too_long": "The message exceeds the maximum allowed size.",
       "chat_rate_limited": "You are sending messages too quickly.",
       "chat_reply_target_missing": "There is no recent target to reply to."
+    },
+    "moderation": {
+      "admin_forbidden": "You do not have permission to use this administrative action.",
+      "admin_target_not_found": "The selected user was not found.",
+      "admin_self_ban_forbidden": "You cannot ban your own account.",
+      "admin_ban_reason_required": "A reason is required to apply a penalty.",
+      "admin_ban_already_active": "This user already has an active ban.",
+      "admin_ban_not_found": "No active ban was found for this user."
     }
   }
 }

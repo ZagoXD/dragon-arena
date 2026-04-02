@@ -42,6 +42,7 @@ public:
     std::optional<FriendshipLinkRecord> findPendingOutgoingRequest(long long requestId, long long requesterId, std::string* error = nullptr) const;
     std::optional<FriendshipLinkRecord> findAcceptedLink(long long firstUserId, long long secondUserId, std::string* error = nullptr) const;
     bool createPendingRequest(long long requesterId, long long addresseeId, FriendshipLinkRecord* outLink = nullptr, std::string* error = nullptr);
+    bool createAcceptedLink(long long requesterId, long long addresseeId, FriendshipLinkRecord* outLink = nullptr, std::string* error = nullptr);
     bool updateRequestStatus(long long requestId, const std::string& status, FriendshipLinkRecord* outLink = nullptr, std::string* error = nullptr);
     bool deleteLink(long long requestId, std::string* error = nullptr);
     std::vector<FriendshipSummary> listAcceptedFriends(long long userId, std::string* error = nullptr) const;

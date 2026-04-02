@@ -78,11 +78,12 @@ NetworkHandler::NetworkHandler(GameWorld &world, int port, Database& database)
       port(port),
       database(database),
       userRepository(database),
+      moderationRepository(database),
       friendshipRepository(database),
       privateChatRepository(database),
       arenaChatRepository(database),
-      authService(userRepository),
-      sessionService(userRepository) {}
+      authService(userRepository, moderationRepository),
+      sessionService(userRepository, moderationRepository) {}
 
 void NetworkHandler::registerAuthenticatedSocket(
     uWS::WebSocket<false, true, PerSocketData>* ws,
@@ -382,6 +383,24 @@ void NetworkHandler::sendPrivateMessageToUser(long long userId, const json& payl
     }
 }
 
+void NetworkHandler::disconnectUserSessions(long long userId, const json& payload) {
+    std::vector<uWS::WebSocket<false, true, PerSocketData>*> sockets;
+    {
+        std::lock_guard<std::mutex> lock(social_mtx);
+        auto it = authenticatedSockets.find(userId);
+        if (it != authenticatedSockets.end()) {
+            sockets.assign(it->second.begin(), it->second.end());
+        }
+    }
+
+    sessionService.invalidateSessionsForUser(userId);
+
+    for (uWS::WebSocket<false, true, PerSocketData>* socket : sockets) {
+        socket->send(payload.dump(), uWS::OpCode::TEXT);
+        socket->close();
+    }
+}
+
 void NetworkHandler::start() {
     uWS::App().ws<PerSocketData>("/*", {
         .compression = uWS::SHARED_COMPRESSOR,
@@ -447,13 +466,13 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
 
             AuthResult auth = authService.registerUser(data["email"], data["username"], data["nickname"], data["password"]);
             if (!auth.ok || !auth.authenticatedUser.has_value()) {
-                ws->send(ProtocolPayloadBuilder::buildAuthError(auth.code, auth.message).dump(), uWS::OpCode::TEXT);
+                ws->send(ProtocolPayloadBuilder::buildAuthError(auth.code, auth.message, auth.extras).dump(), uWS::OpCode::TEXT);
                 return;
             }
 
             SessionAuthResult session = sessionService.createSession(*auth.authenticatedUser);
             if (!session.ok || !session.authenticatedSession.has_value()) {
-                ws->send(ProtocolPayloadBuilder::buildAuthError(session.code, session.message).dump(), uWS::OpCode::TEXT);
+                ws->send(ProtocolPayloadBuilder::buildAuthError(session.code, session.message, session.extras).dump(), uWS::OpCode::TEXT);
                 return;
             }
 
@@ -481,13 +500,13 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
 
             AuthResult auth = authService.loginUser(data["identifier"], data["password"]);
             if (!auth.ok || !auth.authenticatedUser.has_value()) {
-                ws->send(ProtocolPayloadBuilder::buildAuthError(auth.code, auth.message).dump(), uWS::OpCode::TEXT);
+                ws->send(ProtocolPayloadBuilder::buildAuthError(auth.code, auth.message, auth.extras).dump(), uWS::OpCode::TEXT);
                 return;
             }
 
             SessionAuthResult session = sessionService.createSession(*auth.authenticatedUser);
             if (!session.ok || !session.authenticatedSession.has_value()) {
-                ws->send(ProtocolPayloadBuilder::buildAuthError(session.code, session.message).dump(), uWS::OpCode::TEXT);
+                ws->send(ProtocolPayloadBuilder::buildAuthError(session.code, session.message, session.extras).dump(), uWS::OpCode::TEXT);
                 return;
             }
 
@@ -515,7 +534,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
 
             SessionAuthResult session = sessionService.authenticateToken(data["token"]);
             if (!session.ok || !session.authenticatedSession.has_value()) {
-                ws->send(ProtocolPayloadBuilder::buildAuthError(session.code, session.message).dump(), uWS::OpCode::TEXT);
+                ws->send(ProtocolPayloadBuilder::buildAuthError(session.code, session.message, session.extras).dump(), uWS::OpCode::TEXT);
                 return;
             }
 
@@ -999,6 +1018,281 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             ws->send(json({
                 {"event", "friendRemoved"},
                 {"friendUserId", friendUserId},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "adminLookupUser") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminLookupUser", "not_authenticated", "Client must authenticate before using admin tools", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (userData->role != "admin") {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminLookupUser", "admin_forbidden", "Only admins can use this action", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!hasString(data, "nickname") || !hasString(data, "tag")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminLookupUser", "invalid_payload", "adminLookupUser requires string nickname and tag", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const std::string nickname = trimCopy(data["nickname"]);
+            const std::string tag = trimCopy(data["tag"]);
+            std::string repositoryError;
+            std::optional<UserLookupWithProfile> target = userRepository.findWithProfileByNicknameAndTag(nickname, tag, &repositoryError);
+            if (!target.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "adminLookupUser",
+                    repositoryError.empty() ? "admin_target_not_found" : "database_error",
+                    repositoryError.empty() ? "Target user was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            repositoryError.clear();
+            std::optional<ActiveBanRecord> activeBan = moderationRepository.findActiveBanByUserId(target->user.id, &repositoryError);
+            if (!repositoryError.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminLookupUser", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            repositoryError.clear();
+            bool alreadyFriends = friendshipRepository.findAcceptedLink(userData->userId, target->user.id, &repositoryError).has_value();
+            if (!repositoryError.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminLookupUser", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            json payload = {
+                {"event", "adminUserLookupResult"},
+                {"user", {
+                    {"id", target->user.id},
+                    {"nickname", target->user.nickname},
+                    {"tag", target->user.tag},
+                    {"username", target->user.username},
+                    {"email", target->user.email},
+                    {"role", target->user.role},
+                    {"online", isUserOnline(target->user.id)},
+                    {"alreadyFriends", alreadyFriends}
+                }},
+                {"profile", {
+                    {"userId", target->profile.userId},
+                    {"level", target->profile.level},
+                    {"xp", target->profile.xp},
+                    {"coins", target->profile.coins}
+                }},
+                {"activeBan", activeBan.has_value()
+                    ? json{
+                        {"id", activeBan->id},
+                        {"reason", activeBan->reason},
+                        {"isPermanent", activeBan->isPermanent},
+                        {"createdAtMs", activeBan->createdAtMs},
+                        {"bannedUntilMs", activeBan->bannedUntilMs},
+                        {"bannedByDisplay", activeBan->bannedByNickname + activeBan->bannedByTag}
+                    }
+                    : json(nullptr)},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            };
+            ws->send(payload.dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "adminForceAddFriend") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminForceAddFriend", "not_authenticated", "Client must authenticate before using admin tools", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (userData->role != "admin") {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminForceAddFriend", "admin_forbidden", "Only admins can use this action", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!data.contains("targetUserId") || !data["targetUserId"].is_number_integer()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminForceAddFriend", "invalid_payload", "adminForceAddFriend requires integer targetUserId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const long long targetUserId = data["targetUserId"];
+            if (targetUserId == userData->userId) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminForceAddFriend", "friend_self_add", "You cannot add yourself", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            std::string repositoryError;
+            std::optional<UserRecord> targetUser = userRepository.findById(targetUserId, &repositoryError);
+            if (!targetUser.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "adminForceAddFriend",
+                    repositoryError.empty() ? "admin_target_not_found" : "database_error",
+                    repositoryError.empty() ? "Target user was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            std::optional<FriendshipLinkRecord> existingLink = friendshipRepository.findExistingLink(userData->userId, targetUserId, &repositoryError);
+            if (!repositoryError.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminForceAddFriend", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            if (existingLink.has_value()) {
+                if (existingLink->status == "accepted") {
+                    ws->send(ProtocolPayloadBuilder::buildActionRejected("adminForceAddFriend", "friend_already_added", "This user is already on your friend list", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                    return;
+                }
+
+                FriendshipLinkRecord updatedLink;
+                if (!friendshipRepository.updateRequestStatus(existingLink->id, "accepted", &updatedLink, &repositoryError)) {
+                    ws->send(ProtocolPayloadBuilder::buildActionRejected("adminForceAddFriend", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                    return;
+                }
+            } else {
+                FriendshipLinkRecord createdLink;
+                if (!friendshipRepository.createAcceptedLink(userData->userId, targetUserId, &createdLink, &repositoryError)) {
+                    ws->send(ProtocolPayloadBuilder::buildActionRejected("adminForceAddFriend", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                    return;
+                }
+            }
+
+            sendFriendsSyncToUsers({userData->userId, targetUserId});
+            sendPrivateChatsSyncToUsers({userData->userId, targetUserId});
+            ws->send(json({
+                {"event", "adminActionSuccess"},
+                {"action", "force_add_friend"},
+                {"message", "Friendship added successfully."},
+                {"targetUserId", targetUserId},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "adminBanUser") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminBanUser", "not_authenticated", "Client must authenticate before using admin tools", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (userData->role != "admin") {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminBanUser", "admin_forbidden", "Only admins can use this action", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!data.contains("targetUserId") || !data["targetUserId"].is_number_integer() || !hasString(data, "reason") || !data.contains("isPermanent") || !data["isPermanent"].is_boolean()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminBanUser", "invalid_payload", "adminBanUser requires targetUserId, reason and isPermanent", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const long long targetUserId = data["targetUserId"];
+            const std::string reason = trimCopy(data["reason"]);
+            const bool isPermanent = data["isPermanent"];
+            if (targetUserId == userData->userId) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminBanUser", "admin_self_ban_forbidden", "You cannot ban yourself", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (reason.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminBanUser", "admin_ban_reason_required", "Ban reason is required", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            std::optional<long long> durationMs = std::nullopt;
+            if (!isPermanent) {
+                if (!data.contains("durationMs") || !data["durationMs"].is_number_integer()) {
+                    ws->send(ProtocolPayloadBuilder::buildActionRejected("adminBanUser", "invalid_payload", "Temporary bans require durationMs", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                    return;
+                }
+                long long requestedDurationMs = data["durationMs"];
+                if (requestedDurationMs <= 0) {
+                    ws->send(ProtocolPayloadBuilder::buildActionRejected("adminBanUser", "invalid_payload", "durationMs must be greater than zero", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                    return;
+                }
+                durationMs = requestedDurationMs;
+            }
+
+            std::string repositoryError;
+            std::optional<UserRecord> targetUser = userRepository.findById(targetUserId, &repositoryError);
+            if (!targetUser.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected(
+                    "adminBanUser",
+                    repositoryError.empty() ? "admin_target_not_found" : "database_error",
+                    repositoryError.empty() ? "Target user was not found" : repositoryError,
+                    world.getCurrentTick()
+                ).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            std::optional<ActiveBanRecord> existingBan = moderationRepository.findActiveBanByUserId(targetUserId, &repositoryError);
+            if (!repositoryError.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminBanUser", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (existingBan.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminBanUser", "admin_ban_already_active", "This user already has an active ban", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const long long currentTimeMs = static_cast<long long>(std::time(nullptr)) * 1000;
+            std::optional<long long> bannedUntilMs = isPermanent || !durationMs.has_value()
+                ? std::nullopt
+                : std::optional<long long>(currentTimeMs + *durationMs);
+
+            ActiveBanRecord createdBan;
+            if (!moderationRepository.createBan(targetUserId, userData->userId, reason, bannedUntilMs, isPermanent, &createdBan, &repositoryError)) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminBanUser", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            json authPayload = ProtocolPayloadBuilder::buildAuthError(
+                "user_banned",
+                isPermanent
+                    ? "This account has been permanently banned. Reason: " + reason
+                    : "This account is banned. Reason: " + reason,
+                {
+                    {"banReason", reason},
+                    {"isPermanent", isPermanent},
+                    {"bannedUntilMs", createdBan.bannedUntilMs}
+                }
+            );
+            disconnectUserSessions(targetUserId, authPayload);
+            sendFriendsSyncToUser(targetUserId);
+            ws->send(json({
+                {"event", "adminActionSuccess"},
+                {"action", "ban_user"},
+                {"message", "User banned successfully."},
+                {"targetUserId", targetUserId},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }).dump(), uWS::OpCode::TEXT);
+        }
+        else if (event == "adminUnbanUser") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminUnbanUser", "not_authenticated", "Client must authenticate before using admin tools", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (userData->role != "admin") {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminUnbanUser", "admin_forbidden", "Only admins can use this action", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!data.contains("targetUserId") || !data["targetUserId"].is_number_integer()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminUnbanUser", "invalid_payload", "adminUnbanUser requires integer targetUserId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const long long targetUserId = data["targetUserId"];
+            std::string repositoryError;
+            std::optional<ActiveBanRecord> activeBan = moderationRepository.findActiveBanByUserId(targetUserId, &repositoryError);
+            if (!repositoryError.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminUnbanUser", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!activeBan.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminUnbanUser", "admin_ban_not_found", "No active ban was found for this user", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            ActiveBanRecord revokedBan;
+            if (!moderationRepository.revokeActiveBan(targetUserId, userData->userId, &revokedBan, &repositoryError)) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("adminUnbanUser", "database_error", repositoryError, world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            ws->send(json({
+                {"event", "adminActionSuccess"},
+                {"action", "unban_user"},
+                {"message", "User unbanned successfully."},
+                {"targetUserId", targetUserId},
                 {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
             }).dump(), uWS::OpCode::TEXT);
         }

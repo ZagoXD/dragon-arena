@@ -2,6 +2,7 @@
 #include "PasswordHasher.h"
 #include <algorithm>
 #include <cctype>
+#include <ctime>
 #include <random>
 #include <unordered_set>
 #include <vector>
@@ -116,12 +117,32 @@ namespace {
             }
         }
 
-        return "";
+    return "";
+}
+
+    std::string formatBanMessage(const ActiveBanRecord& ban) {
+        if (ban.isPermanent) {
+            return "This account has been permanently banned. Reason: " + ban.reason;
+        }
+
+        std::time_t bannedUntilSeconds = static_cast<std::time_t>(ban.bannedUntilMs / 1000);
+        std::tm bannedUntilTm{};
+#ifdef _WIN32
+        gmtime_s(&bannedUntilTm, &bannedUntilSeconds);
+#else
+        gmtime_r(&bannedUntilSeconds, &bannedUntilTm);
+#endif
+        char buffer[64];
+        if (std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M UTC", &bannedUntilTm) == 0) {
+            return "This account is banned until the punishment expires. Reason: " + ban.reason;
+        }
+
+        return "This account is banned until " + std::string(buffer) + ". Reason: " + ban.reason;
     }
 }
 
-AuthService::AuthService(UserRepository& users)
-    : users(users) {}
+AuthService::AuthService(UserRepository& users, ModerationRepository& moderation)
+    : users(users), moderation(moderation) {}
 
 AuthResult AuthService::registerUser(
     const std::string& email,
@@ -134,57 +155,57 @@ AuthResult AuthService::registerUser(
     const std::string normalizedNickname = trimCopy(nickname);
 
     if (normalizedEmail.empty() || !isValidEmail(normalizedEmail)) {
-        return {false, "invalid_email", "A valid email is required", std::nullopt};
+        return {false, "invalid_email", "A valid email is required", nlohmann::json::object(), std::nullopt};
     }
 
     if (!isValidHandle(normalizedUsername)) {
-        return {false, "invalid_username", "Username must have 3-20 characters using only letters, digits or _", std::nullopt};
+        return {false, "invalid_username", "Username must have 3-20 characters using only letters, digits or _", nlohmann::json::object(), std::nullopt};
     }
 
     if (!isValidHandle(normalizedNickname)) {
-        return {false, "invalid_nickname", "Nickname must have 3-20 characters using only letters, digits or _", std::nullopt};
+        return {false, "invalid_nickname", "Nickname must have 3-20 characters using only letters, digits or _", nlohmann::json::object(), std::nullopt};
     }
 
     if (password.size() < 8 || password.size() > 72) {
-        return {false, "invalid_password", "Password must have between 8 and 72 characters", std::nullopt};
+        return {false, "invalid_password", "Password must have between 8 and 72 characters", nlohmann::json::object(), std::nullopt};
     }
 
     if (hasWhitespace(password)) {
-        return {false, "invalid_password", "Password cannot contain whitespace", std::nullopt};
+        return {false, "invalid_password", "Password cannot contain whitespace", nlohmann::json::object(), std::nullopt};
     }
 
     if (!hasUppercase(password) || !hasLowercase(password) || !hasDigit(password)) {
-        return {false, "invalid_password", "Password must include uppercase, lowercase and numeric characters", std::nullopt};
+        return {false, "invalid_password", "Password must include uppercase, lowercase and numeric characters", nlohmann::json::object(), std::nullopt};
     }
 
     std::string repositoryError;
     if (users.findByEmail(normalizedEmail, &repositoryError).has_value()) {
-        return {false, "email_taken", "Email is already registered", std::nullopt};
+        return {false, "email_taken", "Email is already registered", nlohmann::json::object(), std::nullopt};
     }
     if (!repositoryError.empty()) {
-        return {false, "database_error", repositoryError, std::nullopt};
+        return {false, "database_error", repositoryError, nlohmann::json::object(), std::nullopt};
     }
 
     repositoryError.clear();
     if (users.findByUsername(normalizedUsername, &repositoryError).has_value()) {
-        return {false, "username_taken", "Username is already registered", std::nullopt};
+        return {false, "username_taken", "Username is already registered", nlohmann::json::object(), std::nullopt};
     }
     if (!repositoryError.empty()) {
-        return {false, "database_error", repositoryError, std::nullopt};
+        return {false, "database_error", repositoryError, nlohmann::json::object(), std::nullopt};
     }
 
     std::string generatedTag = pickAvailableTag(users, normalizedNickname, &repositoryError);
     if (generatedTag.empty()) {
         if (!repositoryError.empty()) {
-            return {false, "database_error", repositoryError, std::nullopt};
+            return {false, "database_error", repositoryError, nlohmann::json::object(), std::nullopt};
         }
-        return {false, "nickname_taken", "No available tag remains for this nickname", std::nullopt};
+        return {false, "nickname_taken", "No available tag remains for this nickname", nlohmann::json::object(), std::nullopt};
     }
 
     std::string hashError;
     std::string hashedPassword = PasswordHasher::hashPassword(password, &hashError);
     if (hashedPassword.empty()) {
-        return {false, "password_hash_failed", hashError.empty() ? "Could not hash password" : hashError, std::nullopt};
+        return {false, "password_hash_failed", hashError.empty() ? "Could not hash password" : hashError, nlohmann::json::object(), std::nullopt};
     }
 
     UserWithProfile record;
@@ -193,10 +214,10 @@ AuthResult AuthService::registerUser(
         &record,
         &repositoryError
     )) {
-        return {false, "database_error", repositoryError, std::nullopt};
+        return {false, "database_error", repositoryError, nlohmann::json::object(), std::nullopt};
     }
 
-    return {true, "registered", "Account created successfully", AuthenticatedUser{record.user, record.profile}};
+    return {true, "registered", "Account created successfully", nlohmann::json::object(), AuthenticatedUser{record.user, record.profile}};
 }
 
 AuthResult AuthService::loginUser(
@@ -205,41 +226,41 @@ AuthResult AuthService::loginUser(
 ) {
     const std::string normalizedIdentifier = trimCopy(identifier);
     if (normalizedIdentifier.empty()) {
-        return {false, "invalid_identifier", "Email or username is required", std::nullopt};
+        return {false, "invalid_identifier", "Email or username is required", nlohmann::json::object(), std::nullopt};
     }
 
     if (password.empty()) {
-        return {false, "invalid_password", "Password is required", std::nullopt};
+        return {false, "invalid_password", "Password is required", nlohmann::json::object(), std::nullopt};
     }
 
     std::string repositoryError;
     std::optional<UserRecord> user = users.findByEmailOrUsername(normalizedIdentifier, &repositoryError);
     if (!user.has_value()) {
         if (!repositoryError.empty()) {
-            return {false, "database_error", repositoryError, std::nullopt};
+            return {false, "database_error", repositoryError, nlohmann::json::object(), std::nullopt};
         }
-        return {false, "invalid_credentials", "Invalid email/username or password", std::nullopt};
+        return {false, "invalid_credentials", "Invalid email/username or password", nlohmann::json::object(), std::nullopt};
     }
 
     std::string verifyError;
     PasswordVerificationResult verification = PasswordHasher::verifyPassword(password, user->passwordHash, &verifyError);
     if (!verification.ok) {
         if (!verifyError.empty()) {
-            return {false, "password_verification_failed", verifyError, std::nullopt};
+            return {false, "password_verification_failed", verifyError, nlohmann::json::object(), std::nullopt};
         }
-        return {false, "invalid_credentials", "Invalid email/username or password", std::nullopt};
+        return {false, "invalid_credentials", "Invalid email/username or password", nlohmann::json::object(), std::nullopt};
     }
 
     if (verification.needsRehash) {
         std::string hashError;
         std::string upgradedHash = PasswordHasher::hashPassword(password, &hashError);
         if (upgradedHash.empty()) {
-            return {false, "password_hash_failed", hashError.empty() ? "Could not upgrade password hash" : hashError, std::nullopt};
+            return {false, "password_hash_failed", hashError.empty() ? "Could not upgrade password hash" : hashError, nlohmann::json::object(), std::nullopt};
         }
 
         repositoryError.clear();
         if (!users.updatePasswordHash(user->id, upgradedHash, &repositoryError)) {
-            return {false, "database_error", repositoryError, std::nullopt};
+            return {false, "database_error", repositoryError, nlohmann::json::object(), std::nullopt};
         }
 
         user->passwordHash = upgradedHash;
@@ -249,16 +270,35 @@ AuthResult AuthService::loginUser(
     std::optional<PlayerProfileRecord> profile = users.findProfileByUserId(user->id, &repositoryError);
     if (!profile.has_value()) {
         if (!repositoryError.empty()) {
-            return {false, "database_error", repositoryError, std::nullopt};
+            return {false, "database_error", repositoryError, nlohmann::json::object(), std::nullopt};
         }
 
         PlayerProfileRecord createdProfile;
         if (!users.createInitialProfile(user->id, &createdProfile, &repositoryError)) {
-            return {false, "database_error", repositoryError, std::nullopt};
+            return {false, "database_error", repositoryError, nlohmann::json::object(), std::nullopt};
         }
 
         profile = createdProfile;
     }
 
-    return {true, "logged_in", "Login succeeded", AuthenticatedUser{*user, *profile}};
+    repositoryError.clear();
+    std::optional<ActiveBanRecord> activeBan = moderation.findActiveBanByUserId(user->id, &repositoryError);
+    if (!repositoryError.empty()) {
+        return {false, "database_error", repositoryError, nlohmann::json::object(), std::nullopt};
+    }
+    if (activeBan.has_value()) {
+        return {
+            false,
+            "user_banned",
+            formatBanMessage(*activeBan),
+            {
+                {"banReason", activeBan->reason},
+                {"isPermanent", activeBan->isPermanent},
+                {"bannedUntilMs", activeBan->bannedUntilMs}
+            },
+            std::nullopt
+        };
+    }
+
+    return {true, "logged_in", "Login succeeded", nlohmann::json::object(), AuthenticatedUser{*user, *profile}};
 }

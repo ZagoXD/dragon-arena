@@ -12,6 +12,7 @@
 #include "database/Database.h"
 #include "database/UserRepository.h"
 #include "GameWorld.h"
+#include "moderation/ModerationRepository.h"
 #include "social/ArenaChatRepository.h"
 #include "social/FriendshipRepository.h"
 #include "social/PrivateChatRepository.h"
@@ -38,6 +39,7 @@ private:
     int port;
     Database& database;
     UserRepository userRepository;
+    ModerationRepository moderationRepository;
     FriendshipRepository friendshipRepository;
     PrivateChatRepository privateChatRepository;
     ArenaChatRepository arenaChatRepository;
@@ -70,6 +72,7 @@ private:
     void notifyFriendsPresenceChanged(long long userId);
     void sendArenaPublicMessage(const json& payload);
     void sendPrivateMessageToUser(long long userId, const json& payload, bool alsoSendArenaWhisper = false);
+    void disconnectUserSessions(long long userId, const json& payload);
 public:
     void broadcast(const std::string &message);
     void sendTo(const std::string &id, const std::string &message);

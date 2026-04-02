@@ -2,6 +2,8 @@
 #define AUTH_SERVICE_H
 
 #include "../database/UserRepository.h"
+#include "../moderation/ModerationRepository.h"
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 
@@ -14,15 +16,17 @@ struct AuthResult {
     bool ok = false;
     std::string code;
     std::string message;
+    nlohmann::json extras = nlohmann::json::object();
     std::optional<AuthenticatedUser> authenticatedUser;
 };
 
 class AuthService {
 private:
     UserRepository& users;
+    ModerationRepository& moderation;
 
 public:
-    explicit AuthService(UserRepository& users);
+    AuthService(UserRepository& users, ModerationRepository& moderation);
 
     AuthResult registerUser(
         const std::string& email,

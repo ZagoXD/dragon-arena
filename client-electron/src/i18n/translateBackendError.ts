@@ -51,6 +51,16 @@ const chatErrorKeyByCode: Record<string, string> = {
   chat_reply_target_missing: 'errors.chat.chat_reply_target_missing'
 }
 
+const moderationErrorKeyByCode: Record<string, string> = {
+  admin_forbidden: 'errors.moderation.admin_forbidden',
+  admin_target_not_found: 'errors.moderation.admin_target_not_found',
+  admin_self_ban_forbidden: 'errors.moderation.admin_self_ban_forbidden',
+  admin_ban_reason_required: 'errors.moderation.admin_ban_reason_required',
+  admin_ban_already_active: 'errors.moderation.admin_ban_already_active',
+  admin_ban_not_found: 'errors.moderation.admin_ban_not_found',
+  user_banned: 'errors.auth.user_banned'
+}
+
 export function translateBackendError(t: TFunction, code?: string, reason?: string) {
   if (code) {
     const authKey = authErrorKeyByCode[code]
@@ -71,6 +81,11 @@ export function translateBackendError(t: TFunction, code?: string, reason?: stri
     const chatKey = chatErrorKeyByCode[code]
     if (chatKey) {
       return t(chatKey)
+    }
+
+    const moderationKey = moderationErrorKeyByCode[code]
+    if (moderationKey) {
+      return t(moderationKey)
     }
   }
 

@@ -129,6 +129,7 @@ add_executable(DragonArenaServer
     auth/SessionService.cpp
     database/Database.cpp
     database/UserRepository.cpp
+    moderation/ModerationRepository.cpp
     social/FriendshipRepository.cpp
     social/PrivateChatRepository.cpp
     social/ArenaChatRepository.cpp
@@ -187,6 +188,7 @@ add_executable(DragonArenaGameplayTests
     auth/SessionService.cpp
     database/Database.cpp
     database/UserRepository.cpp
+    moderation/ModerationRepository.cpp
     social/FriendshipRepository.cpp
     social/PrivateChatRepository.cpp
     social/ArenaChatRepository.cpp

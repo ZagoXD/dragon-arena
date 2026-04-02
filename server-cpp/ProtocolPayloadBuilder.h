@@ -54,7 +54,8 @@ public:
     );
     static json buildAuthError(
         const std::string& code,
-        const std::string& reason
+        const std::string& reason,
+        const json& extras = json::object()
     );
 };
 
