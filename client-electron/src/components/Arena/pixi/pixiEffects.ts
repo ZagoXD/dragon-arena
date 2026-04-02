@@ -198,19 +198,19 @@ export function buildBurnEffect(
   y: number,
   size: number,
   zIndex: number,
-  anchoredToFeet = true
+  anchoredToFeet = true,
+  frameCount = 5,
+  frameSize = 64
 ) {
   let texture = getResolvedTexture(imageSrc)
   if (!texture) {
     return null
   }
 
-  const frameCount = 5
-  const frameSize = 64
   const frameIndex = Math.floor(performance.now() / 120) % frameCount
   texture = getCachedFrameTexture(
     frameTextureCache,
-    `burn:${imageSrc}:${frameIndex}`,
+    `burn:${imageSrc}:${frameIndex}:${frameCount}:${frameSize}`,
     texture,
     0,
     frameIndex * frameSize,

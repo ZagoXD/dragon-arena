@@ -26,6 +26,7 @@ struct PassiveDefinition {
     int durationMs;
     int tickDamage;
     int tickIntervalMs;
+    float movementSlowPct;
     std::map<std::string, float> applicationChances;
 };
 
@@ -34,6 +35,7 @@ struct CharacterDefinition {
     std::string name;
     int maxHp;
     float movementSpeed;
+    float damageMultiplier;
     float colliderWidth;
     float colliderHeight;
     std::string autoAttackSpellId;

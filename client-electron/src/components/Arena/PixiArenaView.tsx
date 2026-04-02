@@ -8,6 +8,7 @@ import {
   type DestroyOptions,
 } from 'pixi.js'
 import { VIEWPORT_HEIGHT, VIEWPORT_WIDTH } from '../../config/spriteMap'
+import { PASSIVE_VISUALS } from '../../config/visualConfig'
 import { buildAimingArrow, buildBurnEffect, buildImpactEffect, buildSkillEffect } from './pixi/pixiEffects'
 import { buildDummy, buildPlayer, buildProjectile, PIXI_STATIC_ASSET_URLS } from './pixi/pixiEntities'
 import { buildMapLayer, getTilesetInfo } from './pixi/pixiMap'
@@ -56,6 +57,7 @@ function collectAssetUrls(props: PixiArenaViewProps) {
   })
 
   props.projectiles.forEach(projectile => urls.add(projectile.spell.imageSrc))
+  Object.values(PASSIVE_VISUALS).forEach(passive => urls.add(passive.imageSrc))
 
   return [...urls]
 }
@@ -236,7 +238,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
     const nextEntities: Container['children'] = []
     const nextOverlay: Container['children'] = []
     const viewportBounds = getViewportBounds(props.cameraX, props.cameraY, 160)
-    const fallbackBurnImage = props.localPlayer?.character.passive.imageSrc || props.remotePlayers[0]?.character.passive.imageSrc
+    const resolvePassiveVisual = (passiveId: string) => PASSIVE_VISUALS[passiveId] || null
 
     props.dummies.forEach(dummy => {
       if (!isPointInsideViewport(dummy.x, dummy.y, viewportBounds, props.dummyColliderSize)) {
@@ -312,18 +314,21 @@ export function PixiArenaView(props: PixiArenaViewProps) {
     })
 
     props.burnZones.forEach(zone => {
-      if (!fallbackBurnImage || !isPointInsideViewport(zone.x, zone.y, viewportBounds, zone.size)) {
+      const passive = resolvePassiveVisual(zone.passiveId)
+      if (!passive || !isPointInsideViewport(zone.x, zone.y, viewportBounds, zone.size)) {
         return
       }
 
       const burnEffect = buildBurnEffect(
         frameTextureCacheRef.current,
-        fallbackBurnImage,
+        passive.imageSrc,
         zone.x,
         zone.y + zone.size / 2,
         zone.size,
         zone.y + zone.size - 12,
-        true
+        true,
+        passive.frameCount,
+        passive.frameWidth
       )
       if (burnEffect) {
         nextEntities.push(burnEffect)
@@ -339,33 +344,39 @@ export function PixiArenaView(props: PixiArenaViewProps) {
           : null
         const remoteTarget = props.remotePlayers.find(player => player.id === status.targetId)
         const target = localTarget || remoteTarget
-        if (!target) {
+        const passive = resolvePassiveVisual(status.passiveId)
+        if (!target || !passive) {
           return
         }
         const feetX = target.x + target.character.colliderWidth / 2
         const feetY = target.y + target.character.colliderHeight + 4
         burnEffect = buildBurnEffect(
           frameTextureCacheRef.current,
-          target.character.passive.imageSrc,
+          passive.imageSrc,
           feetX,
           feetY,
           64,
           feetY + 40,
-          true
+          true,
+          passive.frameCount,
+          passive.frameWidth
         )
       } else {
         const target = props.dummies.find(dummy => dummy.id === status.targetId)
-        if (!target || !fallbackBurnImage) {
+        const passive = resolvePassiveVisual(status.passiveId)
+        if (!target || !passive) {
           return
         }
         burnEffect = buildBurnEffect(
           frameTextureCacheRef.current,
-          fallbackBurnImage,
+          passive.imageSrc,
           target.x,
           target.y + props.dummyColliderSize / 2 + 4,
           64,
           target.y + props.dummyColliderSize + 40,
-          true
+          true,
+          passive.frameCount,
+          passive.frameWidth
         )
       }
 

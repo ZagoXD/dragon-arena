@@ -4,7 +4,7 @@
 Player::Player(std::string id, std::string name, const CharacterDefinition& definition, std::string role)
     : id(id), name(name), characterId(definition.id), hp(definition.maxHp), maxHp(definition.maxHp),
       x(2048.0f), y(1280.0f), direction("down"), animRow(0), kills(0), deaths(0),
-      movementSpeed(definition.movementSpeed), colliderWidth(definition.colliderWidth),
+      baseMovementSpeed(definition.movementSpeed), movementSpeed(definition.movementSpeed), colliderWidth(definition.colliderWidth),
       colliderHeight(definition.colliderHeight), autoAttackSpellId(definition.autoAttackSpellId),
       skillIds(definition.skillIds), passiveId(definition.passiveId), isDashing(false) {
     this->role = std::move(role);

@@ -22,6 +22,7 @@ export interface NetPlayer {
   colliderHeight: number
   autoAttackSpellId: string
   skillIds: string[]
+  passiveId: string
   isDashing?: boolean
 }
 
@@ -116,8 +117,8 @@ export function useSocket(
   characterId: string,
   onCurrentDummies: (dummies: any[]) => void,
   onDummyDamaged: (id: string, hp: number) => void,
-  onSelfDamaged: (newHp: number, x?: number, y?: number) => void,
-  onSelfMoved: (x: number, y: number) => void,
+  onSelfDamaged: (newHp: number, x?: number, y?: number, movementSpeed?: number) => void,
+  onSelfMoved: (x: number, y: number, movementSpeed?: number) => void,
   onProjectileSpawned?: (projectile: ProjectileSpawnEvent) => void,
   onProjectileRemoved?: (projectileId: string) => void,
   onProjectilesSnapshot?: (projectiles: ProjectileSpawnEvent[]) => void,
@@ -245,12 +246,17 @@ export function useSocket(
             const self = players[session.selfId]
             setKills(self.kills || 0)
             setDeaths(self.deaths || 0)
-            onSelfDamaged(self.hp, self.x, self.y)
+            onSelfDamaged(self.hp, self.x, self.y, self.movementSpeed)
             delete players[session.selfId]
           } else if (session.bootstrap.player) {
             setKills(session.bootstrap.player.kills || 0)
             setDeaths(session.bootstrap.player.deaths || 0)
-            onSelfDamaged(session.bootstrap.player.hp, session.bootstrap.player.x, session.bootstrap.player.y)
+            onSelfDamaged(
+              session.bootstrap.player.hp,
+              session.bootstrap.player.x,
+              session.bootstrap.player.y,
+              session.bootstrap.player.movementSpeed
+            )
           }
 
           setOtherPlayers(players)
@@ -270,7 +276,7 @@ export function useSocket(
         case 'playerMoved':
           if (data.tick && data.tick < latestSnapshotTickRef.current) break
           if (data.id === socketIdRef.current) {
-            onSelfMoved(data.x, data.y)
+            onSelfMoved(data.x, data.y, data.movementSpeed)
           } else {
             setOtherPlayers(prev => {
               if (!prev[data.id]) return prev
@@ -292,7 +298,7 @@ export function useSocket(
         case 'playerDamaged':
           if (data.tick && data.tick < latestSnapshotTickRef.current) break
           if (data.id === socketIdRef.current) {
-            onSelfDamaged(data.hp)
+            onSelfDamaged(data.hp, undefined, undefined, data.movementSpeed)
           } else {
             setOtherPlayers(prev => {
               if (!prev[data.id]) return prev
@@ -326,7 +332,7 @@ export function useSocket(
         case 'playerRespawned':
           if (data.tick && data.tick < latestSnapshotTickRef.current) break
           if (data.id === socketIdRef.current) {
-            onSelfDamaged(data.hp, data.x, data.y)
+            onSelfDamaged(data.hp, data.x, data.y, data.movementSpeed)
           } else {
             setOtherPlayers(prev => {
               if (!prev[data.id]) return prev
@@ -362,7 +368,7 @@ export function useSocket(
           const selfId = socketIdRef.current
           if (selfId && players[selfId]) {
             const self = players[selfId]
-            onSelfDamaged(self.hp, self.x, self.y)
+            onSelfDamaged(self.hp, self.x, self.y, self.movementSpeed)
             delete players[selfId]
           }
           setOtherPlayers(players)

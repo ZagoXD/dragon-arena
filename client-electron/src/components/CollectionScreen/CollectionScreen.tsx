@@ -44,7 +44,7 @@ function getSpellIconStyle(spell: VisualSpellConfig): CSSProperties {
 function getPassiveIconStyle(passive: VisualPassiveConfig): CSSProperties {
   return {
     backgroundImage: `url(${passive.imageSrc})`,
-    backgroundSize: '100% 500%',
+    backgroundSize: `100% ${passive.frameCount * 100}%`,
     backgroundPosition: 'center top',
     backgroundRepeat: 'no-repeat',
   }
@@ -83,7 +83,11 @@ export function CollectionScreen() {
             SPELL_VISUALS.flamethrower,
             SPELL_VISUALS.fire_blast,
           ]
-          const passive = PASSIVE_VISUALS.burn
+          const passive = PASSIVE_VISUALS[character.passiveId]
+
+          if (!passive) {
+            return null
+          }
 
           return (
             <article key={character.id} className="collection-screen__card">

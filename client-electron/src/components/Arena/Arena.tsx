@@ -109,6 +109,7 @@ export function Arena({
     scoreboardEntries,
     skillCooldowns,
     autoAttackCD,
+    movementSpeed,
     authoritativePosition,
     localDashState,
     impactEffects,
@@ -141,6 +142,7 @@ export function Arena({
   const controller = useArenaController({
     inputEnabled: pixiReady && Boolean(bootstrap && character && mapData) && !chatInputActive,
     character,
+    speed: movementSpeed || character?.movementSpeed || 0,
     fallbackVisual,
     bootstrapPlayer: bootstrap?.player,
     authoritativePosition,
@@ -277,6 +279,7 @@ export function Arena({
             playerName={displayPlayerName}
             character={character}
             hp={hp}
+            movementSpeed={movementSpeed || character.movementSpeed}
             playerPos={{ x: controller.player.x, y: controller.player.y }}
             dummies={dummies}
             otherPlayers={Object.values(otherPlayers) as NetPlayer[]}

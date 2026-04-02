@@ -20,6 +20,7 @@ public:
     int animRow;
     int hp, maxHp;
     int kills, deaths;
+    float baseMovementSpeed;
     float movementSpeed;
     float colliderWidth;
     float colliderHeight;

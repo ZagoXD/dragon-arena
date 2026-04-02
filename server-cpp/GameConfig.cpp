@@ -49,6 +49,7 @@ CharacterDefinition parseCharacterDefinition(const json& node) {
         node.at("name").get<std::string>(),
         node.at("maxHp").get<int>(),
         node.at("movementSpeed").get<float>(),
+        node.value("damageMultiplier", 1.0f),
         node.at("colliderWidth").get<float>(),
         node.at("colliderHeight").get<float>(),
         node.at("autoAttackSpellId").get<std::string>(),
@@ -64,6 +65,7 @@ PassiveDefinition parsePassiveDefinition(const json& node) {
         node.at("durationMs").get<int>(),
         node.at("tickDamage").get<int>(),
         node.at("tickIntervalMs").get<int>(),
+        node.value("movementSlowPct", 0.0f),
         node.value("applicationChances", std::map<std::string, float>{})
     };
 }
@@ -111,6 +113,9 @@ void validatePassiveDefinition(const PassiveDefinition& passive) {
     if (passive.durationMs <= 0 || passive.tickDamage < 0 || passive.tickIntervalMs <= 0) {
         throw std::runtime_error("PassiveDefinition '" + passive.id + "' has invalid timing or damage values");
     }
+    if (passive.movementSlowPct < 0.0f || passive.movementSlowPct >= 1.0f) {
+        throw std::runtime_error("PassiveDefinition '" + passive.id + "' has invalid movementSlowPct");
+    }
 }
 
 void validateCharacterDefinition(
@@ -129,6 +134,9 @@ void validateCharacterDefinition(
     }
     if (character.movementSpeed <= 0.0f) {
         throw std::runtime_error("CharacterDefinition '" + character.id + "' has invalid movementSpeed");
+    }
+    if (character.damageMultiplier <= 0.0f) {
+        throw std::runtime_error("CharacterDefinition '" + character.id + "' has invalid damageMultiplier");
     }
     if (character.colliderWidth <= 0.0f || character.colliderHeight <= 0.0f) {
         throw std::runtime_error("CharacterDefinition '" + character.id + "' has invalid collider");
@@ -486,6 +494,7 @@ json GameConfig::to_json(const PassiveDefinition& passive) {
         {"durationMs", passive.durationMs},
         {"tickDamage", passive.tickDamage},
         {"tickIntervalMs", passive.tickIntervalMs},
+        {"movementSlowPct", passive.movementSlowPct},
         {"applicationChances", passive.applicationChances}
     };
 }
@@ -496,6 +505,7 @@ json GameConfig::to_json(const CharacterDefinition& character) {
         {"name", character.name},
         {"maxHp", character.maxHp},
         {"movementSpeed", character.movementSpeed},
+        {"damageMultiplier", character.damageMultiplier},
         {"colliderWidth", character.colliderWidth},
         {"colliderHeight", character.colliderHeight},
         {"autoAttackSpellId", character.autoAttackSpellId},

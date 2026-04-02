@@ -1,9 +1,11 @@
 import charizardSrc from '../assets/characters/charizard.png'
+import hydraSrc from '../assets/characters/hydra.png'
 import emberSrc from '../assets/spells/ember.png'
 import dragonDiveSrc from '../assets/spells/dragon_dive.png'
 import flamethrowerSrc from '../assets/spells/flamethrower.png'
 import fireBlastSrc from '../assets/spells/fire_blast.png'
 import burnSrc from '../assets/spells/burn.png'
+import poisonSrc from '../assets/spells/poison.png'
 import {
   AuthoritativeCharacterDefinition,
   AuthoritativePassiveDefinition,
@@ -29,6 +31,7 @@ export interface VisualSpellConfig {
 export interface VisualCharacterConfig {
   id: string
   name: string
+  passiveId: string
   imageSrc: string
   frameWidth: number
   frameHeight: number
@@ -118,6 +121,16 @@ export const PASSIVE_VISUALS: Record<string, VisualPassiveConfig> = {
     frameCount: 5,
     iconMode: 'single_fit',
   },
+  poison: {
+    id: 'poison',
+    name: 'Poison',
+    description: 'Envenena o alvo por mais tempo, causando dano periodico e reduzindo sua velocidade.',
+    imageSrc: poisonSrc,
+    frameWidth: 64,
+    frameHeight: 64,
+    frameCount: 7,
+    iconMode: 'single_fit',
+  },
 }
 
 export function resolvePassiveConfig(
@@ -141,12 +154,24 @@ export const CHARACTER_VISUALS: Record<string, VisualCharacterConfig> = {
   charizard: {
     id: 'charizard',
     name: 'Charizard',
+    passiveId: 'burn',
     imageSrc: charizardSrc,
     frameWidth: 256,
     frameHeight: 256,
     renderScale: 0.5,
     idleRows: [0, 1, 2, 3],
     walkRows: [4, 5, 6],
+  },
+  hydra: {
+    id: 'hydra',
+    name: 'Hydra',
+    passiveId: 'poison',
+    imageSrc: hydraSrc,
+    frameWidth: 256,
+    frameHeight: 256,
+    renderScale: 0.5,
+    idleRows: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    walkRows: [12, 13],
   },
 }
 

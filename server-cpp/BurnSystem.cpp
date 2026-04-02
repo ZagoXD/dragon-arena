@@ -2,6 +2,7 @@
 #include "CombatSystem.h"
 #include "NetworkHandler.h"
 #include "ServerDiagnostics.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
@@ -295,6 +296,27 @@ void BurnSystem::updateBurnStatuses(
     }
 
     activeBurnStatuses = std::move(remaining);
+}
+
+void BurnSystem::refreshPlayerMovementModifiers(
+    std::map<std::string, Player>& players,
+    const std::vector<ActiveBurnStatus>& activeBurnStatuses,
+    long long nowMs
+) {
+    for (auto& [playerId, player] : players) {
+        float maxSlowPct = 0.0f;
+
+        for (const auto& status : activeBurnStatuses) {
+            if (status.targetType != "player" || status.targetId != playerId || status.endTimeMs <= nowMs) {
+                continue;
+            }
+
+            const auto& passive = GameConfig::getPassiveDefinition(status.passiveId);
+            maxSlowPct = std::max(maxSlowPct, passive.movementSlowPct);
+        }
+
+        player.movementSpeed = std::max(1.0f, player.baseMovementSpeed * (1.0f - maxSlowPct));
+    }
 }
 
 void BurnSystem::updateBurnZones(

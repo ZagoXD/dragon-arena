@@ -6,6 +6,13 @@
 #include <algorithm>
 #include <cmath>
 
+namespace {
+int scaleDamageForCharacter(const Player& player, int baseDamage) {
+    const auto& definition = GameConfig::getCharacterDefinition(player.characterId);
+    return std::max(1, static_cast<int>(std::round(static_cast<float>(baseDamage) * definition.damageMultiplier)));
+}
+}
+
 void DashSystem::updateDashes(
     std::map<std::string, Player>& players,
     std::map<std::string, DummyEntity>& dummies,
@@ -56,13 +63,14 @@ void DashSystem::updateDashes(
             float dy = targetCenterY - playerCenterY;
 
             if (std::sqrt(dx * dx + dy * dy) < hitDistance) {
-                PlayerDamageResult damageResult = CombatSystem::applyAttackToPlayer(target, &player, dashSpell.damage, false);
+                const int damage = scaleDamageForCharacter(player, dashSpell.damage);
+                PlayerDamageResult damageResult = CombatSystem::applyAttackToPlayer(target, &player, damage, false);
                 player.dashHitIds.push_back(otherId);
                 ServerDiagnostics::logCombatEvent("dashHitPlayer", {
                     {"tick", worldTick},
                     {"playerId", playerId},
                     {"targetId", otherId},
-                    {"damage", dashSpell.damage},
+                    {"damage", damage},
                     {"killed", damageResult.killed}
                 });
 
@@ -100,13 +108,14 @@ void DashSystem::updateDashes(
             float dy = dummy.y - playerCenterY;
 
             if (std::sqrt(dx * dx + dy * dy) < dashCollisionRadius) {
-                DummyDamageResult damageResult = CombatSystem::applyDamageToDummy(dummy, dashSpell.damage, nowMs);
+                const int damage = scaleDamageForCharacter(player, dashSpell.damage);
+                DummyDamageResult damageResult = CombatSystem::applyDamageToDummy(dummy, damage, nowMs);
                 player.dashHitIds.push_back(dummyId);
                 ServerDiagnostics::logCombatEvent("dashHitDummy", {
                     {"tick", worldTick},
                     {"playerId", playerId},
                     {"dummyId", dummyId},
-                    {"damage", dashSpell.damage},
+                    {"damage", damage},
                     {"killed", damageResult.killed}
                 });
 

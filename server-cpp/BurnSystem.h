@@ -47,6 +47,12 @@ public:
         NetworkHandler* network
     );
 
+    static void refreshPlayerMovementModifiers(
+        std::map<std::string, Player>& players,
+        const std::vector<ActiveBurnStatus>& activeBurnStatuses,
+        long long nowMs
+    );
+
     static void updateBurnZones(
         std::map<std::string, Player>& players,
         std::map<std::string, DummyEntity>& dummies,

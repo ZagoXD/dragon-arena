@@ -16,6 +16,7 @@ export interface AuthoritativePassiveDefinition {
   durationMs: number
   tickDamage: number
   tickIntervalMs: number
+  movementSlowPct?: number
   applicationChances: Record<string, number>
 }
 
@@ -24,6 +25,7 @@ export interface AuthoritativeCharacterDefinition {
   name: string
   maxHp: number
   movementSpeed: number
+  damageMultiplier?: number
   colliderWidth: number
   colliderHeight: number
   autoAttackSpellId: string

@@ -47,6 +47,11 @@ bool isInsideFlamethrower(
 bool isPersistentProjectile(const std::string& spellId) {
     return spellId == "fire_blast";
 }
+
+int scaleDamageForCharacter(const Player& player, int baseDamage) {
+    const auto& definition = GameConfig::getCharacterDefinition(player.characterId);
+    return std::max(1, static_cast<int>(std::round(static_cast<float>(baseDamage) * definition.damageMultiplier)));
+}
 }
 
 void ProjectileSystem::releasePendingAutoAttacks(
@@ -186,14 +191,15 @@ void ProjectileSystem::updateProjectiles(
                         projectile.playerHitTimes[targetId] = nowMs;
                     }
 
-                    PlayerDamageResult damageResult = CombatSystem::applyAttackToPlayer(target, &players[projectile.ownerId], spell.damage, true);
+                    const int damage = scaleDamageForCharacter(players[projectile.ownerId], spell.damage);
+                    PlayerDamageResult damageResult = CombatSystem::applyAttackToPlayer(target, &players[projectile.ownerId], damage, true);
                     removeProjectile = !isPersistentProjectile(projectile.spellId);
                     ServerDiagnostics::logCombatEvent("projectileHitPlayer", {
                         {"tick", worldTick},
                         {"projectileId", projectile.id},
                         {"targetId", targetId},
                         {"ownerId", projectile.ownerId},
-                        {"damage", spell.damage},
+                        {"damage", damage},
                         {"killed", damageResult.killed}
                     });
 
@@ -234,14 +240,15 @@ void ProjectileSystem::updateProjectiles(
                         projectile.dummyHitTimes[dummyId] = nowMs;
                     }
 
-                    DummyDamageResult damageResult = CombatSystem::applyDamageToDummy(dummy, spell.damage, nowMs);
+                    const int damage = scaleDamageForCharacter(players[projectile.ownerId], spell.damage);
+                    DummyDamageResult damageResult = CombatSystem::applyDamageToDummy(dummy, damage, nowMs);
                     removeProjectile = !isPersistentProjectile(projectile.spellId);
                     ServerDiagnostics::logCombatEvent("projectileHitDummy", {
                         {"tick", worldTick},
                         {"projectileId", projectile.id},
                         {"dummyId", dummyId},
                         {"ownerId", projectile.ownerId},
-                        {"damage", spell.damage},
+                        {"damage", damage},
                         {"killed", damageResult.killed}
                     });
 
@@ -297,7 +304,8 @@ void ProjectileSystem::updateAreaEffects(
             continue;
         }
 
-        const int tickDamage = std::max(1, spell.damage / FLAMETHROWER_TICK_COUNT);
+        const int scaledBaseDamage = scaleDamageForCharacter(players[effect.ownerId], spell.damage);
+        const int tickDamage = std::max(1, scaledBaseDamage / FLAMETHROWER_TICK_COUNT);
         const int tickIntervalMs = std::max(1, spell.effectDurationMs / FLAMETHROWER_TICK_COUNT);
 
         while (effect.nextTickTimeMs <= nowMs && effect.ticksApplied < FLAMETHROWER_TICK_COUNT) {

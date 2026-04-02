@@ -7,7 +7,7 @@ import './HUD.css'
 function getPassiveIconStyle(passive: ResolvedCharacterConfig['passive']): React.CSSProperties {
   return {
     backgroundImage: `url(${passive.imageSrc})`,
-    backgroundSize: '100% 500%',
+    backgroundSize: `100% ${passive.frameCount * 100}%`,
     backgroundPosition: 'center top',
     backgroundRepeat: 'no-repeat',
   }
@@ -54,6 +54,7 @@ interface Props {
   playerName: string
   character: ResolvedCharacterConfig
   hp: number
+  movementSpeed: number
   playerPos: { x: number, y: number }
   dummies: { id: string, x: number, y: number, hp: number }[]
   otherPlayers?: { id: string, x: number, y: number, hp: number, kills?: number, deaths?: number }[]
@@ -64,7 +65,7 @@ interface Props {
 }
 
 export function HUD({ 
-  playerName, character, hp, playerPos, dummies, otherPlayers = [], 
+  playerName, character, hp, movementSpeed, playerPos, dummies, otherPlayers = [], 
   mapWidth, mapHeight, skillCooldowns = {}, autoAttackCooldown = 0 
 }: Props) {
   const { t } = useTranslation()
@@ -113,7 +114,7 @@ export function HUD({
                <span style={{ color: '#22c55e' }}>{t('hud.hpShort')}</span> {Math.ceil(hp)}
             </div>
             <div className="hud-stat-item">
-               <span style={{ color: '#fbbf24' }}>{t('hud.spdShort')}</span> {character.movementSpeed}
+               <span style={{ color: '#fbbf24' }}>{t('hud.spdShort')}</span> {Math.round(movementSpeed)}
             </div>
           </div>
         </div>

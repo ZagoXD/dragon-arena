@@ -82,6 +82,7 @@ export function useArenaNetworkState({
   onArenaChatMessage,
 }: UseArenaNetworkStateParams) {
   const [hp, setHp] = useState(0)
+  const [movementSpeed, setMovementSpeed] = useState(0)
   const [hasAuthoritativePlayerState, setHasAuthoritativePlayerState] = useState(false)
   const [dummies, setDummies] = useState<DummyData[]>([])
   const [projectiles, setProjectiles] = useState<ProjectileData[]>([])
@@ -105,15 +106,21 @@ export function useArenaNetworkState({
     setDummies(prev => prev.map(d => d.id === id ? { ...d, hp: newHp } : d))
   }, [])
 
-  const onSelfDamaged = useCallback((newHp: number, x?: number, y?: number) => {
+  const onSelfDamaged = useCallback((newHp: number, x?: number, y?: number, nextMovementSpeed?: number) => {
     setHp(newHp)
+    if (typeof nextMovementSpeed === 'number') {
+      setMovementSpeed(nextMovementSpeed)
+    }
     setHasAuthoritativePlayerState(true)
     if (x !== undefined && y !== undefined) {
       setAuthoritativePosition({ x, y })
     }
   }, [])
 
-  const onSelfMoved = useCallback((x: number, y: number) => {
+  const onSelfMoved = useCallback((x: number, y: number, nextMovementSpeed?: number) => {
+    if (typeof nextMovementSpeed === 'number') {
+      setMovementSpeed(nextMovementSpeed)
+    }
     setAuthoritativePosition({ x, y })
   }, [])
 
@@ -187,12 +194,18 @@ export function useArenaNetworkState({
   }, [resolveProjectile])
 
   const handleAutoAttackStarted = useCallback((event: AutoAttackStartedEvent) => {
+    if (event.playerId !== socketIdRef.current) {
+      return
+    }
+
     setAutoAttackCD(event.cooldownMs)
     onAutoAttackStarted?.(event)
   }, [onAutoAttackStarted])
 
   const handleSkillUsed = useCallback((event: SkillUsedEvent) => {
-    setSkillCooldowns(prev => ({ ...prev, [event.skillId]: event.cooldownMs }))
+    if (event.id === socketIdRef.current) {
+      setSkillCooldowns(prev => ({ ...prev, [event.skillId]: event.cooldownMs }))
+    }
 
     const currentBootstrap = bootstrapRef.current
     if (currentBootstrap) {
@@ -382,6 +395,7 @@ export function useArenaNetworkState({
   useEffect(() => {
     if (!bootstrap?.player) return
     setHp(bootstrap.player.hp)
+    setMovementSpeed(bootstrap.player.movementSpeed)
     setHasAuthoritativePlayerState(true)
     setAuthoritativePosition({ x: bootstrap.player.x, y: bootstrap.player.y })
   }, [bootstrap])
@@ -528,6 +542,7 @@ export function useArenaNetworkState({
     deaths,
     skillCooldowns,
     autoAttackCD,
+    movementSpeed,
     authoritativePosition,
     localDashState,
     impactEffects,

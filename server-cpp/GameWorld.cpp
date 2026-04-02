@@ -12,6 +12,14 @@
 #include "WorldSnapshotBuilder.h"
 #include "WorldTickRunner.h"
 #include <chrono>
+#include <cmath>
+
+namespace {
+int scaleDamageForCharacter(const Player& player, int baseDamage) {
+    const auto& definition = GameConfig::getCharacterDefinition(player.characterId);
+    return std::max(1, static_cast<int>(std::round(static_cast<float>(baseDamage) * definition.damageMultiplier)));
+}
+}
 
 GameWorld::GameWorld() : worldDefinition(GameConfig::getWorldDefinition()) {
     mapLoader.loadMap("map-assets/tiled/default_map.tmj");
@@ -108,7 +116,8 @@ GameWorld::HitResult GameWorld::hitPlayer(std::string victimId, std::string atta
     Player& victim = players[victimId];
     Player& attacker = players[attackerId];
     const auto& autoAttack = GameConfig::getSpellDefinition(attacker.autoAttackSpellId);
-    PlayerDamageResult damageResult = CombatSystem::applyAttackToPlayer(victim, &attacker, autoAttack.damage, true);
+    const int damage = scaleDamageForCharacter(attacker, autoAttack.damage);
+    PlayerDamageResult damageResult = CombatSystem::applyAttackToPlayer(victim, &attacker, damage, true);
 
     res.hit = damageResult.applied;
     res.killed = damageResult.killed;
@@ -132,7 +141,8 @@ int GameWorld::hitDummy(std::string attackerId, std::string dummyId) {
     const auto& autoAttack = GameConfig::getSpellDefinition(players[attackerId].autoAttackSpellId);
     auto now = std::chrono::steady_clock::now();
     long long nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-    return CombatSystem::applyDamageToDummy(dummy, autoAttack.damage, nowMs).newHp;
+    const int damage = scaleDamageForCharacter(players[attackerId], autoAttack.damage);
+    return CombatSystem::applyDamageToDummy(dummy, damage, nowMs).newHp;
 }
 
 void GameWorld::update(NetworkHandler* network) {
@@ -164,6 +174,7 @@ bool GameWorld::useSkill(std::string playerId, std::string skillId, float target
 
 void GameWorld::updateSimulation(NetworkHandler* network, float deltaSeconds, long long now_ms) {
     updateDashes(network, now_ms);
+    BurnSystem::refreshPlayerMovementModifiers(players, activeBurnStatuses, now_ms);
     WorldTickRunner::updatePlayerMovement(players, mapLoader, worldTick, deltaSeconds, network);
     updatePendingAutoAttacks(network, now_ms);
     updateProjectiles(network, deltaSeconds, now_ms);

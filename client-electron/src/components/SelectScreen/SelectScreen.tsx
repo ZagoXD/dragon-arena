@@ -44,7 +44,7 @@ function getSpellIconStyle(spell: VisualSpellConfig): React.CSSProperties {
 function getPassiveIconStyle(passive: VisualPassiveConfig): React.CSSProperties {
   return {
     backgroundImage: `url(${passive.imageSrc})`,
-    backgroundSize: '100% 500%',
+    backgroundSize: `100% ${passive.frameCount * 100}%`,
     backgroundPosition: 'center top',
     backgroundRepeat: 'no-repeat',
   }
@@ -108,7 +108,11 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
           const bgPosX = -(2 * portraitSize)
           const bgPosY = -(currentRow * portraitSize)
           const allSkills = [SPELL_VISUALS.ember, SPELL_VISUALS.dragon_dive, SPELL_VISUALS.flamethrower, SPELL_VISUALS.fire_blast]
-          const passive = PASSIVE_VISUALS.burn
+          const passive = PASSIVE_VISUALS[char.passiveId]
+
+          if (!passive) {
+            return null
+          }
 
           return (
             <div

@@ -1,12 +1,12 @@
 {
-  "id": "charizard",
-  "name": "Charizard",
-  "maxHp": 1000,
-  "movementSpeed": 220.0,
-  "damageMultiplier": 1.0,
+  "id": "hydra",
+  "name": "Hydra",
+  "maxHp": 1400,
+  "movementSpeed": 180.0,
+  "damageMultiplier": 0.8,
   "colliderWidth": 64.0,
   "colliderHeight": 64.0,
   "autoAttackSpellId": "ember",
   "skillIds": ["dragon_dive", "flamethrower", "fire_blast"],
-  "passiveId": "burn"
+  "passiveId": "poison"
 }

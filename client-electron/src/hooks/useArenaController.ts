@@ -10,6 +10,7 @@ const ARENA_SAFE_INSET_PX = 28
 interface UseArenaControllerParams {
   inputEnabled: boolean
   character: ResolvedCharacterConfig | null
+  speed: number
   fallbackVisual: VisualCharacterConfig
   bootstrapPlayer?: {
     x: number
@@ -34,6 +35,7 @@ interface UseArenaControllerParams {
 export function useArenaController({
   inputEnabled,
   character,
+  speed,
   fallbackVisual,
   bootstrapPlayer,
   authoritativePosition,
@@ -80,7 +82,7 @@ export function useArenaController({
     mapWidth,
     mapHeight,
     tileSize,
-    speed: character?.movementSpeed ?? 0,
+    speed,
     colliderWidth: character?.colliderWidth ?? 64,
     colliderHeight: character?.colliderHeight ?? 64,
     idleRows: fallbackVisual.idleRows,

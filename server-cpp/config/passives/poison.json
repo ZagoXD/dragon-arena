@@ -1,10 +1,10 @@
 {
-  "id": "burn",
-  "name": "Burn",
-  "durationMs": 3000,
-  "tickDamage": 15,
+  "id": "poison",
+  "name": "Poison",
+  "durationMs": 4500,
+  "tickDamage": 8,
   "tickIntervalMs": 500,
-  "movementSlowPct": 0.0,
+  "movementSlowPct": 0.3,
   "applicationChances": {
     "ember": 10.0,
     "dragon_dive": 10.0,
