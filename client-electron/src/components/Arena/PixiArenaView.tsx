@@ -72,6 +72,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
   const overlayRef = useRef<Container | null>(null)
   const frameTextureCacheRef = useRef<Map<string, Texture>>(new Map())
   const persistentAssetUrlsRef = useRef<Set<string>>(new Set(PIXI_STATIC_ASSET_URLS))
+  const hasCompletedInitialAssetLoadRef = useRef(false)
   const onReadyChangeRef = useRef(props.onReadyChange)
   const [appReady, setAppReady] = useState(false)
   const [assetsReadyVersion, setAssetsReadyVersion] = useState(0)
@@ -172,7 +173,10 @@ export function PixiArenaView(props: PixiArenaViewProps) {
     let cancelled = false
 
     const loadAssets = async () => {
-      onReadyChangeRef.current?.(false)
+      const isInitialAssetLoad = !hasCompletedInitialAssetLoadRef.current
+      if (isInitialAssetLoad) {
+        onReadyChangeRef.current?.(false)
+      }
 
       try {
         await Promise.allSettled(assetUrls.map(url => Assets.load(url)))
@@ -185,6 +189,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
       }
 
       worldRef.current?.position.set(-props.cameraX, -props.cameraY)
+      hasCompletedInitialAssetLoadRef.current = true
       setAssetsReadyVersion(version => version + 1)
       onReadyChangeRef.current?.(true)
     }
