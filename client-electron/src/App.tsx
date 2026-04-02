@@ -104,7 +104,8 @@ function App() {
     : 'pt-BR') as AppLanguage
   const showTitleBar = shellSettings.displayMode !== 'fullscreen'
   const isAuthenticatedScreen = ['home', 'profile', 'collection', 'select', 'arena'].includes(screen)
-  const showSettingsButton = isAuthenticatedScreen
+  const isLobbyScreen = ['home', 'profile', 'collection', 'select'].includes(screen)
+  const showSettingsButton = isLobbyScreen
   const activeMenuView = screen === 'profile' || screen === 'collection' ? screen : 'home'
 
   const applyAccountSnapshot = useCallback((payload: Pick<AuthSuccessPayload, 'user' | 'profile'>) => {
@@ -1132,7 +1133,7 @@ function App() {
             showLogout={isAuthenticatedScreen}
           />
         )}
-        {isAuthenticatedScreen && (
+        {isLobbyScreen && (
           <>
             <FriendListPanel
               expanded={friendPanelExpanded}
