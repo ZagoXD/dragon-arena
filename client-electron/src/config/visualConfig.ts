@@ -3,6 +3,7 @@ import hydraSrc from '../assets/characters/hydra.png'
 import emberSrc from '../assets/spells/ember.png'
 import scratchSrc from '../assets/spells/scratch.png'
 import poisonFlashSrc from '../assets/spells/poison_flash.png'
+import poisonShieldSrc from '../assets/spells/poison_shield.png'
 import dragonDiveSrc from '../assets/spells/dragon_dive.png'
 import flamethrowerSrc from '../assets/spells/flamethrower.png'
 import fireBlastSrc from '../assets/spells/fire_blast.png'
@@ -25,11 +26,12 @@ export interface VisualSpellConfig {
   frameCount?: number
   aimingWidth?: number
   aimingStyle?: 'arrow' | 'beam' | 'beam_constant'
-  effectKind?: 'projectile' | 'beam' | 'tile_burst' | 'melee_slash' | 'line_burst'
+  effectKind?: 'projectile' | 'beam' | 'tile_burst' | 'melee_slash' | 'line_burst' | 'self_aura'
   renderMode?: 'directional_sheet' | 'single_rotated'
   iconMode?: 'sheet_focus' | 'single_fit'
   rotationOffsetRad?: number
   iconFrameIndex?: number
+  effectScale?: number
 }
 
 export interface VisualCharacterConfig {
@@ -100,6 +102,19 @@ export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
     effectKind: 'line_burst',
     renderMode: 'single_rotated',
     iconFrameIndex: 5,
+  },
+  poison_shield: {
+    id: 'poison_shield',
+    description: 'Uma barreira venenosa envolve o dragão, concedendo um escudo temporário.',
+    imageSrc: poisonShieldSrc,
+    frameSize: 256,
+    frameWidth: 256,
+    frameHeight: 256,
+    frameCount: 13,
+    effectKind: 'self_aura',
+    renderMode: 'single_rotated',
+    iconFrameIndex: 0,
+    effectScale: 0.5,
   },
   dragon_dive: {
     id: 'dragon_dive',
@@ -210,7 +225,7 @@ export const CHARACTER_VISUALS: Record<string, VisualCharacterConfig> = {
     id: 'hydra',
     name: 'Hydra',
     passiveId: 'poison',
-    skillIds: ['poison_flash', 'flamethrower', 'seed_bite'],
+    skillIds: ['poison_flash', 'poison_shield', 'seed_bite'],
     imageSrc: hydraSrc,
     frameWidth: 256,
     frameHeight: 256,

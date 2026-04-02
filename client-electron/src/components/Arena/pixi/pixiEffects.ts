@@ -196,6 +196,23 @@ export function buildSkillEffect(
     return container
   }
 
+  if (effect.spell.effectKind === 'self_aura') {
+    const container = new Container()
+    container.x = effect.x
+    container.y = effect.y
+    container.zIndex = effect.y + 120
+
+    const sprite = new Sprite(frameTexture)
+    sprite.anchor.set(0.5)
+    const scale = effect.spell.effectScale ?? 1
+    sprite.width = frameWidth * scale
+    sprite.height = frameHeight * scale
+    sprite.alpha = 0.98
+    sprite.roundPixels = true
+    container.addChild(sprite)
+    return container
+  }
+
   if (effect.spell.effectKind === 'melee_slash') {
     const container = new Container()
     container.x = effect.x

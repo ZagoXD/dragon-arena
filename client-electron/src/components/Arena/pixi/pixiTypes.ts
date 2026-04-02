@@ -12,6 +12,8 @@ export interface RemotePlayerView {
   direction: NetPlayer['direction']
   animRow: number
   hp: number
+  shieldHp: number
+  shieldMaxHp: number
   isDashing?: boolean
   dashAngle?: number
 }
@@ -26,6 +28,8 @@ export interface LocalPlayerView {
   direction: NetPlayer['direction']
   animRow: number
   hp: number
+  shieldHp: number
+  shieldMaxHp: number
   isDashing?: boolean
   dashAngle?: number
 }

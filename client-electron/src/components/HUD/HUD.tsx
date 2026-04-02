@@ -67,6 +67,8 @@ interface Props {
   playerName: string
   character: ResolvedCharacterConfig
   hp: number
+  shieldHp: number
+  shieldMaxHp: number
   movementSpeed: number
   playerPos: { x: number, y: number }
   dummies: { id: string, x: number, y: number, hp: number }[]
@@ -78,11 +80,14 @@ interface Props {
 }
 
 export function HUD({ 
-  playerName, character, hp, movementSpeed, playerPos, dummies, otherPlayers = [], 
+  playerName, character, hp, shieldHp, shieldMaxHp, movementSpeed, playerPos, dummies, otherPlayers = [], 
   mapWidth, mapHeight, skillCooldowns = {}, autoAttackCooldown = 0 
 }: Props) {
   const { t } = useTranslation()
-  const hpPct = Math.max(0, (hp / character.maxHp) * 100)
+  const totalPool = Math.max(1, character.maxHp + shieldMaxHp)
+  const hpPct = Math.max(0, (hp / totalPool) * 100)
+  const totalVisiblePct = Math.max(0, ((hp + shieldHp) / totalPool) * 100)
+  const totalCurrent = hp + shieldHp
   
   // Adjusted scaling for 80px container
   const portraitSize = 80
@@ -138,9 +143,15 @@ export function HUD({
         <div className="hud-hp-container">
            <div className="hud-hp-labels">
              <span className="hud-hp-val">{t('hud.vitality')}</span>
-             <span className="hud-hp-val" style={{ color: '#fff' }}>{Math.ceil(hp)} / {character.maxHp}</span>
+             <span className="hud-hp-val" style={{ color: '#fff' }}>{Math.ceil(totalCurrent)} / {character.maxHp + shieldMaxHp}</span>
            </div>
            <div className="hud-hp-bar">
+             <div
+               className="hud-shield-fill"
+               style={{
+                 width: `${totalVisiblePct}%`,
+               }}
+             ></div>
              <div
                className="hud-hp-fill"
                style={{

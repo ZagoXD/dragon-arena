@@ -262,6 +262,8 @@ export function PixiArenaView(props: PixiArenaViewProps) {
           player.direction,
           player.animRow,
           player.hp,
+          player.shieldHp,
+          player.shieldMaxHp,
           false,
           player.isDashing,
           player.dashAngle
@@ -281,6 +283,8 @@ export function PixiArenaView(props: PixiArenaViewProps) {
           props.localPlayer.direction,
           props.localPlayer.animRow,
           props.localPlayer.hp,
+          props.localPlayer.shieldHp,
+          props.localPlayer.shieldMaxHp,
           true,
           props.localPlayer.isDashing,
           props.localPlayer.dashAngle

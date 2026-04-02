@@ -295,7 +295,13 @@ export function useArenaController({
       }
       if (e.key === '2' && character.skills[1]) {
         const cd = skillCooldowns[character.skills[1].id] || 0
-        if (cd <= 0) setAimingSkill(character.skills[1])
+        if (cd <= 0) {
+          if (character.skills[1].effectKind === 'self_aura') {
+            emitUseSkill(character.skills[1].id, playerRef.current.x, playerRef.current.y)
+          } else {
+            setAimingSkill(character.skills[1])
+          }
+        }
       }
       if (e.key === '3' && character.skills[2]) {
         const cd = skillCooldowns[character.skills[2].id] || 0

@@ -33,6 +33,8 @@ export function buildPlayer(
   direction: NetPlayer['direction'],
   animRow: number,
   hp: number,
+  shieldHp: number,
+  shieldMaxHp: number,
   isLocalPlayer: boolean,
   isDashing?: boolean,
   dashAngle?: number
@@ -118,7 +120,11 @@ export function buildPlayer(
     container.addChild(aura)
   }
 
-  const hpPercentage = Math.max(0, hp / character.maxHp)
+  const effectiveShieldMax = Math.max(0, shieldMaxHp)
+  const effectiveShield = Math.max(0, Math.min(shieldHp, effectiveShieldMax))
+  const totalPool = Math.max(1, character.maxHp + effectiveShieldMax)
+  const hpPercentage = Math.max(0, hp / totalPool)
+  const totalVisiblePercentage = Math.max(0, (hp + effectiveShield) / totalPool)
   const barColor = isLocalPlayer ? 0x4caf50 : 0xf44336
 
   const overheadY = -verticalOffset - 28
@@ -163,6 +169,12 @@ export function buildPlayer(
   hpTrack.x = character.colliderWidth / 2 - hpWidth / 2
   hpTrack.y = overheadY - overheadShiftY + 4
 
+  const shieldFill = new Graphics()
+  shieldFill.roundRect(0, 0, Math.max(0, hpWidth * totalVisiblePercentage), 8, 4)
+  shieldFill.fill(0xdbe2ea)
+  shieldFill.x = character.colliderWidth / 2 - hpWidth / 2
+  shieldFill.y = overheadY - overheadShiftY + 4
+
   const hpFill = new Graphics()
   hpFill.roundRect(0, 0, Math.max(0, hpWidth * hpPercentage), 8, 4)
   hpFill.fill(barColor)
@@ -170,9 +182,9 @@ export function buildPlayer(
   hpFill.y = overheadY - overheadShiftY + 4
 
   if (adminLabel) {
-    container.addChild(shadow, adminLabel, nameLabel, hpTrack, hpFill, sprite)
+    container.addChild(shadow, adminLabel, nameLabel, hpTrack, shieldFill, hpFill, sprite)
   } else {
-    container.addChild(shadow, nameLabel, hpTrack, hpFill, sprite)
+    container.addChild(shadow, nameLabel, hpTrack, shieldFill, hpFill, sprite)
   }
   return container
 }

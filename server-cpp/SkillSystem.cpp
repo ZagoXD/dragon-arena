@@ -234,6 +234,28 @@ bool SkillSystem::useSkill(
         return true;
     }
 
+    if (skillId == "poison_shield") {
+        player.grantShield(500, 3000, nowMs);
+        player.lastSkillUseTimes[skillId] = nowMs;
+
+        broadcastSkillUsed(network, worldTick, playerId, skillId, originX, originY, originX, originY, 0.0f, spell);
+
+        if (network) {
+            network->broadcast(json({
+                {"event", "playerShieldChanged"},
+                {"tick", worldTick},
+                {"id", playerId},
+                {"hp", player.hp},
+                {"movementSpeed", player.movementSpeed},
+                {"shieldHp", player.shieldHp},
+                {"shieldMaxHp", player.shieldMaxHp},
+                {"shieldEndTimeMs", player.shieldEndTimeMs}
+            }).dump());
+        }
+
+        return true;
+    }
+
     if (skillId == "fire_blast") {
         const float clampedTargetX = originX + std::cos(angle) * spell.range;
         const float clampedTargetY = originY + std::sin(angle) * spell.range;

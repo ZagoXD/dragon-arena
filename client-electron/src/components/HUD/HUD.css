@@ -211,10 +211,25 @@
 }
 
 .hud-hp-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
   height: 100%;
   background: linear-gradient(90deg, #ef4444, #f87171);
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hud-shield-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #cfd7df, #eef3f7);
+  box-shadow: 0 0 10px rgba(238, 243, 247, 0.32);
+  transition:
+    left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hud-hp-labels {

@@ -9,6 +9,8 @@ struct PlayerDamageResult {
     bool applied;
     bool killed;
     int newHp;
+    int newShieldHp;
+    int maxShieldHp;
     int attackerKills;
     int victimDeaths;
 };

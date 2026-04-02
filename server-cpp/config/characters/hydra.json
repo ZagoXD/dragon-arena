@@ -9,6 +9,6 @@
   "colliderWidth": 64.0,
   "colliderHeight": 64.0,
   "autoAttackSpellId": "scratch",
-  "skillIds": ["poison_flash", "flamethrower", "seed_bite"],
+  "skillIds": ["poison_flash", "poison_shield", "seed_bite"],
   "passiveId": "poison"
 }

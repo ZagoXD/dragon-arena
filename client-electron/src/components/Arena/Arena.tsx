@@ -101,6 +101,8 @@ export function Arena({
     dummyMaxHp,
     respawnSeconds,
     hp,
+    shieldHp,
+    shieldMaxHp,
     hasAuthoritativePlayerState,
     dummies,
     projectiles,
@@ -230,6 +232,8 @@ export function Arena({
           direction: controller.player.direction,
           animRow: controller.player.animRow,
           hp,
+          shieldHp,
+          shieldMaxHp,
           isDashing: localDashState.isDashing || controller.player.isDashing,
           dashAngle: localDashState.dashAngle,
         }
@@ -279,6 +283,8 @@ export function Arena({
             playerName={displayPlayerName}
             character={character}
             hp={hp}
+            shieldHp={shieldHp}
+            shieldMaxHp={shieldMaxHp}
             movementSpeed={movementSpeed || character.movementSpeed}
             playerPos={{ x: controller.player.x, y: controller.player.y }}
             dummies={dummies}

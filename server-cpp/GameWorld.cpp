@@ -173,6 +173,7 @@ bool GameWorld::useSkill(std::string playerId, std::string skillId, float target
 }
 
 void GameWorld::updateSimulation(NetworkHandler* network, float deltaSeconds, long long now_ms) {
+    updateShields(now_ms);
     updateDashes(network, now_ms);
     BurnSystem::refreshPlayerMovementModifiers(players, activeBurnStatuses, now_ms);
     WorldTickRunner::updatePlayerMovement(players, mapLoader, worldTick, deltaSeconds, network);
@@ -182,6 +183,12 @@ void GameWorld::updateSimulation(NetworkHandler* network, float deltaSeconds, lo
     updateBurns(network, now_ms);
     updatePlayerRespawns(network, now_ms);
     updateDummyRespawns(network, now_ms);
+}
+
+void GameWorld::updateShields(long long now_ms) {
+    for (auto& [playerId, player] : players) {
+        player.clearExpiredShield(now_ms);
+    }
 }
 
 void GameWorld::broadcastSnapshot(NetworkHandler* network, long long now_ms) {

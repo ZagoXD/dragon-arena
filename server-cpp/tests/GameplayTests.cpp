@@ -43,7 +43,7 @@ void testGameConfigValidation() {
 
     json summary = GameConfig::buildContentSummary();
     assert(summary["characters"]["count"] == 2);
-    assert(summary["spells"]["count"] == 7);
+    assert(summary["spells"]["count"] == 8);
     assert(summary["passives"]["count"] == 2);
 }
 
@@ -96,6 +96,20 @@ void testCombatPlayerDamage() {
     assert(result.newHp == 0);
     assert(result.attackerKills == 1);
     assert(result.victimDeaths == 1);
+}
+
+void testCombatShieldAbsorption() {
+    const auto& definition = GameConfig::getCharacterDefinition("hydra");
+    Player victim("v", "Victim", definition);
+    victim.grantShield(100, 3000, 1000);
+
+    PlayerDamageResult firstHit = CombatSystem::applyAttackToPlayer(victim, nullptr, 90, false);
+    assert(firstHit.newHp == definition.maxHp);
+    assert(firstHit.newShieldHp == 10);
+
+    PlayerDamageResult secondHit = CombatSystem::applyAttackToPlayer(victim, nullptr, 110, false);
+    assert(secondHit.newShieldHp == 0);
+    assert(secondHit.newHp == definition.maxHp - 100);
 }
 
 void testCombatDummyDamage() {
@@ -275,6 +289,7 @@ int main() {
     testMovementIntentAndBounds();
     testMovementCollisionWithMap();
     testCombatPlayerDamage();
+    testCombatShieldAbsorption();
     testCombatDummyDamage();
     testAutoAttackCastAndProjectileLifecycle();
     testSkillCooldownAndDashState();

@@ -14,6 +14,8 @@ PlayerDamageResult CombatSystem::applyAttackToPlayer(Player& victim, Player* att
         true,
         killed,
         victim.hp,
+        victim.shieldHp,
+        victim.shieldMaxHp,
         attacker != nullptr ? attacker->kills : 0,
         victim.deaths
     };

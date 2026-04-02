@@ -56,6 +56,9 @@ export interface BootstrapPlayerState {
   animRow: number
   hp: number
   maxHp: number
+  shieldHp: number
+  shieldMaxHp: number
+  shieldEndTimeMs?: number
   kills: number
   deaths: number
   movementSpeed: number

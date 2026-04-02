@@ -19,6 +19,8 @@ public:
     std::string direction;
     int animRow;
     int hp, maxHp;
+    int shieldHp = 0;
+    int shieldMaxHp = 0;
     int kills, deaths;
     float baseMovementSpeed;
     float movementSpeed;
@@ -31,6 +33,7 @@ public:
     std::string passiveId;
     long long deathTimeMs = 0;
     long long immobilizedUntilMs = 0;
+    long long shieldEndTimeMs = 0;
 
     // Dash / Skill 1 State
     bool isDashing = false;
@@ -46,7 +49,9 @@ public:
 
     json to_json() const;
     void update_position(float x, float y, std::string dir, int anim);
-    bool take_damage(int amount);
+    bool take_damage(int amount, long long nowMs = -1);
+    void grantShield(int amount, long long durationMs, long long nowMs);
+    void clearExpiredShield(long long nowMs);
     void respawn(float startX, float startY);
     bool canRespawn(long long nowMs, int respawnDelayMs) const;
 };

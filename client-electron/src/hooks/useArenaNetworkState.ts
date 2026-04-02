@@ -82,6 +82,8 @@ export function useArenaNetworkState({
   onArenaChatMessage,
 }: UseArenaNetworkStateParams) {
   const [hp, setHp] = useState(0)
+  const [shieldHp, setShieldHp] = useState(0)
+  const [shieldMaxHp, setShieldMaxHp] = useState(0)
   const [movementSpeed, setMovementSpeed] = useState(0)
   const [hasAuthoritativePlayerState, setHasAuthoritativePlayerState] = useState(false)
   const [dummies, setDummies] = useState<DummyData[]>([])
@@ -106,8 +108,10 @@ export function useArenaNetworkState({
     setDummies(prev => prev.map(d => d.id === id ? { ...d, hp: newHp } : d))
   }, [])
 
-  const onSelfDamaged = useCallback((newHp: number, x?: number, y?: number, nextMovementSpeed?: number) => {
+  const onSelfDamaged = useCallback((newHp: number, nextShieldHp: number, nextShieldMaxHp: number, x?: number, y?: number, nextMovementSpeed?: number) => {
     setHp(newHp)
+    setShieldHp(nextShieldHp)
+    setShieldMaxHp(nextShieldMaxHp)
     if (typeof nextMovementSpeed === 'number') {
       setMovementSpeed(nextMovementSpeed)
     }
@@ -266,7 +270,8 @@ export function useArenaNetworkState({
         if (
           resolvedSpell?.effectKind === 'beam' ||
           resolvedSpell?.effectKind === 'tile_burst' ||
-          resolvedSpell?.effectKind === 'line_burst'
+          resolvedSpell?.effectKind === 'line_burst' ||
+          resolvedSpell?.effectKind === 'self_aura'
         ) {
           const fallbackOriginX = owner.x + owner.colliderWidth / 2
           const fallbackOriginY = owner.y + owner.colliderHeight / 2
@@ -371,6 +376,8 @@ export function useArenaNetworkState({
           direction: player.direction,
           animRow: player.animRow,
           hp: player.hp,
+          shieldHp: player.shieldHp || 0,
+          shieldMaxHp: player.shieldMaxHp || 0,
           isDashing: player.isDashing,
           dashAngle: getRemoteDashAngle(player, remoteSamplesRef.current[player.id] ?? []),
         }
@@ -444,6 +451,8 @@ export function useArenaNetworkState({
   useEffect(() => {
     if (!bootstrap?.player) return
     setHp(bootstrap.player.hp)
+    setShieldHp(bootstrap.player.shieldHp || 0)
+    setShieldMaxHp(bootstrap.player.shieldMaxHp || 0)
     setMovementSpeed(bootstrap.player.movementSpeed)
     setHasAuthoritativePlayerState(true)
     setAuthoritativePosition({ x: bootstrap.player.x, y: bootstrap.player.y })
@@ -580,6 +589,8 @@ export function useArenaNetworkState({
     dummyMaxHp,
     respawnSeconds,
     hp,
+    shieldHp,
+    shieldMaxHp,
     hasAuthoritativePlayerState,
     dummies,
     projectiles,

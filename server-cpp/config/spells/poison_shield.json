@@ -1,0 +1,11 @@
+{
+  "id": "poison_shield",
+  "name": "Poison Shield",
+  "damage": 0,
+  "range": 0.0,
+  "castTimeMs": 0,
+  "cooldownMs": 9000,
+  "projectileSpeed": 0.0,
+  "projectileRadius": 0.0,
+  "effectDurationMs": 800
+}

@@ -65,6 +65,7 @@ private:
     void updateDashes(NetworkHandler* network, long long now_ms);
     void updatePlayerRespawns(NetworkHandler* network, long long now_ms);
     void updateDummyRespawns(NetworkHandler* network, long long now_ms);
+    void updateShields(long long now_ms);
     void updatePendingAutoAttacks(NetworkHandler* network, long long now_ms);
     void updateProjectiles(NetworkHandler* network, float deltaSeconds, long long now_ms);
     void updateAreaEffects(NetworkHandler* network, long long now_ms);

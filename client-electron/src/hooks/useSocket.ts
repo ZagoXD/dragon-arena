@@ -15,6 +15,9 @@ export interface NetPlayer {
   animRow: number
   hp: number
   maxHp: number
+  shieldHp: number
+  shieldMaxHp: number
+  shieldEndTimeMs?: number
   kills: number
   deaths: number
   movementSpeed: number
@@ -119,7 +122,7 @@ export function useSocket(
   characterId: string,
   onCurrentDummies: (dummies: any[]) => void,
   onDummyDamaged: (id: string, hp: number) => void,
-  onSelfDamaged: (newHp: number, x?: number, y?: number, movementSpeed?: number) => void,
+  onSelfDamaged: (newHp: number, shieldHp: number, shieldMaxHp: number, x?: number, y?: number, movementSpeed?: number) => void,
   onSelfMoved: (x: number, y: number, movementSpeed?: number) => void,
   onProjectileSpawned?: (projectile: ProjectileSpawnEvent) => void,
   onProjectileRemoved?: (projectileId: string) => void,
@@ -248,13 +251,15 @@ export function useSocket(
             const self = players[session.selfId]
             setKills(self.kills || 0)
             setDeaths(self.deaths || 0)
-            onSelfDamaged(self.hp, self.x, self.y, self.movementSpeed)
+            onSelfDamaged(self.hp, self.shieldHp || 0, self.shieldMaxHp || 0, self.x, self.y, self.movementSpeed)
             delete players[session.selfId]
           } else if (session.bootstrap.player) {
             setKills(session.bootstrap.player.kills || 0)
             setDeaths(session.bootstrap.player.deaths || 0)
             onSelfDamaged(
               session.bootstrap.player.hp,
+              session.bootstrap.player.shieldHp || 0,
+              session.bootstrap.player.shieldMaxHp || 0,
               session.bootstrap.player.x,
               session.bootstrap.player.y,
               session.bootstrap.player.movementSpeed
@@ -300,11 +305,11 @@ export function useSocket(
         case 'playerDamaged':
           if (data.tick && data.tick < latestSnapshotTickRef.current) break
           if (data.id === socketIdRef.current) {
-            onSelfDamaged(data.hp, undefined, undefined, data.movementSpeed)
+            onSelfDamaged(data.hp, data.shieldHp || 0, data.shieldMaxHp || 0, undefined, undefined, data.movementSpeed)
           } else {
             setOtherPlayers(prev => {
               if (!prev[data.id]) return prev
-              return { ...prev, [data.id]: { ...prev[data.id], hp: data.hp } }
+              return { ...prev, [data.id]: { ...prev[data.id], hp: data.hp, shieldHp: data.shieldHp ?? prev[data.id].shieldHp, shieldMaxHp: data.shieldMaxHp ?? prev[data.id].shieldMaxHp } }
             })
           }
           break
@@ -334,11 +339,34 @@ export function useSocket(
         case 'playerRespawned':
           if (data.tick && data.tick < latestSnapshotTickRef.current) break
           if (data.id === socketIdRef.current) {
-            onSelfDamaged(data.hp, data.x, data.y, data.movementSpeed)
+            onSelfDamaged(data.hp, data.shieldHp || 0, data.shieldMaxHp || 0, data.x, data.y, data.movementSpeed)
           } else {
             setOtherPlayers(prev => {
               if (!prev[data.id]) return prev
-              return { ...prev, [data.id]: { ...prev[data.id], hp: data.hp, x: data.x, y: data.y } }
+              return { ...prev, [data.id]: { ...prev[data.id], hp: data.hp, shieldHp: data.shieldHp ?? prev[data.id].shieldHp, shieldMaxHp: data.shieldMaxHp ?? prev[data.id].shieldMaxHp, x: data.x, y: data.y } }
+            })
+          }
+          break
+
+        case 'playerShieldChanged':
+          if (data.tick && data.tick < latestSnapshotTickRef.current) break
+          if (data.id === socketIdRef.current) {
+            onSelfDamaged(
+              data.hp ?? 0,
+              data.shieldHp || 0,
+              data.shieldMaxHp || 0
+            )
+          } else {
+            setOtherPlayers(prev => {
+              if (!prev[data.id]) return prev
+              return {
+                ...prev,
+                [data.id]: {
+                  ...prev[data.id],
+                  shieldHp: data.shieldHp ?? prev[data.id].shieldHp,
+                  shieldMaxHp: data.shieldMaxHp ?? prev[data.id].shieldMaxHp,
+                },
+              }
             })
           }
           break
@@ -370,7 +398,7 @@ export function useSocket(
           const selfId = socketIdRef.current
           if (selfId && players[selfId]) {
             const self = players[selfId]
-            onSelfDamaged(self.hp, self.x, self.y, self.movementSpeed)
+            onSelfDamaged(self.hp, self.shieldHp || 0, self.shieldMaxHp || 0, self.x, self.y, self.movementSpeed)
             delete players[selfId]
           }
           setOtherPlayers(players)
