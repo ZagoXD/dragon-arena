@@ -89,7 +89,7 @@ function App() {
   const [authError, setAuthError] = useState<string | null>(null)
   const [authInfo, setAuthInfo] = useState<string | null>(null)
   const [nameScreenMode, setNameScreenMode] = useState<'login' | 'register'>('login')
-  const [characterId, setCharacterId] = useState<string>('charizard')
+  const [characterId, setCharacterId] = useState<string>('meteor')
   const [selectionLockedUntil, setSelectionLockedUntil] = useState<number | null>(null)
   const [loadingStatus, setLoadingStatus] = useState(() => i18n.t('app.initializing'))
   const [retryCount, setRetryCount] = useState(0)

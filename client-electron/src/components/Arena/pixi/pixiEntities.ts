@@ -38,13 +38,13 @@ export function buildPlayer(
   container.y = y
 
   const dashVisual = character.skills[0]
-  const isCharizardDash = Boolean(isDashing && character.id === 'charizard' && dashVisual)
-  const isDashSingleRotated = Boolean(isCharizardDash && dashVisual.renderMode === 'single_rotated')
-  const activeImage = isCharizardDash ? dashVisual.imageSrc : character.imageSrc
+  const isMeteorDash = Boolean(isDashing && character.id === 'meteor' && dashVisual)
+  const isDashSingleRotated = Boolean(isMeteorDash && dashVisual.renderMode === 'single_rotated')
+  const activeImage = isMeteorDash ? dashVisual.imageSrc : character.imageSrc
 
-  const frameWidth = isCharizardDash ? dashVisual.frameSize : character.frameWidth
-  const frameHeight = isCharizardDash ? dashVisual.frameSize : character.frameHeight
-  const renderScale = isCharizardDash
+  const frameWidth = isMeteorDash ? dashVisual.frameSize : character.frameWidth
+  const frameHeight = isMeteorDash ? dashVisual.frameSize : character.frameHeight
+  const renderScale = isMeteorDash
     ? (isDashSingleRotated ? 1.0 : 2.0)
     : character.renderScale
   const renderedWidth = frameWidth * renderScale
@@ -63,8 +63,8 @@ export function buildPlayer(
   if (!spriteTexture) {
     return container
   }
-  if (!isCharizardDash || !isDashSingleRotated) {
-    const isDirectionalDash = isCharizardDash && !isDashSingleRotated
+  if (!isMeteorDash || !isDashSingleRotated) {
+    const isDirectionalDash = isMeteorDash && !isDashSingleRotated
     const { col: dashCol, row: dashRow } = getSpellFrame(dashAngle ?? fallbackDashAngle)
     const actualRow = isDirectionalDash ? dashRow : animRow
     const actualCol = isDirectionalDash ? dashCol : DIRECTION_COLUMNS[direction]

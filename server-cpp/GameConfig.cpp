@@ -431,7 +431,7 @@ const CharacterDefinition& GameConfig::getCharacterDefinition(const std::string&
         return it->second;
     }
 
-    return definitions.at("charizard");
+    return definitions.at("meteor");
 }
 
 void GameConfig::validateDefinitions() {

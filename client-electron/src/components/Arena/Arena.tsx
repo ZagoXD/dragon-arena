@@ -30,7 +30,7 @@ export function Arena({
   playerName,
   authIntent,
   reportModalOpen,
-  characterId = 'charizard',
+  characterId = 'meteor',
   onAuthenticated,
   onAuthFailure,
   onArenaChatMessage,
@@ -40,7 +40,7 @@ export function Arena({
   onReturnToSelect,
 }: Props) {
   const { t } = useTranslation()
-  const fallbackVisual = CHARACTER_VISUALS[characterId] || CHARACTER_VISUALS.charizard
+  const fallbackVisual = CHARACTER_VISUALS[characterId] || CHARACTER_VISUALS.meteor
   const [pixiReady, setPixiReady] = useState(false)
   const [pixiInstanceKey, setPixiInstanceKey] = useState(0)
   const [showLeavePrompt, setShowLeavePrompt] = useState(false)

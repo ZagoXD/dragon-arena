@@ -22,20 +22,20 @@ bool approx(float left, float right, float epsilon = 0.05f) {
     return std::fabs(left - right) <= epsilon;
 }
 
-Player makeCharizard(const std::string& id) {
-    return Player(id, id, GameConfig::getCharacterDefinition("charizard"));
+Player makeMeteor(const std::string& id) {
+    return Player(id, id, GameConfig::getCharacterDefinition("meteor"));
 }
 
 void testGameConfigValidation() {
     GameConfig::validateDefinitions();
 
-    const auto& charizard = GameConfig::getCharacterDefinition("charizard");
-    assert(charizard.autoAttackSpellId == "ember");
-    assert(charizard.skillIds.size() == 3);
-    assert(charizard.skillIds[0] == "dragon_dive");
-    assert(charizard.skillIds[1] == "flamethrower");
-    assert(charizard.skillIds[2] == "fire_blast");
-    assert(charizard.passiveId == "burn");
+    const auto& meteor = GameConfig::getCharacterDefinition("meteor");
+    assert(meteor.autoAttackSpellId == "ember");
+    assert(meteor.skillIds.size() == 3);
+    assert(meteor.skillIds[0] == "dragon_dive");
+    assert(meteor.skillIds[1] == "flamethrower");
+    assert(meteor.skillIds[2] == "fire_blast");
+    assert(meteor.passiveId == "burn");
 
     const auto& hydra = GameConfig::getCharacterDefinition("hydra");
     assert(hydra.autoAttackSpellId == "scratch");
@@ -66,7 +66,7 @@ void testGameConfigValidation() {
 }
 
 void testMovementIntentAndBounds() {
-    Player player = makeCharizard("p1");
+    Player player = makeMeteor("p1");
     player.x = 100.0f;
     player.y = 200.0f;
 
@@ -93,7 +93,7 @@ void testMovementCollisionWithMap() {
     MapLoader mapLoader;
     assert(mapLoader.loadMap("map-assets/tiled/default_map.tmj"));
 
-    Player player = makeCharizard("p2");
+    Player player = makeMeteor("p2");
     player.x = 0.0f;
     player.y = 0.0f;
     MovementSystem::handleMoveIntent(player, -1.0f, 0.0f, "left", 1);
@@ -104,7 +104,7 @@ void testMovementCollisionWithMap() {
 }
 
 void testCombatPlayerDamage() {
-    const auto& definition = GameConfig::getCharacterDefinition("charizard");
+    const auto& definition = GameConfig::getCharacterDefinition("meteor");
     Player attacker("a", "Attacker", definition);
     Player victim("v", "Victim", definition);
 
@@ -143,8 +143,8 @@ void testCombatDummyDamage() {
 
 void testAutoAttackCastAndProjectileLifecycle() {
     std::map<std::string, Player> players;
-    players["attacker"] = makeCharizard("attacker");
-    players["victim"] = makeCharizard("victim");
+    players["attacker"] = makeMeteor("attacker");
+    players["victim"] = makeMeteor("victim");
     players["attacker"].x = 0.0f;
     players["attacker"].y = 0.0f;
     players["victim"].x = 120.0f;
@@ -200,7 +200,7 @@ void testSkillCooldownAndDashState() {
     std::map<std::string, Player> players;
     std::vector<ActiveProjectile> activeProjectiles;
     std::vector<ActiveAreaEffect> activeAreaEffects;
-    players["attacker"] = makeCharizard("attacker");
+    players["attacker"] = makeMeteor("attacker");
     players["attacker"].x = 100.0f;
     players["attacker"].y = 100.0f;
 
@@ -213,8 +213,8 @@ void testSkillCooldownAndDashState() {
 
 void testDashDamageAndRespawn() {
     std::map<std::string, Player> players;
-    players["attacker"] = makeCharizard("attacker");
-    players["target"] = makeCharizard("target");
+    players["attacker"] = makeMeteor("attacker");
+    players["target"] = makeMeteor("target");
     players["attacker"].x = 0.0f;
     players["attacker"].y = 0.0f;
     players["target"].x = 150.0f;
@@ -261,7 +261,7 @@ void testWorldSetupAndProtocolPayloads() {
     assert(dummies.size() == 3);
 
     std::map<std::string, Player> players;
-    players["p"] = makeCharizard("p");
+    players["p"] = makeMeteor("p");
     WorldSetup::placePlayerAtSpawn(players["p"], mapLoader, world);
     assert(players["p"].x >= 0.0f);
     assert(players["p"].y >= 0.0f);

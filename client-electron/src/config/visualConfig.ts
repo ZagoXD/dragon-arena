@@ -1,4 +1,4 @@
-import charizardSrc from '../assets/characters/charizard.png'
+import meteorSrc from '../assets/characters/meteor.png'
 import hydraSrc from '../assets/characters/hydra.png'
 import emberSrc from '../assets/spells/ember.png'
 import scratchSrc from '../assets/spells/scratch.png'
@@ -225,12 +225,12 @@ export function resolvePassiveConfig(
 }
 
 export const CHARACTER_VISUALS: Record<string, VisualCharacterConfig> = {
-  charizard: {
-    id: 'charizard',
-    name: 'Charizard',
+  meteor: {
+    id: 'meteor',
+    name: 'Meteor',
     passiveId: 'burn',
     skillIds: ['dragon_dive', 'flamethrower', 'fire_blast'],
-    imageSrc: charizardSrc,
+    imageSrc: meteorSrc,
     frameWidth: 256,
     frameHeight: 256,
     renderScale: 0.5,

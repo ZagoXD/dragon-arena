@@ -249,14 +249,14 @@ O gameplay é montado a partir de arquivos em `server-cpp/config/`.
 Arquivos principais:
 
 - [world.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/world.json)
-- [charizard.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/characters/charizard.json)
+- [meteor.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/characters/meteor.json)
 - [hydra.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/characters/hydra.json)
 - [burn.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/passives/burn.json)
 - [poison.json](C:/Users/gugu_/Documents/github/dragon-arena/server-cpp/config/passives/poison.json)
 
 Roster atual:
 
-### Charizard
+### Meteor
 
 - passiva: `Burn`
 - auto attack: `Ember`
@@ -333,7 +333,7 @@ server/
   config/
     world.json
     characters/
-      charizard.json
+      meteor.json
       hydra.json
     spells/
       ember.json
@@ -390,7 +390,7 @@ O projeto possui um executável de testes de gameplay em:
 Hoje ele valida, entre outros pontos:
 
 - carregamento do conteúdo (`GameConfig`)
-- roster atual de `Charizard` e `Hydra`
+- roster atual de `Meteor` e `Hydra`
 - kit atual do Hydra
 - movimento e colisão
 - dano em players e dummies
@@ -408,7 +408,7 @@ Hoje o projeto está consolidado neste modelo:
 
 - backend C++ autoritativo
 - frontend Electron/React/Pixi
-- roster com `Charizard` e `Hydra`
+- roster com `Meteor` e `Hydra`
 - sistema social completo
 - chat privado e chat da arena
 - reports de jogador
