@@ -231,7 +231,7 @@ export function useArenaNetworkState({
               : owner.y
           const centerX = event.originX ?? (fallbackOwnerX + owner.colliderWidth / 2)
           const centerY = event.originY ?? (fallbackOwnerY + owner.colliderHeight / 2)
-          const slashOffset = Math.cos(event.angle) >= 0 ? 72 : 22
+          const slashOffset = Math.cos(event.angle) >= 0 ? 72 : 72
           const originX = centerX + Math.cos(event.angle) * slashOffset
           const originY = centerY + Math.sin(event.angle) * slashOffset
           setActiveSkillEffects(prev => [
@@ -451,14 +451,14 @@ export function useArenaNetworkState({
       for (const [id, playerState] of Object.entries(otherPlayers)) {
         next[id] = prev[id]
           ? {
-              ...prev[id],
-              ...playerState,
-              // Preserve the current rendered position so interpolation can
-              // move toward the new authoritative sample instead of snapping
-              // to it on every network update.
-              x: prev[id].x,
-              y: prev[id].y,
-            }
+            ...prev[id],
+            ...playerState,
+            // Preserve the current rendered position so interpolation can
+            // move toward the new authoritative sample instead of snapping
+            // to it on every network update.
+            x: prev[id].x,
+            y: prev[id].y,
+          }
           : { ...playerState }
       }
       return next

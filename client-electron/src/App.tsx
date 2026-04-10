@@ -123,8 +123,12 @@ function App() {
   const [arenaJoinMode, setArenaJoinMode] = useState<ArenaLaunchMode>('training')
   const [arenaMatchId, setArenaMatchId] = useState<string | null>(null)
   const [matchmakingActive, setMatchmakingActive] = useState(false)
+  const [matchmakingStartedAtMs, setMatchmakingStartedAtMs] = useState<number | null>(null)
+  const [matchmakingElapsedSeconds, setMatchmakingElapsedSeconds] = useState(0)
   const [pendingMatchInvite, setPendingMatchInvite] = useState<PendingMatchInvite | null>(null)
   const [matchAcceptBusy, setMatchAcceptBusy] = useState(false)
+  const [acceptCountdownSeconds, setAcceptCountdownSeconds] = useState(20)
+  const [acceptTotalSeconds, setAcceptTotalSeconds] = useState(20)
   const [matchmakingInfo, setMatchmakingInfo] = useState<string | null>(null)
   const [matchResult, setMatchResult] = useState<MatchResultState | null>(null)
   const [friendPanelExpanded, setFriendPanelExpanded] = useState(false)
@@ -166,6 +170,56 @@ function App() {
   const friendPanelExpandedRef = useRef(false)
   const shouldPersistSessionRef = useRef(false)
   const sessionExpiresAtMsRef = useRef(0)
+  const matchAcceptBusyRef = useRef(false)
+  const characterIdRef = useRef(characterId)
+
+  // Keep matchAcceptBusyRef in sync so socket closures read the current value
+  useEffect(() => {
+    matchAcceptBusyRef.current = matchAcceptBusy
+  }, [matchAcceptBusy])
+
+  // Keep characterIdRef in sync so socket closures read the current character
+  useEffect(() => {
+    characterIdRef.current = characterId
+  }, [characterId])
+
+  // Track elapsed seconds in the matchmaking queue
+  useEffect(() => {
+    if (!matchmakingActive || matchmakingStartedAtMs === null) {
+      setMatchmakingElapsedSeconds(0)
+      return
+    }
+    const tick = () => {
+      setMatchmakingElapsedSeconds(Math.floor((Date.now() - matchmakingStartedAtMs) / 1000))
+    }
+    tick()
+    const id = window.setInterval(tick, 1000)
+    return () => window.clearInterval(id)
+  }, [matchmakingActive, matchmakingStartedAtMs])
+
+  // Countdown for the accept-match modal.
+  // The server sets MATCH_ACCEPT_TIMEOUT_MS = 20 000 ms and uses steady_clock
+  // (monotonic), so acceptDeadlineMs is NOT a Unix timestamp and cannot be
+  // compared against Date.now(). We drive the bar with a fixed 20-second
+  // client-local countdown that starts the moment the invite arrives.
+  useEffect(() => {
+    if (!pendingMatchInvite) {
+      setAcceptCountdownSeconds(20)
+      setAcceptTotalSeconds(20)
+      return
+    }
+    const WINDOW = 20
+    setAcceptTotalSeconds(WINDOW)
+    setAcceptCountdownSeconds(WINDOW)
+    const arrivedAt = Date.now()
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - arrivedAt) / 1000)
+      setAcceptCountdownSeconds(Math.max(0, WINDOW - elapsed))
+    }
+    const id = window.setInterval(tick, 500)
+    return () => window.clearInterval(id)
+  }, [pendingMatchInvite])
+
   const currentLanguage = (supportedLanguages.includes(i18n.language as AppLanguage)
     ? i18n.language
     : 'pt-BR') as AppLanguage
@@ -416,6 +470,7 @@ function App() {
 
       setMatchmakingInfo(null)
       setMatchmakingActive(true)
+      setMatchmakingStartedAtMs(Date.now())
       setPendingMatchInvite(null)
       setArenaMatchId(null)
       lobbySocketRef.current.send(JSON.stringify({
@@ -443,6 +498,7 @@ function App() {
     setArenaJoinMode('training')
     setArenaMatchId(null)
     setMatchmakingActive(false)
+    setMatchmakingStartedAtMs(null)
     setPendingMatchInvite(null)
     setMatchAcceptBusy(false)
     setMatchmakingInfo(null)
@@ -532,6 +588,7 @@ function App() {
       lobbySocketRef.current.send(JSON.stringify({ event: 'leaveQueue' }))
     }
     setMatchmakingActive(false)
+    setMatchmakingStartedAtMs(null)
     setMatchmakingInfo(null)
   }, [])
 
@@ -550,6 +607,7 @@ function App() {
   const handleDeclineMatch = useCallback(() => {
     if (!pendingMatchInvite || lobbySocketRef.current?.readyState !== WebSocket.OPEN) {
       setPendingMatchInvite(null)
+      setMatchmakingInfo(null)
       return
     }
 
@@ -559,6 +617,9 @@ function App() {
     }))
     setPendingMatchInvite(null)
     setMatchAcceptBusy(false)
+    setMatchmakingInfo(null)
+    setMatchmakingActive(false)
+    setMatchmakingStartedAtMs(null)
   }, [pendingMatchInvite])
 
   const handleReturnToHome = useCallback(() => {
@@ -888,6 +949,7 @@ function App() {
     setArenaJoinMode('training')
     setArenaMatchId(null)
     setMatchmakingActive(false)
+    setMatchmakingStartedAtMs(null)
     setPendingMatchInvite(null)
     setMatchAcceptBusy(false)
     setMatchmakingInfo(null)
@@ -1311,12 +1373,14 @@ function App() {
 
       if (data.event === 'matchQueueStarted') {
         setMatchmakingActive(true)
+        setMatchmakingStartedAtMs(Date.now())
         setMatchmakingInfo(i18n.t('matchmaking.searching'))
         return
       }
 
       if (data.event === 'matchQueueCancelled') {
         setMatchmakingActive(false)
+        setMatchmakingStartedAtMs(null)
         setMatchmakingInfo(null)
         setPendingMatchInvite(null)
         setMatchAcceptBusy(false)
@@ -1325,16 +1389,36 @@ function App() {
 
       if (data.event === 'matchFound') {
         setMatchmakingActive(false)
+        setMatchmakingStartedAtMs(null)
         setMatchAcceptBusy(false)
         setPendingMatchInvite(data as PendingMatchInvite)
         return
       }
 
       if (data.event === 'matchCancelled') {
+        const hadAccepted = matchAcceptBusyRef.current
+        const reason = data.reason as string
         setPendingMatchInvite(null)
         setMatchAcceptBusy(false)
-        setMatchmakingActive(false)
-        setMatchmakingInfo(i18n.t(`matchmaking.cancelled.${data.reason}`))
+        setMatchmakingInfo(null)
+
+        // 'declined': server never sends this to the player who declined, so
+        // if WE receive it, the OTHER player declined — we re-enter the queue.
+        // 'timeout' + hadAccepted: we did our part, re-enter the queue.
+        // Anything else (timeout without accepting, cancelled): exit silently.
+        const shouldRequeue = reason === 'declined' || (reason === 'timeout' && hadAccepted)
+
+        if (shouldRequeue && lobbySocketRef.current?.readyState === WebSocket.OPEN) {
+          setMatchmakingActive(true)
+          setMatchmakingStartedAtMs(Date.now())
+          lobbySocketRef.current.send(JSON.stringify({
+            event: 'queueMatch',
+            characterId: characterIdRef.current,
+          }))
+        } else {
+          setMatchmakingActive(false)
+          setMatchmakingStartedAtMs(null)
+        }
         return
       }
 
@@ -1347,6 +1431,7 @@ function App() {
         setPendingMatchInvite(null)
         setMatchAcceptBusy(false)
         setMatchmakingActive(false)
+        setMatchmakingStartedAtMs(null)
         setArenaJoinMode('match')
         setArenaMatchId(data.matchId as string)
         setLoadingStatus(i18n.t('matchmaking.preparingMatch'))
@@ -1629,8 +1714,11 @@ function App() {
                   nickname={`${playerName}${playerTag}`}
                   coins={playerCoins}
                   isBusy={enterArenaPending}
+                  matchmakingActive={matchmakingActive}
+                  matchmakingElapsedSeconds={matchmakingElapsedSeconds}
                   onEnterTraining={handleEnterTraining}
                   onEnterMatchmaking={handleEnterMatchmaking}
+                  onCancelMatchmaking={handleCancelMatchmaking}
                 />
               )}
               {screen === 'profile' && (
@@ -1717,19 +1805,18 @@ function App() {
           }}
           onSubmit={handleSubmitReport}
         />
-        {matchmakingActive && (
-          <div className="matchmaking-overlay">
-            <div className="matchmaking-card">
-              <div className="matchmaking-spinner" />
+        {matchmakingInfo && !matchmakingActive && (
+          <div className="matchmaking-overlay matchmaking-overlay--info" onClick={() => setMatchmakingInfo(null)}>
+            <div className="matchmaking-card" onClick={e => e.stopPropagation()}>
               <span className="matchmaking-eyebrow">{i18n.t('matchmaking.eyebrow')}</span>
-              <h2>{i18n.t('matchmaking.searchingTitle')}</h2>
-              <p>{matchmakingInfo || i18n.t('matchmaking.searching')}</p>
+              <p>{matchmakingInfo}</p>
               <button
                 type="button"
                 className="matchmaking-button matchmaking-button--secondary"
-                onClick={handleCancelMatchmaking}
+                style={{ marginTop: 18 }}
+                onClick={() => setMatchmakingInfo(null)}
               >
-                {i18n.t('matchmaking.cancel')}
+                OK
               </button>
             </div>
           </div>
@@ -1742,15 +1829,20 @@ function App() {
               <p>{i18n.t('matchmaking.matchFoundText', {
                 opponent: `${pendingMatchInvite.opponent.nickname}${pendingMatchInvite.opponent.tag}`,
               })}</p>
-              <p className="matchmaking-deadline">
-                {i18n.t('matchmaking.acceptUntil', {
-                  time: new Intl.DateTimeFormat(i18n.language, {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                  }).format(pendingMatchInvite.acceptDeadlineMs),
-                })}
-              </p>
+              <div className="matchmaking-countdown">
+                <div
+                  className="matchmaking-countdown__bar"
+                  style={{
+                    width: `${(acceptCountdownSeconds / acceptTotalSeconds) * 100}%`,
+                    background: acceptCountdownSeconds <= 5
+                      ? 'linear-gradient(90deg, #ff4444 0%, #ff6b35 100%)'
+                      : acceptCountdownSeconds <= Math.floor(acceptTotalSeconds / 2)
+                        ? 'linear-gradient(90deg, #ffaa20 0%, #ffcc55 100%)'
+                        : 'linear-gradient(90deg, #ffb347 0%, #ffd280 100%)',
+                  }}
+                />
+                <span className="matchmaking-countdown__label">{acceptCountdownSeconds}s</span>
+              </div>
               <div className="matchmaking-actions">
                 <button
                   type="button"

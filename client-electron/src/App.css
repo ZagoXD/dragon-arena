@@ -247,10 +247,35 @@
   color: #ece4d1;
 }
 
-.matchmaking-deadline {
-  color: #ffcb8a;
-  font-size: 0.9rem;
-  letter-spacing: 0.06em;
+.matchmaking-countdown {
+  position: relative;
+  width: 100%;
+  margin: 18px 0 4px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.matchmaking-countdown__bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.95s linear, background 0.4s ease;
+  box-shadow: 0 0 8px rgba(255, 185, 80, 0.4);
+}
+
+.matchmaking-countdown__label {
+  display: block;
+  margin-top: 6px;
+  color: rgba(255, 214, 164, 0.72);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .matchmaking-result-grid {

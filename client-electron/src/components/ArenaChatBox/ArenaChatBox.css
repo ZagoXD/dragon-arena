@@ -6,6 +6,12 @@
   width: 448px;
   max-width: calc(100% - (var(--arena-safe-edge, 38px) * 2));
   pointer-events: none;
+  opacity: 0.4;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.arena-chat-box.is-active {
+  opacity: 1;
 }
 
 .arena-chat-box__messages {
