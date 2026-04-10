@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HUD } from '../HUD/HUD'
 import { ArenaAuthIntent, ArenaChatMessage, AuthSuccessPayload, AutoAttackStartedEvent, NetPlayer, SkillUsedEvent } from '../../hooks/useSocket'
@@ -14,42 +14,72 @@ interface Props {
   playerUserId: number | null
   playerName: string
   authIntent: ArenaAuthIntent | null
+  joinMode: 'training' | 'match'
+  matchId?: string | null
   reportModalOpen: boolean
   characterId?: string
   onAuthenticated: (payload: AuthSuccessPayload) => void
   onAuthFailure: (message: string) => void
   onArenaChatMessage: (message: ArenaChatMessage) => void
+  onMatchEnded: (payload: { result: 'victory' | 'defeat' | 'draw', reason: 'time_limit' | 'disconnect', yourKills: number, yourDeaths: number, opponentKills: number, opponentDeaths: number }) => void
   onOpenReportModal: (target?: { nickname?: string, tag?: string }) => void
   replyTarget: { userId: number, label: string } | null
   onReturnToHome: () => void
-  onReturnToSelect: (respawnAvailableAt?: number) => void
 }
 
 export function Arena({
   playerUserId,
   playerName,
   authIntent,
+  joinMode,
+  matchId = null,
   reportModalOpen,
   characterId = 'meteor',
   onAuthenticated,
   onAuthFailure,
   onArenaChatMessage,
+  onMatchEnded,
   onOpenReportModal,
   replyTarget,
   onReturnToHome,
-  onReturnToSelect,
 }: Props) {
   const { t } = useTranslation()
-  const fallbackVisual = CHARACTER_VISUALS[characterId] || CHARACTER_VISUALS.meteor
+  const [inArenaCharacterId, setInArenaCharacterId] = useState(characterId)
+  const fallbackVisual = CHARACTER_VISUALS[inArenaCharacterId] || CHARACTER_VISUALS.meteor
   const [pixiReady, setPixiReady] = useState(false)
   const [pixiInstanceKey, setPixiInstanceKey] = useState(0)
   const [showLeavePrompt, setShowLeavePrompt] = useState(false)
+  const [matchRemainingMs, setMatchRemainingMs] = useState(0)
   const [arenaChatMessages, setArenaChatMessages] = useState<ArenaChatMessage[]>([])
   const [chatInputActive, setChatInputActive] = useState(false)
+  const [characterSelectOpen, setCharacterSelectOpen] = useState(false)
+  const [characterChangeBusy, setCharacterChangeBusy] = useState(false)
+  const [characterChangeError, setCharacterChangeError] = useState<string | null>(null)
   const localPlayerIdRef = useRef<string | undefined>(undefined)
   const lockActionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left', durationMs: number) => void) | null>(null)
   const setDirectionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left') => void) | null>(null)
   const previousHpRef = useRef<number | null>(null)
+
+  const getCharacterPortraitStyle = useCallback((nextCharacterId: string) => {
+    const nextCharacter = CHARACTER_VISUALS[nextCharacterId]
+    if (!nextCharacter) {
+      return undefined
+    }
+
+    const portraitSize = 100
+    const sheetWidth = portraitSize * 4
+    const currentRow = nextCharacter.idleRows[0] ?? 0
+    const bgPosX = -(2 * portraitSize)
+    const bgPosY = -(currentRow * portraitSize)
+
+    return {
+      width: `${portraitSize}px`,
+      height: `${portraitSize}px`,
+      backgroundImage: `url(${nextCharacter.imageSrc})`,
+      backgroundSize: `${sheetWidth}px auto`,
+      backgroundPosition: `${bgPosX}px ${bgPosY}px`,
+    }
+  }, [])
 
   const handleAutoAttackStarted = useCallback((event: AutoAttackStartedEvent) => {
     if (!localPlayerIdRef.current || event.playerId !== localPlayerIdRef.current) {
@@ -93,10 +123,23 @@ export function Arena({
     onAuthFailure(reason || code || t('app.authFailed'))
   }, [onAuthFailure, t])
 
+  useEffect(() => {
+    setInArenaCharacterId(characterId)
+  }, [characterId])
+
+  const effectiveAuthIntent = useMemo(() => (
+    authIntent ?? {
+      mode: 'login' as const,
+      identifier: playerName,
+      password: '',
+    }
+  ), [authIntent, playerName])
+
   const {
     socketId,
     mapData,
     bootstrap,
+    instanceInfo,
     character,
     tileSize,
     mapWidth,
@@ -126,13 +169,14 @@ export function Arena({
     emitShoot,
     emitUseSkill,
     emitArenaChat,
+    emitChangeCharacter,
   } = useArenaNetworkState({
-    authIntent: authIntent ?? {
-      mode: 'login',
-      identifier: playerName,
-      password: '',
+    authIntent: effectiveAuthIntent,
+    characterId: inArenaCharacterId,
+    joinOptions: {
+      mode: joinMode,
+      matchId,
     },
-    characterId,
     onAutoAttackStarted: handleAutoAttackStarted,
     onSkillUsed: handleSkillUsed,
     onAuthSucceeded: handleAuthSucceeded,
@@ -141,12 +185,32 @@ export function Arena({
       setArenaChatMessages(prev => [...prev.slice(-40), message])
       onArenaChatMessage(message)
     },
+    onMatchEnded: (payload) => {
+      onMatchEnded({
+        result: payload.result,
+        reason: payload.reason,
+        yourKills: payload.yourKills,
+        yourDeaths: payload.yourDeaths,
+        opponentKills: payload.opponentKills,
+        opponentDeaths: payload.opponentDeaths,
+      })
+    },
+    onCharacterChanged: (payload) => {
+      setInArenaCharacterId(payload.characterId)
+      setCharacterChangeBusy(false)
+      setCharacterChangeError(null)
+      setCharacterSelectOpen(false)
+    },
+    onCharacterChangeRejected: (_code, reason) => {
+      setCharacterChangeBusy(false)
+      setCharacterChangeError(reason)
+    },
   })
 
   const displayPlayerName = bootstrap?.player?.name || playerName
 
   const controller = useArenaController({
-    inputEnabled: pixiReady && Boolean(bootstrap && character && mapData) && !chatInputActive && !reportModalOpen,
+    inputEnabled: pixiReady && Boolean(bootstrap && character && mapData) && !chatInputActive && !reportModalOpen && !characterSelectOpen,
     character,
     speed: movementSpeed || character?.movementSpeed || 0,
     fallbackVisual,
@@ -163,7 +227,10 @@ export function Arena({
     emitMove,
     emitShoot,
     emitUseSkill,
-    onReturnToSelect,
+    onReturnToSelect: () => {
+      setCharacterChangeError(null)
+      setCharacterSelectOpen(true)
+    },
   })
 
   localPlayerIdRef.current = socketId
@@ -175,9 +242,40 @@ export function Arena({
     if (previousHp !== null && previousHp <= 0 && hp > 0) {
       setPixiReady(false)
       setPixiInstanceKey(prev => prev + 1)
+      setCharacterSelectOpen(false)
+      setCharacterChangeBusy(false)
+      setCharacterChangeError(null)
     }
     previousHpRef.current = hp
   }, [hp])
+
+  const handleSelectArenaCharacter = useCallback((nextCharacterId: string) => {
+    if (characterChangeBusy || nextCharacterId === inArenaCharacterId) {
+      setCharacterSelectOpen(false)
+      setCharacterChangeError(null)
+      return
+    }
+
+    setCharacterChangeBusy(true)
+    setCharacterChangeError(null)
+    emitChangeCharacter(nextCharacterId)
+  }, [characterChangeBusy, emitChangeCharacter, inArenaCharacterId])
+
+  useEffect(() => {
+    if (instanceInfo?.mode !== 'match' || typeof instanceInfo.matchEndsAtMs !== 'number' || typeof instanceInfo.serverTimeMs !== 'number') {
+      setMatchRemainingMs(0)
+      return
+    }
+
+    const serverOffsetMs = instanceInfo.serverTimeMs - Date.now()
+    const updateRemaining = () => {
+      setMatchRemainingMs(Math.max(0, instanceInfo.matchEndsAtMs! - (Date.now() + serverOffsetMs)))
+    }
+
+    updateRemaining()
+    const interval = window.setInterval(updateRemaining, 250)
+    return () => window.clearInterval(interval)
+  }, [instanceInfo])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -282,7 +380,7 @@ export function Arena({
           </div>
         )}
 
-        {arenaReady && (
+        {arenaReady && !characterSelectOpen && (
           <HUD
             playerName={displayPlayerName}
             character={character}
@@ -300,7 +398,15 @@ export function Arena({
           />
         )}
 
-        {arenaReady && (
+        {arenaReady && joinMode === 'match' && !characterSelectOpen && (
+          <div className="arena-match-timer">
+            {t('arena.matchTimer', {
+              time: new Date(matchRemainingMs).toISOString().slice(14, 19),
+            })}
+          </div>
+        )}
+
+        {arenaReady && !characterSelectOpen && (
           <ArenaChatBox
             messages={arenaChatMessages}
             localUserId={playerUserId}
@@ -332,7 +438,7 @@ export function Arena({
           />
         )}
 
-        {controller.respawnTimer !== null && (
+        {controller.respawnTimer !== null && !characterSelectOpen && (
           <div className="death-overlay">
             <div className="death-content">
               <h1>{t('arena.diedTitle')}</h1>
@@ -340,11 +446,58 @@ export function Arena({
               <button
                 type="button"
                 className="death-return-button"
-                onClick={() => onReturnToSelect(controller.respawnAvailableAt ?? undefined)}
+                onClick={() => {
+                  setCharacterChangeError(null)
+                  setCharacterSelectOpen(true)
+                }}
               >
-                {t('arena.backToSelect')}
+                {t('arena.changeCharacter')}
               </button>
               <p className="death-hint">{t('arena.deadHint')}</p>
+            </div>
+          </div>
+        )}
+
+        {characterSelectOpen && hp <= 0 && (
+          <div className="arena-character-overlay">
+            <div className="arena-character-overlay__card">
+              <span className="arena-character-overlay__eyebrow">{t('arena.changeCharacterEyebrow')}</span>
+              <h2>{t('arena.changeCharacterTitle')}</h2>
+              <p>{t('arena.changeCharacterText')}</p>
+              {characterChangeError && <p className="arena-character-overlay__error">{characterChangeError}</p>}
+              <div className="arena-character-overlay__list">
+                {Object.values(CHARACTER_VISUALS).map(option => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`arena-character-overlay__option ${option.id === inArenaCharacterId ? 'is-active' : ''}`}
+                    disabled={characterChangeBusy}
+                    onClick={() => handleSelectArenaCharacter(option.id)}
+                  >
+                    <div
+                      className="arena-character-overlay__portrait"
+                      style={getCharacterPortraitStyle(option.id)}
+                    />
+                    <strong>{option.name}</strong>
+                    <span>
+                      {option.id === inArenaCharacterId
+                        ? t('arena.currentCharacter')
+                        : t('arena.selectCharacter')}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="arena-character-overlay__cancel"
+                disabled={characterChangeBusy}
+                onClick={() => {
+                  setCharacterSelectOpen(false)
+                  setCharacterChangeError(null)
+                }}
+              >
+                {characterChangeBusy ? t('arena.changingCharacter') : t('arena.leaveCancel')}
+              </button>
             </div>
           </div>
         )}

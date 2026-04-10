@@ -61,7 +61,42 @@
     "eyebrow": "Dragon Arena",
     "title": "Seu portal para a batalha está pronto",
     "subtitle": "Revise seu perfil, acompanhe seus recursos e entre quando quiser.",
-    "enterArena": "Entrar na arena"
+    "enterArena": "Entrar na arena",
+    "trainingMode": "Modo treino",
+    "playMatch": "Jogar"
+  },
+  "matchmaking": {
+    "eyebrow": "Pareamento",
+    "searchingTitle": "Procurando partida",
+    "searching": "Buscando um oponente para um duelo 1x1...",
+    "cancel": "Cancelar busca",
+    "matchFoundEyebrow": "Partida encontrada",
+    "matchFoundTitle": "Aceitar duelo?",
+    "matchFoundText": "Você foi pareado contra {{opponent}}.",
+    "acceptUntil": "Aceite até {{time}}",
+    "accept": "Aceitar",
+    "decline": "Recusar",
+    "waitingOpponent": "Aguardando...",
+    "preparingMatch": "Preparando partida...",
+    "backHome": "Voltar ao início",
+    "opponentKills": "Abates do oponente",
+    "opponentDeaths": "Mortes do oponente",
+    "connectionUnavailable": "A conexão de matchmaking não está disponível agora.",
+    "resultEyebrow": "Resultado da partida",
+    "result": {
+      "victory": "Vitória",
+      "defeat": "Derrota",
+      "draw": "Empate"
+    },
+    "finishReason": {
+      "time_limit": "O tempo da partida terminou.",
+      "disconnect": "A partida foi encerrada por desconexão."
+    },
+    "cancelled": {
+      "declined": "O duelo foi recusado.",
+      "cancelled": "A fila de pareamento foi cancelada.",
+      "timeout": "O convite expirou."
+    }
   },
   "profile": {
     "eyebrow": "Perfil do invocador",
@@ -310,6 +345,13 @@
     "leaveConfirm": "Voltar para a tela principal",
     "diedTitle": "Você morreu",
     "respawningIn": "Retornando em {{seconds}}s...",
+    "changeCharacter": "Trocar lenda",
+    "changeCharacterEyebrow": "Reconfigurar combatente",
+    "changeCharacterTitle": "Escolha sua próxima lenda",
+    "changeCharacterText": "Você continua na mesma partida. A nova lenda será aplicada sem voltar ao início.",
+    "currentCharacter": "Lenda atual",
+    "selectCharacter": "Selecionar lenda",
+    "changingCharacter": "Trocando lenda...",
     "backToSelect": "Voltar para seleção de personagem",
     "deadHint": "Pressione ESC enquanto estiver morto para trocar de personagem",
     "scoreboardTitle": "Dragon Arena - Placar",
@@ -318,7 +360,8 @@
     "kills": "Abates",
     "deaths": "Mortes",
     "you": "(Você)",
-    "releaseTab": "Solte TAB para fechar"
+    "releaseTab": "Solte TAB para fechar",
+    "matchTimer": "Tempo restante {{time}}"
   },
   "hud": {
     "hpShort": "HP",

@@ -225,6 +225,8 @@ Hoje o cliente autenticado possui:
 - `Perfil`
 - `Coleção`
 - `Reportar`
+- `Modo treino`
+- `Jogar` com pareamento
 - `Seleção de personagem`
 - `Arena`
 
@@ -233,6 +235,33 @@ Admins também possuem:
 - `Admin`
 
 O menu superior com `Início`, `Perfil`, `Coleção` e configurações fica disponível nas telas autenticadas fora da arena.
+
+## Modos de Jogo
+
+O jogo agora possui dois fluxos principais de arena:
+
+- `Modo treino`
+- `Jogar`
+
+### Modo treino
+
+- cria uma instância privada da arena
+- entra apenas o jogador atual
+- mantém o loop livre para testar personagem, movimentação e skills
+
+### Jogar
+
+- usa pareamento `1x1`
+- o personagem é escolhido antes de entrar na fila
+- abre overlay de busca de partida
+- quando dois jogadores são encontrados, ambos recebem um modal global para aceitar ou recusar
+- se os dois aceitarem, cada um entra em uma instância exclusiva daquela partida
+- a partida dura `5 minutos`
+- vence quem tiver mais eliminações
+- empate em eliminações resulta em `empate`
+- desconexão durante a partida encerra a match para o oponente
+
+O backend agora diferencia instâncias de `training` e `match`, em vez de tratar toda a arena como um único mundo compartilhado.
 
 Arquivos principais:
 
@@ -299,6 +328,8 @@ Hoje a arena já cobre:
 - passivas visuais
 - barras de vida/escudo sobre os personagens
 - HUD com vida, escudo, skills e passiva
+- timer visual de partida em matches `1x1`
+- tela final de `vitória`, `derrota` ou `empate`
 
 ## Mapa
 
@@ -398,6 +429,7 @@ Hoje ele valida, entre outros pontos:
 - auto attack e lifecycle de projéteis
 - skill com cooldown e dash
 - respawn e payloads de protocolo
+- diferença entre instância de treino e instância de match
 - payloads de rejeição também usados pelos fluxos sociais e de report
 
 O suporte de testes/stubs também acompanha os repositórios sociais e de moderação usados pelo `NetworkHandler`, incluindo `ban` e `report`.
@@ -414,7 +446,9 @@ Hoje o projeto está consolidado neste modelo:
 - reports de jogador
 - moderação com banimento e desbanimento
 - persistência social em PostgreSQL
-- arena autoritativa com status, escudo e HUD
+- arena autoritativa com status, escudo, HUD e instâncias
+- modo treino solo
+- matchmaking `1x1` com aceite e resultado final
 
 Em resumo:
 

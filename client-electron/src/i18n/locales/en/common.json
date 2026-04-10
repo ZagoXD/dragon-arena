@@ -61,7 +61,42 @@
     "eyebrow": "Dragon Arena",
     "title": "Your gateway to battle is ready",
     "subtitle": "Review your profile, track your resources and enter whenever you want.",
-    "enterArena": "Enter the arena"
+    "enterArena": "Enter the arena",
+    "trainingMode": "Training Mode",
+    "playMatch": "Play"
+  },
+  "matchmaking": {
+    "eyebrow": "Matchmaking",
+    "searchingTitle": "Searching for a match",
+    "searching": "Looking for an opponent for a 1v1 duel...",
+    "cancel": "Cancel search",
+    "matchFoundEyebrow": "Match found",
+    "matchFoundTitle": "Accept duel?",
+    "matchFoundText": "You were matched against {{opponent}}.",
+    "acceptUntil": "Accept before {{time}}",
+    "accept": "Accept",
+    "decline": "Decline",
+    "waitingOpponent": "Waiting...",
+    "preparingMatch": "Preparing match...",
+    "backHome": "Back to home",
+    "opponentKills": "Opponent kills",
+    "opponentDeaths": "Opponent deaths",
+    "connectionUnavailable": "The matchmaking connection is unavailable right now.",
+    "resultEyebrow": "Match result",
+    "result": {
+      "victory": "Victory",
+      "defeat": "Defeat",
+      "draw": "Draw"
+    },
+    "finishReason": {
+      "time_limit": "The time limit has expired.",
+      "disconnect": "The match ended due to a disconnection."
+    },
+    "cancelled": {
+      "declined": "The duel was declined.",
+      "cancelled": "The matchmaking queue was cancelled.",
+      "timeout": "The invitation expired."
+    }
   },
   "profile": {
     "eyebrow": "Summoner profile",
@@ -310,6 +345,13 @@
     "leaveConfirm": "Return to home",
     "diedTitle": "You died",
     "respawningIn": "Respawning in {{seconds}}s...",
+    "changeCharacter": "Change legend",
+    "changeCharacterEyebrow": "Reconfigure fighter",
+    "changeCharacterTitle": "Choose your next legend",
+    "changeCharacterText": "You stay in the same match. The new legend will be applied without returning to the home screen.",
+    "currentCharacter": "Current legend",
+    "selectCharacter": "Select legend",
+    "changingCharacter": "Changing legend...",
     "backToSelect": "Back to character select",
     "deadHint": "Press ESC while dead to change character",
     "scoreboardTitle": "Dragon Arena - Scoreboard",
@@ -318,7 +360,8 @@
     "kills": "Kills",
     "deaths": "Deaths",
     "you": "(You)",
-    "releaseTab": "Release TAB to close"
+    "releaseTab": "Release TAB to close",
+    "matchTimer": "Time remaining {{time}}"
   },
   "hud": {
     "hpShort": "HP",

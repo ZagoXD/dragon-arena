@@ -5,14 +5,16 @@ interface Props {
   nickname: string
   coins: number
   isBusy?: boolean
-  onEnterArena: () => void
+  onEnterTraining: () => void
+  onEnterMatchmaking: () => void
 }
 
 export function HomeScreen({
   nickname,
   coins,
   isBusy = false,
-  onEnterArena,
+  onEnterTraining,
+  onEnterMatchmaking,
 }: Props) {
   const { t } = useTranslation()
 
@@ -36,15 +38,25 @@ export function HomeScreen({
         <h1 className="home-screen__title">{t('home.title')}</h1>
         <p className="home-screen__subtitle">{t('home.subtitle')}</p>
 
-        <button
-          type="button"
-          className={`home-screen__cta ${isBusy ? 'is-loading' : ''}`}
-          disabled={isBusy}
-          onClick={onEnterArena}
-        >
-          {isBusy && <span className="home-screen__spinner" aria-hidden="true" />}
-          <span>{t('home.enterArena')}</span>
-        </button>
+        <div className="home-screen__cta-group">
+          <button
+            type="button"
+            className={`home-screen__cta ${isBusy ? 'is-loading' : ''}`}
+            disabled={isBusy}
+            onClick={onEnterTraining}
+          >
+            {isBusy && <span className="home-screen__spinner" aria-hidden="true" />}
+            <span>{t('home.trainingMode')}</span>
+          </button>
+          <button
+            type="button"
+            className={`home-screen__cta home-screen__cta--secondary ${isBusy ? 'is-loading' : ''}`}
+            disabled={isBusy}
+            onClick={onEnterMatchmaking}
+          >
+            <span>{t('home.playMatch')}</span>
+          </button>
+        </div>
       </main>
     </div>
   )

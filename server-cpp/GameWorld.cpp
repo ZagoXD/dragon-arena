@@ -21,10 +21,15 @@ int scaleDamageForCharacter(const Player& player, int baseDamage) {
 }
 }
 
-GameWorld::GameWorld() : worldDefinition(GameConfig::getWorldDefinition()) {
+GameWorld::GameWorld(std::string instanceKeyValue, std::string instanceModeValue)
+    : worldDefinition(GameConfig::getWorldDefinition()),
+      instanceKey(std::move(instanceKeyValue)),
+      instanceMode(std::move(instanceModeValue)) {
     mapLoader.loadMap("map-assets/tiled/default_map.tmj");
     worldDefinition = WorldSetup::resolveWorldDefinition(mapLoader);
-    dummies = WorldSetup::createInitialDummies(mapLoader, worldDefinition);
+    if (isTrainingInstance()) {
+        dummies = WorldSetup::createInitialDummies(mapLoader, worldDefinition);
+    }
 }
 
 void GameWorld::addPlayer(std::string id, std::string name, std::string charId, std::string role) {
@@ -105,6 +110,32 @@ json GameWorld::getSessionInitJson(std::string playerId) {
         playerId
     );
 }
+
+std::optional<Player> GameWorld::getPlayerCopy(const std::string& id) {
+    std::lock_guard<std::mutex> lock(mtx);
+    auto it = players.find(id);
+    if (it == players.end()) {
+        return std::nullopt;
+    }
+
+    return it->second;
+}
+
+std::vector<Player> GameWorld::getPlayersCopy() {
+    std::lock_guard<std::mutex> lock(mtx);
+    std::vector<Player> copies;
+    copies.reserve(players.size());
+    for (const auto& [id, player] : players) {
+        (void)id;
+        copies.push_back(player);
+    }
+    return copies;
+}
+
+std::size_t GameWorld::getPlayerCount() {
+    std::lock_guard<std::mutex> lock(mtx);
+    return players.size();
+}
 GameWorld::HitResult GameWorld::hitPlayer(std::string victimId, std::string attackerId) {
     std::lock_guard<std::mutex> lock(mtx);
     HitResult res = {false, false, 0, 0, 0};
@@ -170,6 +201,37 @@ bool GameWorld::requestAutoAttack(std::string playerId, float targetX, float tar
 bool GameWorld::useSkill(std::string playerId, std::string skillId, float targetX, float targetY, NetworkHandler* network) {
     std::lock_guard<std::mutex> lock(mtx);
     return SkillSystem::useSkill(players, activeProjectiles, activeAreaEffects, worldTick, playerId, skillId, targetX, targetY, network);
+}
+
+bool GameWorld::changePlayerCharacter(const std::string& id, const std::string& charId) {
+    std::lock_guard<std::mutex> lock(mtx);
+    auto playerIt = players.find(id);
+    if (playerIt == players.end()) {
+        return false;
+    }
+
+    const Player previous = playerIt->second;
+    const auto& definition = GameConfig::getCharacterDefinition(charId);
+    Player updated(previous.id, previous.name, definition, previous.role);
+
+    updated.kills = previous.kills;
+    updated.deaths = previous.deaths;
+    updated.x = previous.x;
+    updated.y = previous.y;
+    updated.direction = previous.direction;
+    updated.animRow = previous.animRow;
+    updated.inputX = previous.inputX;
+    updated.inputY = previous.inputY;
+    updated.deathTimeMs = previous.deathTimeMs;
+
+    if (previous.hp <= 0) {
+        updated.hp = 0;
+    } else {
+        updated.hp = std::min(previous.hp, updated.maxHp);
+    }
+
+    playerIt->second = updated;
+    return true;
 }
 
 void GameWorld::updateSimulation(NetworkHandler* network, float deltaSeconds, long long now_ms) {

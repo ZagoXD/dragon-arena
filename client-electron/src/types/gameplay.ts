@@ -130,6 +130,14 @@ export interface SessionInitPayload {
   event?: 'sessionInit'
   protocolVersion: number
   serverTimeMs?: number
+  instance?: {
+    key: string
+    mode: 'training' | 'match'
+    matchId?: string
+    matchStartedAtMs?: number
+    matchEndsAtMs?: number
+    matchDurationMs?: number
+  }
   capabilities?: {
     authoritativeGameplay?: boolean
     authoritativeProjectiles?: boolean

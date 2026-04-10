@@ -6,9 +6,12 @@ import {
   AuthSuccessPayload,
   ArenaChatMessage,
   ArenaAuthIntent,
+  ArenaJoinOptions,
   NetPlayer,
   ProjectileSpawnEvent,
   SkillUsedEvent,
+  MatchEndedEvent,
+  CharacterChangedEvent,
   useSocket,
 } from './useSocket'
 import { GameplayBootstrap } from '../types/gameplay'
@@ -18,6 +21,7 @@ import { ActiveSkillEffectView } from '../components/Arena/pixi/pixiTypes'
 interface UseArenaNetworkStateParams {
   authIntent: ArenaAuthIntent
   characterId: string
+  joinOptions: ArenaJoinOptions
   onAutoAttackStarted?: (event: AutoAttackStartedEvent) => void
   onAutoAttackRejected?: () => void
   onSkillUsed?: (event: SkillUsedEvent) => void
@@ -25,6 +29,9 @@ interface UseArenaNetworkStateParams {
   onAuthSucceeded?: (payload: AuthSuccessPayload) => void
   onAuthFailed?: (code: string, reason: string) => void
   onArenaChatMessage?: (message: ArenaChatMessage) => void
+  onMatchEnded?: (event: MatchEndedEvent) => void
+  onCharacterChanged?: (event: CharacterChangedEvent) => void
+  onCharacterChangeRejected?: (code: string, reason: string) => void
 }
 
 interface RemotePlayerSample {
@@ -73,6 +80,7 @@ function getRemoteDashAngle(
 export function useArenaNetworkState({
   authIntent,
   characterId,
+  joinOptions,
   onAutoAttackStarted,
   onAutoAttackRejected,
   onSkillUsed,
@@ -80,6 +88,9 @@ export function useArenaNetworkState({
   onAuthSucceeded,
   onAuthFailed,
   onArenaChatMessage,
+  onMatchEnded,
+  onCharacterChanged,
+  onCharacterChangeRejected,
 }: UseArenaNetworkStateParams) {
   const [hp, setHp] = useState(0)
   const [shieldHp, setShieldHp] = useState(0)
@@ -322,6 +333,7 @@ export function useArenaNetworkState({
     socketId,
     mapData,
     bootstrap,
+    instanceInfo,
     otherPlayers,
     burnStatuses,
     burnZones,
@@ -332,9 +344,11 @@ export function useArenaNetworkState({
     emitRespawn,
     emitUseSkill,
     emitArenaChat,
+    emitChangeCharacter,
   } = useSocket(
     authIntent,
     characterId,
+    joinOptions,
     onCurrentDummies,
     onDummyDamaged,
     onSelfDamaged,
@@ -349,6 +363,9 @@ export function useArenaNetworkState({
     onAuthSucceeded,
     onAuthFailed,
     onArenaChatMessage,
+    onMatchEnded,
+    onCharacterChanged,
+    onCharacterChangeRejected,
   )
 
   const character = useMemo<ResolvedCharacterConfig | null>(() => {
@@ -581,6 +598,7 @@ export function useArenaNetworkState({
     socketId,
     mapData,
     bootstrap,
+    instanceInfo,
     character,
     tileSize,
     mapWidth,
@@ -614,5 +632,6 @@ export function useArenaNetworkState({
     emitRespawn,
     emitUseSkill,
     emitArenaChat,
+    emitChangeCharacter,
   }
 }

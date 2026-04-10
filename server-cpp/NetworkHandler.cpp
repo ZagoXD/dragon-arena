@@ -4,6 +4,7 @@
 #include "ServerDiagnostics.h"
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <ctime>
 #include <iostream>
 #include <set>
@@ -72,6 +73,8 @@ bool parseNicknameAndTagToken(const std::string& token, std::string* nickname, s
 }
 
 constexpr const char* MAIN_ARENA_KEY = "main";
+constexpr long long MATCH_ACCEPT_TIMEOUT_MS = 20000;
+constexpr long long MATCH_DURATION_MS = 5LL * 60LL * 1000LL;
 
 const std::unordered_set<std::string> kAllowedReportReasons = {
     "cheating",
@@ -85,6 +88,20 @@ const std::unordered_set<std::string> kAllowedReportReasons = {
 
 bool isAllowedReportReason(const std::string& reason) {
     return kAllowedReportReasons.find(reason) != kAllowedReportReasons.end();
+}
+
+long long getCurrentTimeMs() {
+    const auto now = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+}
+
+std::string makeTrainingInstanceKey(long long userId) {
+    return "training:" + std::to_string(userId);
+}
+
+std::string makeMatchId(long long nowMs) {
+    static long long sequence = 0;
+    return "match_" + std::to_string(nowMs) + "_" + std::to_string(sequence++);
 }
 
 json buildLookupPayloadJson(
@@ -138,6 +155,589 @@ NetworkHandler::NetworkHandler(GameWorld &world, int port, Database& database)
       arenaChatRepository(database),
       authService(userRepository, moderationRepository),
       sessionService(userRepository, moderationRepository) {}
+
+std::string NetworkHandler::pushBroadcastContext(const std::string& instanceKey) {
+    std::string previous = broadcastContextInstanceKey;
+    broadcastContextInstanceKey = instanceKey;
+    return previous;
+}
+
+void NetworkHandler::popBroadcastContext(const std::string& previousInstanceKey) {
+    broadcastContextInstanceKey = previousInstanceKey;
+}
+
+void NetworkHandler::broadcastToInstance(const std::string& instanceKey, const std::string& message) {
+    std::vector<uWS::WebSocket<false, true, PerSocketData>*> sockets;
+    {
+        std::lock_guard<std::mutex> clientsLock(clients_mtx);
+        for (const auto& [socketId, ws] : clients) {
+            (void)socketId;
+            PerSocketData* socketData = ws->getUserData();
+            if (socketData == nullptr || socketData->currentInstanceKey != instanceKey) {
+                continue;
+            }
+            sockets.push_back(ws);
+        }
+    }
+
+    for (uWS::WebSocket<false, true, PerSocketData>* socket : sockets) {
+        socket->send(message, uWS::OpCode::TEXT);
+    }
+}
+
+void NetworkHandler::sendToUser(long long userId, const std::string& message) {
+    std::vector<uWS::WebSocket<false, true, PerSocketData>*> sockets;
+    {
+        std::lock_guard<std::mutex> lock(social_mtx);
+        auto it = authenticatedSockets.find(userId);
+        if (it == authenticatedSockets.end()) {
+            return;
+        }
+        sockets.assign(it->second.begin(), it->second.end());
+    }
+
+    for (uWS::WebSocket<false, true, PerSocketData>* socket : sockets) {
+        socket->send(message, uWS::OpCode::TEXT);
+    }
+}
+
+void NetworkHandler::enqueuePlayerForMatch(const MatchQueueEntry& entry) {
+    std::lock_guard<std::mutex> lock(arena_mtx);
+    queuedPlayersByUserId[entry.userId] = entry;
+    matchmakingQueue.push_back(entry.userId);
+}
+
+void NetworkHandler::sendMatchFound(const PendingMatchInvitation& invitation) {
+    if (invitation.userIds.size() != 2) {
+        return;
+    }
+
+    const long long firstUserId = invitation.userIds[0];
+    const long long secondUserId = invitation.userIds[1];
+
+    const json basePayload = {
+        {"event", "matchFound"},
+        {"matchId", invitation.matchId},
+        {"acceptDeadlineMs", invitation.acceptDeadlineMs},
+        {"durationMs", MATCH_DURATION_MS},
+        {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+    };
+
+    json firstPayload = basePayload;
+    firstPayload["opponent"] = {
+        {"userId", secondUserId},
+        {"nickname", invitation.nicknames.count(secondUserId) ? invitation.nicknames.at(secondUserId) : ""},
+        {"tag", invitation.tags.count(secondUserId) ? invitation.tags.at(secondUserId) : ""},
+        {"characterId", invitation.characterIds.count(secondUserId) ? invitation.characterIds.at(secondUserId) : ""}
+    };
+    sendToUser(firstUserId, firstPayload.dump());
+
+    json secondPayload = basePayload;
+    secondPayload["opponent"] = {
+        {"userId", firstUserId},
+        {"nickname", invitation.nicknames.count(firstUserId) ? invitation.nicknames.at(firstUserId) : ""},
+        {"tag", invitation.tags.count(firstUserId) ? invitation.tags.at(firstUserId) : ""},
+        {"characterId", invitation.characterIds.count(firstUserId) ? invitation.characterIds.at(firstUserId) : ""}
+    };
+    sendToUser(secondUserId, secondPayload.dump());
+}
+
+void NetworkHandler::tryCreatePendingMatch() {
+    std::lock_guard<std::mutex> lock(arena_mtx);
+
+    while (!matchmakingQueue.empty() && !queuedPlayersByUserId.count(matchmakingQueue.front())) {
+        matchmakingQueue.pop_front();
+    }
+
+    if (matchmakingQueue.size() < 2) {
+        return;
+    }
+
+    const long long firstUserId = matchmakingQueue.front();
+    matchmakingQueue.pop_front();
+
+    while (!matchmakingQueue.empty() && !queuedPlayersByUserId.count(matchmakingQueue.front())) {
+        matchmakingQueue.pop_front();
+    }
+
+    if (matchmakingQueue.empty()) {
+        matchmakingQueue.push_front(firstUserId);
+        return;
+    }
+
+    const long long secondUserId = matchmakingQueue.front();
+    matchmakingQueue.pop_front();
+
+    if (!queuedPlayersByUserId.count(firstUserId) || !queuedPlayersByUserId.count(secondUserId) || firstUserId == secondUserId) {
+        return;
+    }
+
+    const MatchQueueEntry firstEntry = queuedPlayersByUserId[firstUserId];
+    const MatchQueueEntry secondEntry = queuedPlayersByUserId[secondUserId];
+    queuedPlayersByUserId.erase(firstUserId);
+    queuedPlayersByUserId.erase(secondUserId);
+
+    PendingMatchInvitation invitation;
+    invitation.matchId = makeMatchId(getCurrentTimeMs());
+    invitation.userIds = {firstUserId, secondUserId};
+    invitation.characterIds[firstUserId] = firstEntry.characterId;
+    invitation.characterIds[secondUserId] = secondEntry.characterId;
+    invitation.nicknames[firstUserId] = firstEntry.nickname;
+    invitation.nicknames[secondUserId] = secondEntry.nickname;
+    invitation.tags[firstUserId] = firstEntry.tag;
+    invitation.tags[secondUserId] = secondEntry.tag;
+    invitation.acceptedByUserId[firstUserId] = false;
+    invitation.acceptedByUserId[secondUserId] = false;
+    invitation.createdAtMs = getCurrentTimeMs();
+    invitation.acceptDeadlineMs = invitation.createdAtMs + MATCH_ACCEPT_TIMEOUT_MS;
+
+    pendingMatchByUserId[firstUserId] = invitation.matchId;
+    pendingMatchByUserId[secondUserId] = invitation.matchId;
+    pendingMatches[invitation.matchId] = invitation;
+    sendMatchFound(invitation);
+}
+
+void NetworkHandler::cancelPendingMatch(const std::string& matchId, const std::string& reason, long long actorUserId) {
+    PendingMatchInvitation invitation;
+    {
+        std::lock_guard<std::mutex> lock(arena_mtx);
+        auto invitationIt = pendingMatches.find(matchId);
+        if (invitationIt == pendingMatches.end()) {
+            return;
+        }
+        invitation = invitationIt->second;
+        pendingMatches.erase(invitationIt);
+        for (long long userId : invitation.userIds) {
+            pendingMatchByUserId.erase(userId);
+        }
+    }
+
+    for (long long userId : invitation.userIds) {
+        if (userId == actorUserId && reason == "declined") {
+            continue;
+        }
+
+        sendToUser(userId, json({
+            {"event", "matchCancelled"},
+            {"matchId", matchId},
+            {"reason", reason},
+            {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+        }).dump());
+    }
+}
+
+void NetworkHandler::createActiveMatchFromInvitation(const PendingMatchInvitation& invitation) {
+    ArenaInstance arenaInstance;
+    arenaInstance.key = "match:" + invitation.matchId;
+    arenaInstance.mode = "match";
+    arenaInstance.matchId = invitation.matchId;
+    arenaInstance.world = std::make_unique<GameWorld>(arenaInstance.key, arenaInstance.mode);
+
+    ActiveMatchInstance match;
+    match.matchId = invitation.matchId;
+    match.instanceKey = arenaInstance.key;
+    match.characterIds = invitation.characterIds;
+    match.createdAtMs = getCurrentTimeMs();
+    match.startedAtMs = match.createdAtMs;
+    match.endsAtMs = match.startedAtMs + MATCH_DURATION_MS;
+
+    {
+        std::lock_guard<std::mutex> lock(arena_mtx);
+        arenaInstances[arenaInstance.key] = std::move(arenaInstance);
+        activeMatches[match.matchId] = match;
+        for (const auto& [userId, characterId] : invitation.characterIds) {
+            (void)characterId;
+            readyMatchByUserId[userId] = invitation.matchId;
+            activeMatchByUserId[userId] = invitation.matchId;
+            pendingMatchByUserId.erase(userId);
+        }
+        pendingMatches.erase(invitation.matchId);
+    }
+
+    for (long long userId : invitation.userIds) {
+        const long long opponentUserId = userId == invitation.userIds.front()
+            ? invitation.userIds.back()
+            : invitation.userIds.front();
+        json payload = {
+            {"event", "matchReady"},
+            {"matchId", invitation.matchId},
+            {"durationMs", MATCH_DURATION_MS},
+            {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION},
+            {"opponentUserId", opponentUserId},
+            {"characterId", invitation.characterIds.count(userId) ? invitation.characterIds.at(userId) : ""}
+        };
+        sendToUser(userId, payload.dump());
+    }
+}
+
+json NetworkHandler::buildMatchSummaryPayload(const ActiveMatchInstance& match, long long userId) {
+    auto instanceIt = arenaInstances.find(match.instanceKey);
+    if (instanceIt == arenaInstances.end() || !instanceIt->second.world) {
+        return json::object();
+    }
+
+    std::vector<Player> players = instanceIt->second.world->getPlayersCopy();
+    json payload = json::object();
+    for (const Player& player : players) {
+        if (std::stoll(player.id) == 0) {
+            continue;
+        }
+        payload[player.id] = {
+            {"id", player.id},
+            {"name", player.name},
+            {"kills", player.kills},
+            {"deaths", player.deaths}
+        };
+    }
+
+    (void)userId;
+    return payload;
+}
+
+json NetworkHandler::buildMatchEndedPayload(
+    const ActiveMatchInstance& match,
+    long long userId,
+    const std::string& reason,
+    long long disconnectedUserId
+) {
+    auto instanceIt = arenaInstances.find(match.instanceKey);
+    std::vector<Player> players = instanceIt != arenaInstances.end() && instanceIt->second.world
+        ? instanceIt->second.world->getPlayersCopy()
+        : std::vector<Player>{};
+
+    const Player* selfPlayer = nullptr;
+    const Player* opponentPlayer = nullptr;
+    for (const Player& player : players) {
+        const auto socketIt = match.playerSocketIds.find(userId);
+        if (socketIt != match.playerSocketIds.end() && player.id == socketIt->second) {
+            selfPlayer = &player;
+            continue;
+        }
+
+        if (!match.playerSocketIds.empty()) {
+            bool belongsToSomeoneElse = false;
+            for (const auto& [otherUserId, socketId] : match.playerSocketIds) {
+                if (otherUserId != userId && player.id == socketId) {
+                    opponentPlayer = &player;
+                    belongsToSomeoneElse = true;
+                    break;
+                }
+            }
+            if (belongsToSomeoneElse) {
+                continue;
+            }
+        }
+    }
+
+    std::string result = "draw";
+    if (reason == "disconnect" && disconnectedUserId > 0) {
+        result = disconnectedUserId == userId ? "defeat" : "victory";
+    } else if (selfPlayer != nullptr && opponentPlayer != nullptr) {
+        if (selfPlayer->kills > opponentPlayer->kills) {
+            result = "victory";
+        } else if (selfPlayer->kills < opponentPlayer->kills) {
+            result = "defeat";
+        }
+    }
+
+    return {
+        {"event", "matchEnded"},
+        {"matchId", match.matchId},
+        {"result", result},
+        {"reason", reason},
+        {"durationMs", MATCH_DURATION_MS},
+        {"yourKills", selfPlayer != nullptr ? selfPlayer->kills : 0},
+        {"yourDeaths", selfPlayer != nullptr ? selfPlayer->deaths : 0},
+        {"opponentKills", opponentPlayer != nullptr ? opponentPlayer->kills : 0},
+        {"opponentDeaths", opponentPlayer != nullptr ? opponentPlayer->deaths : 0},
+        {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+    };
+}
+
+void NetworkHandler::finishMatch(const std::string& matchId, const std::string& reason, long long disconnectedUserId) {
+    ActiveMatchInstance match;
+    {
+        std::lock_guard<std::mutex> lock(arena_mtx);
+        auto matchIt = activeMatches.find(matchId);
+        if (matchIt == activeMatches.end() || matchIt->second.finished) {
+            return;
+        }
+        matchIt->second.finished = true;
+        for (const auto& [userId, socketId] : matchIt->second.playerSocketIds) {
+            (void)socketId;
+            activeMatchByUserId.erase(userId);
+            readyMatchByUserId.erase(userId);
+        }
+        match = matchIt->second;
+    }
+
+    for (const auto& [userId, socketId] : match.playerSocketIds) {
+        (void)socketId;
+        sendToUser(userId, buildMatchEndedPayload(match, userId, reason, disconnectedUserId).dump());
+    }
+}
+
+void NetworkHandler::updatePendingMatches() {
+    std::vector<std::string> expiredMatchIds;
+    std::vector<PendingMatchInvitation> acceptedMatches;
+    {
+        std::lock_guard<std::mutex> lock(arena_mtx);
+        const long long nowMs = getCurrentTimeMs();
+        for (const auto& [matchId, invitation] : pendingMatches) {
+            bool allAccepted = true;
+            for (long long userId : invitation.userIds) {
+                if (!invitation.acceptedByUserId.count(userId) || !invitation.acceptedByUserId.at(userId)) {
+                    allAccepted = false;
+                    break;
+                }
+            }
+
+            if (allAccepted) {
+                acceptedMatches.push_back(invitation);
+                continue;
+            }
+
+            if (nowMs >= invitation.acceptDeadlineMs) {
+                expiredMatchIds.push_back(matchId);
+            }
+        }
+    }
+
+    for (const std::string& matchId : expiredMatchIds) {
+        cancelPendingMatch(matchId, "timeout");
+    }
+
+    for (const PendingMatchInvitation& invitation : acceptedMatches) {
+        createActiveMatchFromInvitation(invitation);
+    }
+}
+
+void NetworkHandler::updateRunningMatches() {
+    std::vector<std::string> matchesToFinish;
+    {
+        std::lock_guard<std::mutex> lock(arena_mtx);
+        const long long nowMs = getCurrentTimeMs();
+        for (const auto& [matchId, match] : activeMatches) {
+            if (!match.finished && nowMs >= match.endsAtMs) {
+                matchesToFinish.push_back(matchId);
+            }
+        }
+    }
+
+    for (const std::string& matchId : matchesToFinish) {
+        finishMatch(matchId, "time_limit");
+    }
+}
+
+void NetworkHandler::updateArenaInstances() {
+    std::vector<ArenaInstance*> instances;
+    {
+        std::lock_guard<std::mutex> lock(arena_mtx);
+        for (auto& [instanceKey, instance] : arenaInstances) {
+            (void)instanceKey;
+            if (!instance.world) {
+                continue;
+            }
+
+            if (instance.mode == "match") {
+                auto matchIdIt = instance.matchId;
+                if (matchIdIt.has_value()) {
+                    auto activeIt = activeMatches.find(*matchIdIt);
+                    if (activeIt != activeMatches.end() && activeIt->second.finished) {
+                        continue;
+                    }
+                }
+            }
+
+            instances.push_back(&instance);
+        }
+    }
+
+    for (ArenaInstance* instance : instances) {
+        const std::string previousInstance = pushBroadcastContext(instance->key);
+        instance->world->update(this);
+        popBroadcastContext(previousInstance);
+    }
+}
+
+bool NetworkHandler::joinArenaInstance(
+    uWS::WebSocket<false, true, PerSocketData>* ws,
+    PerSocketData* userData,
+    const std::string& characterId,
+    const std::string& mode,
+    const std::string& matchId
+) {
+    if (userData == nullptr) {
+        return false;
+    }
+
+    std::string socketId = std::to_string(reinterpret_cast<uintptr_t>(ws));
+    ArenaInstance* arenaInstance = nullptr;
+    std::string instanceKey;
+    long long nowMs = getCurrentTimeMs();
+
+    {
+        std::lock_guard<std::mutex> lock(arena_mtx);
+        if (mode == "training") {
+            instanceKey = makeTrainingInstanceKey(userData->userId);
+            trainingInstanceByUserId[userData->userId] = instanceKey;
+
+            if (!arenaInstances.count(instanceKey)) {
+                ArenaInstance newInstance;
+                newInstance.key = instanceKey;
+                newInstance.mode = "training";
+                newInstance.world = std::make_unique<GameWorld>(instanceKey, "training");
+                arenaInstances[instanceKey] = std::move(newInstance);
+            }
+        } else {
+            if (matchId.empty()) {
+                return false;
+            }
+
+            auto readyIt = readyMatchByUserId.find(userData->userId);
+            if (readyIt == readyMatchByUserId.end() || readyIt->second != matchId) {
+                return false;
+            }
+
+            auto activeMatchIt = activeMatches.find(matchId);
+            if (activeMatchIt == activeMatches.end()) {
+                return false;
+            }
+
+            instanceKey = activeMatchIt->second.instanceKey;
+            activeMatchIt->second.playerSocketIds[userData->userId] = socketId;
+            readyMatchByUserId.erase(readyIt);
+        }
+
+        arenaInstance = &arenaInstances[instanceKey];
+        arenaInstance->playerIds.insert(socketId);
+        arenaInstance->userIds.insert(userData->userId);
+        playerInstanceBySocketId[socketId] = instanceKey;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(clients_mtx);
+        clients[socketId] = ws;
+    }
+
+    userData->id = socketId;
+    userData->currentArenaMode = mode;
+    userData->currentInstanceKey = instanceKey;
+    userData->currentMatchId = mode == "match" ? matchId : "";
+
+    arenaInstance->world->addPlayer(
+        socketId,
+        userData->nickname.empty() ? userData->username : userData->nickname,
+        characterId,
+        userData->role
+    );
+
+    json sessionInit = arenaInstance->world->getSessionInitJson(socketId);
+    sessionInit["instance"] = {
+        {"key", instanceKey},
+        {"mode", mode}
+    };
+
+    if (mode == "match") {
+        std::lock_guard<std::mutex> lock(arena_mtx);
+        const ActiveMatchInstance& match = activeMatches[matchId];
+        sessionInit["instance"]["matchId"] = match.matchId;
+        sessionInit["instance"]["matchStartedAtMs"] = match.startedAtMs;
+        sessionInit["instance"]["matchEndsAtMs"] = match.endsAtMs;
+        sessionInit["instance"]["matchDurationMs"] = MATCH_DURATION_MS;
+    }
+
+    ws->send(sessionInit.dump(), uWS::OpCode::TEXT);
+
+    std::string arenaMessagesError;
+    std::vector<ArenaMessageRecord> recentArenaMessages = arenaChatRepository.listRecentMessages(
+        instanceKey,
+        30,
+        &arenaMessagesError
+    );
+    if (arenaMessagesError.empty()) {
+        json historyPayload = {
+            {"event", "arenaChatSync"},
+            {"messages", json::array()},
+            {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+        };
+
+        for (const ArenaMessageRecord& messageRecord : recentArenaMessages) {
+            historyPayload["messages"].push_back({
+                {"id", messageRecord.id},
+                {"type", messageRecord.messageType.empty() ? "public" : messageRecord.messageType},
+                {"senderUserId", messageRecord.senderUserId},
+                {"senderNickname", messageRecord.senderNickname},
+                {"senderTag", messageRecord.senderTag},
+                {"body", messageRecord.body},
+                {"targetUserId", messageRecord.targetUserId > 0 ? json(messageRecord.targetUserId) : json(nullptr)},
+                {"createdAt", messageRecord.createdAtMs}
+            });
+        }
+
+        ws->send(historyPayload.dump(), uWS::OpCode::TEXT);
+    }
+
+    broadcastToInstance(instanceKey, json({
+        {"event", "playerJoined"},
+        {"player", arenaInstance->world->getPlayerJson(socketId)}
+    }).dump());
+
+    (void)nowMs;
+    return true;
+}
+
+void NetworkHandler::removeFromArenaInstance(uWS::WebSocket<false, true, PerSocketData>* ws, PerSocketData* userData) {
+    if (userData == nullptr || userData->id.empty()) {
+        return;
+    }
+
+    const std::string socketId = userData->id;
+    const std::string instanceKey = userData->currentInstanceKey;
+    const std::string matchId = userData->currentMatchId;
+    const long long userId = userData->userId;
+
+    {
+        std::lock_guard<std::mutex> lock(clients_mtx);
+        clients.erase(socketId);
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(arena_mtx);
+        auto instanceIt = arenaInstances.find(instanceKey);
+        if (instanceIt != arenaInstances.end()) {
+            if (instanceIt->second.world) {
+                instanceIt->second.world->removePlayer(socketId);
+            }
+            instanceIt->second.playerIds.erase(socketId);
+            instanceIt->second.userIds.erase(userId);
+            if (instanceIt->second.userIds.empty() && instanceIt->second.mode == "training") {
+                arenaInstances.erase(instanceIt);
+                trainingInstanceByUserId.erase(userId);
+            } else if (instanceIt->second.userIds.empty() && instanceIt->second.mode == "match") {
+                const std::optional<std::string> finishedMatchId = instanceIt->second.matchId;
+                arenaInstances.erase(instanceIt);
+                if (finishedMatchId.has_value()) {
+                    activeMatches.erase(*finishedMatchId);
+                }
+            }
+        }
+        playerInstanceBySocketId.erase(socketId);
+    }
+
+    if (!instanceKey.empty()) {
+        broadcastToInstance(instanceKey, json({{"event", "playerLeft"}, {"id", socketId}}).dump());
+    }
+
+    if (!matchId.empty()) {
+        finishMatch(matchId, "disconnect", userId);
+    }
+
+    userData->id.clear();
+    userData->currentArenaMode.clear();
+    userData->currentInstanceKey.clear();
+    userData->currentMatchId.clear();
+}
 
 void NetworkHandler::registerAuthenticatedSocket(
     uWS::WebSocket<false, true, PerSocketData>* ws,
@@ -658,15 +1258,23 @@ void NetworkHandler::start() {
 
             us_timer_set(timer, [](struct us_timer_t *t) {
                 NetworkHandler *nh = *(NetworkHandler **) us_timer_ext(t);
-                nh->world.update(nh);
+                nh->updatePendingMatches();
+                nh->updateRunningMatches();
+                nh->updateArenaInstances();
             }, DRAGON_ARENA_TICK_INTERVAL_MS, DRAGON_ARENA_TICK_INTERVAL_MS);
         }
     }).run();
 }
 
 void NetworkHandler::broadcast(const std::string &message) {
+    if (!broadcastContextInstanceKey.empty()) {
+        broadcastToInstance(broadcastContextInstanceKey, message);
+        return;
+    }
+
     std::lock_guard<std::mutex> lock(clients_mtx);
     for (auto const& [id, ws] : clients) {
+        (void)id;
         ws->send(message, uWS::OpCode::TEXT);
     }
 }
@@ -692,6 +1300,30 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             {"event", event},
             {"hasSession", userData != nullptr && !userData->id.empty()}
         });
+
+        auto getCurrentArenaWorld = [&]() -> GameWorld* {
+            if (userData == nullptr || userData->currentInstanceKey.empty()) {
+                return nullptr;
+            }
+
+            std::lock_guard<std::mutex> lock(arena_mtx);
+            auto instanceIt = arenaInstances.find(userData->currentInstanceKey);
+            if (instanceIt == arenaInstances.end() || !instanceIt->second.world) {
+                return nullptr;
+            }
+
+            return instanceIt->second.world.get();
+        };
+
+        auto isCurrentMatchFinished = [&]() -> bool {
+            if (userData == nullptr || userData->currentMatchId.empty()) {
+                return false;
+            }
+
+            std::lock_guard<std::mutex> lock(arena_mtx);
+            auto matchIt = activeMatches.find(userData->currentMatchId);
+            return matchIt != activeMatches.end() && matchIt->second.finished;
+        };
         
         if (event == "register") {
             if (!hasString(data, "email") || !hasString(data, "username") || !hasString(data, "nickname") || !hasString(data, "password")) {
@@ -1651,6 +2283,113 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             }).dump(), uWS::OpCode::TEXT);
             sendAdminReportsSyncToUser(userData->userId);
         }
+        else if (event == "queueMatch") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("queueMatch", "not_authenticated", "Client must authenticate before queueing", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!hasString(data, "characterId")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("queueMatch", "invalid_payload", "queueMatch requires string characterId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            {
+                std::lock_guard<std::mutex> lock(arena_mtx);
+                if (queuedPlayersByUserId.count(userData->userId) || pendingMatchByUserId.count(userData->userId) ||
+                    readyMatchByUserId.count(userData->userId) || activeMatchByUserId.count(userData->userId)) {
+                    ws->send(ProtocolPayloadBuilder::buildActionRejected("queueMatch", "already_queueing", "Player is already in the matchmaking flow", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                    return;
+                }
+            }
+
+            enqueuePlayerForMatch({
+                userData->userId,
+                userData->nickname.empty() ? userData->username : userData->nickname,
+                userData->tag,
+                userData->role,
+                data["characterId"],
+                getCurrentTimeMs()
+            });
+
+            ws->send(json({
+                {"event", "matchQueueStarted"},
+                {"characterId", data["characterId"]},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }).dump(), uWS::OpCode::TEXT);
+            tryCreatePendingMatch();
+        }
+        else if (event == "leaveQueue") {
+            if (!userData->authenticated || userData->userId <= 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("leaveQueue", "not_authenticated", "Client must authenticate before leaving queue", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            bool removedFromQueue = false;
+            std::string pendingMatchId;
+            {
+                std::lock_guard<std::mutex> lock(arena_mtx);
+                removedFromQueue = queuedPlayersByUserId.erase(userData->userId) > 0;
+                auto pendingIt = pendingMatchByUserId.find(userData->userId);
+                if (pendingIt != pendingMatchByUserId.end()) {
+                    pendingMatchId = pendingIt->second;
+                }
+            }
+
+            if (!pendingMatchId.empty()) {
+                cancelPendingMatch(pendingMatchId, "cancelled", userData->userId);
+            } else if (removedFromQueue) {
+                ws->send(json({
+                    {"event", "matchQueueCancelled"},
+                    {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+                }).dump(), uWS::OpCode::TEXT);
+            }
+        }
+        else if (event == "acceptMatch") {
+            if (!userData->authenticated || userData->userId <= 0 || !hasString(data, "matchId")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("acceptMatch", "invalid_payload", "acceptMatch requires authentication and string matchId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const std::string matchId = static_cast<std::string>(data["matchId"]);
+            bool shouldCreateMatch = false;
+            PendingMatchInvitation invitation;
+            {
+                std::lock_guard<std::mutex> lock(arena_mtx);
+                auto invitationIt = pendingMatches.find(matchId);
+                if (invitationIt == pendingMatches.end() || !pendingMatchByUserId.count(userData->userId) || pendingMatchByUserId[userData->userId] != matchId) {
+                    ws->send(ProtocolPayloadBuilder::buildActionRejected("acceptMatch", "match_not_found", "Pending match invitation was not found", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                    return;
+                }
+
+                invitationIt->second.acceptedByUserId[userData->userId] = true;
+                invitation = invitationIt->second;
+                shouldCreateMatch = true;
+                for (long long invitationUserId : invitation.userIds) {
+                    if (!invitation.acceptedByUserId.count(invitationUserId) || !invitation.acceptedByUserId.at(invitationUserId)) {
+                        shouldCreateMatch = false;
+                        break;
+                    }
+                }
+            }
+
+            ws->send(json({
+                {"event", "matchAccepted"},
+                {"matchId", matchId},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }).dump(), uWS::OpCode::TEXT);
+
+            if (shouldCreateMatch) {
+                createActiveMatchFromInvitation(invitation);
+            }
+        }
+        else if (event == "declineMatch") {
+            if (!userData->authenticated || userData->userId <= 0 || !hasString(data, "matchId")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("declineMatch", "invalid_payload", "declineMatch requires authentication and string matchId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const std::string matchId = static_cast<std::string>(data["matchId"]);
+            cancelPendingMatch(matchId, "declined", userData->userId);
+        }
         else if (event == "arenaMessageSend") {
             if (!userData->authenticated || userData->userId <= 0) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("arenaMessageSend", "not_authenticated", "Client must authenticate before sending arena messages", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
@@ -1877,7 +2616,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             ArenaMessageRecord arenaMessage;
             std::string repositoryError;
             if (!arenaChatRepository.createMessage(
-                MAIN_ARENA_KEY,
+                userData->currentInstanceKey,
                 userData->userId,
                 userData->nickname,
                 userData->tag,
@@ -1891,7 +2630,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 return;
             }
 
-            sendArenaPublicMessage(json({
+            broadcastToInstance(userData->currentInstanceKey, json({
                 {"event", "arenaMessage"},
                 {"message", {
                     {"id", arenaMessage.id},
@@ -1903,7 +2642,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                     {"createdAt", arenaMessage.createdAtMs}
                 }},
                 {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
-            }));
+            }).dump());
         }
         else if (event == "join") {
             if (!userData->authenticated) {
@@ -1918,114 +2657,160 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("join", "already_joined", "Client is already joined in the arena", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
                 return;
             }
-
-            std::string id = std::to_string(reinterpret_cast<uintptr_t>(ws));
-            userData->id = id;
-            {
-                std::lock_guard<std::mutex> lock(clients_mtx);
-                clients[id] = ws;
+            const std::string mode = hasString(data, "mode") ? static_cast<std::string>(data["mode"]) : "training";
+            const std::string matchId = hasString(data, "matchId") ? static_cast<std::string>(data["matchId"]) : "";
+            if (mode != "training" && mode != "match") {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("join", "invalid_mode", "join mode must be training or match", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
             }
 
-            world.addPlayer(
-                id,
-                userData->nickname.empty() ? userData->username : userData->nickname,
-                data["characterId"],
-                userData->role
-            );
-            ws->send(world.getSessionInitJson(id).dump(), uWS::OpCode::TEXT);
-
-            std::string arenaMessagesError;
-            std::vector<ArenaMessageRecord> recentArenaMessages = arenaChatRepository.listRecentMessages(
-                MAIN_ARENA_KEY,
-                30,
-                &arenaMessagesError
-            );
-            if (arenaMessagesError.empty()) {
-                json historyPayload = {
-                    {"event", "arenaChatSync"},
-                    {"messages", json::array()},
-                    {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
-                };
-
-                for (const ArenaMessageRecord& messageRecord : recentArenaMessages) {
-                    historyPayload["messages"].push_back({
-                        {"id", messageRecord.id},
-                        {"type", messageRecord.messageType.empty() ? "public" : messageRecord.messageType},
-                        {"senderUserId", messageRecord.senderUserId},
-                        {"senderNickname", messageRecord.senderNickname},
-                        {"senderTag", messageRecord.senderTag},
-                        {"body", messageRecord.body},
-                        {"targetUserId", messageRecord.targetUserId > 0 ? json(messageRecord.targetUserId) : json(nullptr)},
-                        {"createdAt", messageRecord.createdAtMs}
-                    });
-                }
-
-                ws->send(historyPayload.dump(), uWS::OpCode::TEXT);
+            if (!joinArenaInstance(ws, userData, data["characterId"], mode, matchId)) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("join", "join_rejected", "Arena join request was rejected for the current mode or match state", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
             }
-
-            std::string joinMsg = json({{"event", "playerJoined"}, {"player", world.getPlayerJson(id)}}).dump();
-            broadcast(joinMsg);
-            ws->subscribe("arena");
         } 
         else if (event == "move") {
+            GameWorld* arenaWorld = getCurrentArenaWorld();
             if (userData->id.empty()) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("move", "not_joined", "Client must join before sending move", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (isCurrentMatchFinished()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("move", "match_finished", "Match has already finished", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (arenaWorld == nullptr) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("move", "missing_instance", "Arena instance is not available", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
                 return;
             }
             if (!hasNumber(data, "inputX") || !hasNumber(data, "inputY") || !hasString(data, "direction") || !data.contains("animRow") || !data["animRow"].is_number_integer()) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("move", "invalid_payload", "move requires numeric inputX/inputY, string direction and integer animRow", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
                 return;
             }
-            if (!world.movePlayer(userData->id, data["inputX"], data["inputY"], data["direction"], data["animRow"])) {
+            if (!arenaWorld->movePlayer(userData->id, data["inputX"], data["inputY"], data["direction"], data["animRow"])) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("move", "move_rejected", "Move intent was not accepted for the current player state", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
             }
         }
         else if (event == "shoot") {
+            GameWorld* arenaWorld = getCurrentArenaWorld();
             if (userData->id.empty()) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("shoot", "not_joined", "Client must join before shooting", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (isCurrentMatchFinished()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("shoot", "match_finished", "Match has already finished", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (arenaWorld == nullptr) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("shoot", "missing_instance", "Arena instance is not available", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
                 return;
             }
             if (!hasNumber(data, "targetX") || !hasNumber(data, "targetY")) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("shoot", "invalid_payload", "shoot requires numeric targetX and targetY", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
                 return;
             }
-            if (!world.requestAutoAttack(userData->id, data["targetX"], data["targetY"], this)) {
+            const std::string previousInstance = pushBroadcastContext(userData->currentInstanceKey);
+            const bool accepted = arenaWorld->requestAutoAttack(userData->id, data["targetX"], data["targetY"], this);
+            popBroadcastContext(previousInstance);
+            if (!accepted) {
                 sendTo(userData->id, json({
                     {"event", "autoAttackRejected"},
                     {"code", "cooldown_or_state"},
                     {"reason", "Auto attack was rejected due to cooldown or player state"},
-                    {"tick", world.getCurrentTick()}
+                    {"tick", arenaWorld->getCurrentTick()}
                 }).dump());
             }
         }
         else if (event == "respawn") {
+            GameWorld* arenaWorld = getCurrentArenaWorld();
             if (userData->id.empty()) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("respawn", "not_joined", "Client must join before respawning", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
                 return;
             }
-            if (world.respawnPlayer(userData->id)) {
-                json p = world.getPlayerJson(userData->id);
-                broadcast(json({{"event", "playerRespawned"}, {"tick", world.getCurrentTick()}, {"id", userData->id}, {"hp", p["hp"]}, {"x", p["x"]}, {"y", p["y"]}}).dump());
+            if (isCurrentMatchFinished()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("respawn", "match_finished", "Match has already finished", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (arenaWorld == nullptr) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("respawn", "missing_instance", "Arena instance is not available", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (arenaWorld->respawnPlayer(userData->id)) {
+                json p = arenaWorld->getPlayerJson(userData->id);
+                broadcastToInstance(userData->currentInstanceKey, json({{"event", "playerRespawned"}, {"tick", arenaWorld->getCurrentTick()}, {"id", userData->id}, {"hp", p["hp"]}, {"x", p["x"]}, {"y", p["y"]}}).dump());
             } else {
                 sendTo(userData->id, ProtocolPayloadBuilder::buildActionRejected("respawn", "respawn_locked", "Player cannot respawn yet", world.getCurrentTick()).dump());
             }
         }
+        else if (event == "changeCharacter") {
+            GameWorld* arenaWorld = getCurrentArenaWorld();
+            if (userData->id.empty()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("changeCharacter", "not_joined", "Client must join before changing character", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (arenaWorld == nullptr) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("changeCharacter", "missing_instance", "Arena instance is not available", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (!hasString(data, "characterId")) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("changeCharacter", "invalid_payload", "changeCharacter requires string characterId", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            const std::optional<Player> currentPlayer = arenaWorld->getPlayerCopy(userData->id);
+            if (!currentPlayer.has_value()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("changeCharacter", "player_not_found", "Player was not found in the current arena instance", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (currentPlayer->hp > 0) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("changeCharacter", "player_not_dead", "Character can only be changed while dead", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+
+            try {
+                const std::string characterId = static_cast<std::string>(data["characterId"]);
+                if (!arenaWorld->changePlayerCharacter(userData->id, characterId)) {
+                    ws->send(ProtocolPayloadBuilder::buildActionRejected("changeCharacter", "change_rejected", "Character change was not accepted for the current player state", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                    return;
+                }
+
+                sendTo(userData->id, json({
+                    {"event", "characterChanged"},
+                    {"characterId", characterId},
+                    {"tick", arenaWorld->getCurrentTick()},
+                    {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+                }).dump());
+            } catch (const std::exception& exception) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("changeCharacter", "invalid_character", exception.what(), world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+            }
+        }
         else if (event == "useSkill") {
+            GameWorld* arenaWorld = getCurrentArenaWorld();
             if (userData->id.empty()) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("useSkill", "not_joined", "Client must join before using skills", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (isCurrentMatchFinished()) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("useSkill", "match_finished", "Match has already finished", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
+                return;
+            }
+            if (arenaWorld == nullptr) {
+                ws->send(ProtocolPayloadBuilder::buildActionRejected("useSkill", "missing_instance", "Arena instance is not available", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
                 return;
             }
             if (!hasString(data, "skillId") || !hasNumber(data, "x") || !hasNumber(data, "y")) {
                 ws->send(ProtocolPayloadBuilder::buildActionRejected("useSkill", "invalid_payload", "useSkill requires string skillId and numeric x/y", world.getCurrentTick()).dump(), uWS::OpCode::TEXT);
                 return;
             }
-            if (!world.useSkill(userData->id, data["skillId"], data["x"], data["y"], this)) {
+            const std::string previousInstance = pushBroadcastContext(userData->currentInstanceKey);
+            const bool accepted = arenaWorld->useSkill(userData->id, data["skillId"], data["x"], data["y"], this);
+            popBroadcastContext(previousInstance);
+            if (!accepted) {
                 sendTo(userData->id, json({
                     {"event", "skillRejected"},
                     {"skillId", data["skillId"]},
                     {"code", "cooldown_or_state"},
                     {"reason", "Skill request was rejected due to cooldown, invalid skill or player state"},
-                    {"tick", world.getCurrentTick()}
+                    {"tick", arenaWorld->getCurrentTick()}
                 }).dump());
             }
         } else {
@@ -2043,15 +2828,21 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
 void NetworkHandler::handleClose(uWS::WebSocket<false, true, PerSocketData> *ws) {
     PerSocketData *userData = ws->getUserData();
     long long closedUserId = userData ? userData->userId : 0;
-    unregisterAuthenticatedSocket(ws, userData);
-    if (userData && !userData->id.empty()) {
-        std::string id = userData->id;
-        {
-            std::lock_guard<std::mutex> lock(clients_mtx);
-            clients.erase(id);
+    std::string pendingMatchId;
+    if (userData != nullptr && closedUserId > 0) {
+        std::lock_guard<std::mutex> lock(arena_mtx);
+        queuedPlayersByUserId.erase(closedUserId);
+        auto pendingIt = pendingMatchByUserId.find(closedUserId);
+        if (pendingIt != pendingMatchByUserId.end()) {
+            pendingMatchId = pendingIt->second;
         }
-        world.removePlayer(id);
-        broadcast(json({{"event", "playerLeft"}, {"id", id}}).dump());
+    }
+    unregisterAuthenticatedSocket(ws, userData);
+    if (!pendingMatchId.empty()) {
+        cancelPendingMatch(pendingMatchId, "cancelled", closedUserId);
+    }
+    if (userData && !userData->id.empty()) {
+        removeFromArenaInstance(ws, userData);
     }
     if (closedUserId > 0) {
         notifyFriendsPresenceChanged(closedUserId);

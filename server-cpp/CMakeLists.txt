@@ -199,6 +199,7 @@ add_executable(DragonArenaGameplayTests
     CombatSystem.cpp
     BurnSystem.cpp
     MovementSystem.cpp
+    GameWorld.cpp
     SkillSystem.cpp
     ProjectileSystem.cpp
     DashSystem.cpp
@@ -206,6 +207,7 @@ add_executable(DragonArenaGameplayTests
     ProtocolPayloadBuilder.cpp
     ServerDiagnostics.cpp
     WorldSetup.cpp
+    WorldTickRunner.cpp
     WorldSnapshotBuilder.cpp
     MapLoader.cpp
 )

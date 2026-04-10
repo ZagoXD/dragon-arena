@@ -73,6 +73,29 @@ interface ReportTargetDraft {
   tag: string
 }
 
+type ArenaLaunchMode = 'training' | 'match'
+
+interface PendingMatchInvite {
+  matchId: string
+  acceptDeadlineMs: number
+  durationMs: number
+  opponent: {
+    userId: number
+    nickname: string
+    tag: string
+    characterId: string
+  }
+}
+
+interface MatchResultState {
+  result: 'victory' | 'defeat' | 'draw'
+  reason: 'time_limit' | 'disconnect'
+  yourKills: number
+  yourDeaths: number
+  opponentKills: number
+  opponentDeaths: number
+}
+
 function App() {
   const [shellSettings, setShellSettings] = useState<ShellSettings>(DEFAULT_SHELL_SETTINGS)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -96,6 +119,14 @@ function App() {
   const [connError, setConnError] = useState<string | null>(null)
   const [authPending, setAuthPending] = useState(false)
   const [enterArenaPending, setEnterArenaPending] = useState(false)
+  const [pendingArenaLaunchMode, setPendingArenaLaunchMode] = useState<ArenaLaunchMode | null>(null)
+  const [arenaJoinMode, setArenaJoinMode] = useState<ArenaLaunchMode>('training')
+  const [arenaMatchId, setArenaMatchId] = useState<string | null>(null)
+  const [matchmakingActive, setMatchmakingActive] = useState(false)
+  const [pendingMatchInvite, setPendingMatchInvite] = useState<PendingMatchInvite | null>(null)
+  const [matchAcceptBusy, setMatchAcceptBusy] = useState(false)
+  const [matchmakingInfo, setMatchmakingInfo] = useState<string | null>(null)
+  const [matchResult, setMatchResult] = useState<MatchResultState | null>(null)
   const [friendPanelExpanded, setFriendPanelExpanded] = useState(false)
   const [friendNotificationCount, setFriendNotificationCount] = useState(0)
   const [friends, setFriends] = useState<FriendListEntry[]>([])
@@ -132,6 +163,9 @@ function App() {
   const reportCloseTimeoutRef = useRef<number | null>(null)
   const openPrivateChatFriendIdsRef = useRef<number[]>([])
   const privateChatMinimizedByFriendIdRef = useRef<Record<number, boolean>>({})
+  const friendPanelExpandedRef = useRef(false)
+  const shouldPersistSessionRef = useRef(false)
+  const sessionExpiresAtMsRef = useRef(0)
   const currentLanguage = (supportedLanguages.includes(i18n.language as AppLanguage)
     ? i18n.language
     : 'pt-BR') as AppLanguage
@@ -374,12 +408,27 @@ function App() {
       return
     }
     setCharacterId(id)
-    setScreen('arena')
-  }
+    if (pendingArenaLaunchMode === 'match') {
+      if (lobbySocketRef.current?.readyState !== WebSocket.OPEN) {
+        setMatchmakingInfo(i18n.t('matchmaking.connectionUnavailable'))
+        return
+      }
 
-  const handleReturnToSelect = (respawnAvailableAt?: number) => {
-    setSelectionLockedUntil(respawnAvailableAt ?? null)
-    setScreen('select')
+      setMatchmakingInfo(null)
+      setMatchmakingActive(true)
+      setPendingMatchInvite(null)
+      setArenaMatchId(null)
+      lobbySocketRef.current.send(JSON.stringify({
+        event: 'queueMatch',
+        characterId: id,
+      }))
+      setScreen('home')
+      return
+    }
+
+    setArenaJoinMode('training')
+    setArenaMatchId(null)
+    setScreen('arena')
   }
 
   const handleAuthFailure = useCallback((message: string) => {
@@ -390,6 +439,14 @@ function App() {
     setPlayerUserId(null)
     setSessionExpiresAtMs(0)
     setShouldPersistSession(false)
+    setPendingArenaLaunchMode(null)
+    setArenaJoinMode('training')
+    setArenaMatchId(null)
+    setMatchmakingActive(false)
+    setPendingMatchInvite(null)
+    setMatchAcceptBusy(false)
+    setMatchmakingInfo(null)
+    setMatchResult(null)
     setFriendPanelExpanded(false)
     setFriendNotificationCount(0)
     setFriends([])
@@ -452,16 +509,63 @@ function App() {
     })
   }, [applyAccountSnapshot, persistSession, shouldPersistSession])
 
-  const handleEnterArena = useCallback(() => {
+  const handleEnterTraining = useCallback(() => {
     setEnterArenaPending(true)
+    setPendingArenaLaunchMode('training')
     window.setTimeout(() => {
       setEnterArenaPending(false)
       setScreen('select')
     }, 220)
   }, [])
 
+  const handleEnterMatchmaking = useCallback(() => {
+    setEnterArenaPending(true)
+    setPendingArenaLaunchMode('match')
+    window.setTimeout(() => {
+      setEnterArenaPending(false)
+      setScreen('select')
+    }, 220)
+  }, [])
+
+  const handleCancelMatchmaking = useCallback(() => {
+    if (lobbySocketRef.current?.readyState === WebSocket.OPEN) {
+      lobbySocketRef.current.send(JSON.stringify({ event: 'leaveQueue' }))
+    }
+    setMatchmakingActive(false)
+    setMatchmakingInfo(null)
+  }, [])
+
+  const handleAcceptMatch = useCallback(() => {
+    if (!pendingMatchInvite || lobbySocketRef.current?.readyState !== WebSocket.OPEN) {
+      return
+    }
+
+    setMatchAcceptBusy(true)
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'acceptMatch',
+      matchId: pendingMatchInvite.matchId,
+    }))
+  }, [pendingMatchInvite])
+
+  const handleDeclineMatch = useCallback(() => {
+    if (!pendingMatchInvite || lobbySocketRef.current?.readyState !== WebSocket.OPEN) {
+      setPendingMatchInvite(null)
+      return
+    }
+
+    lobbySocketRef.current.send(JSON.stringify({
+      event: 'declineMatch',
+      matchId: pendingMatchInvite.matchId,
+    }))
+    setPendingMatchInvite(null)
+    setMatchAcceptBusy(false)
+  }, [pendingMatchInvite])
+
   const handleReturnToHome = useCallback(() => {
     setSelectionLockedUntil(null)
+    setPendingArenaLaunchMode(null)
+    setArenaMatchId(null)
+    setArenaJoinMode('training')
     setScreen('home')
   }, [])
 
@@ -780,6 +884,14 @@ function App() {
     setAuthInfo(null)
     setAuthPending(false)
     setEnterArenaPending(false)
+    setPendingArenaLaunchMode(null)
+    setArenaJoinMode('training')
+    setArenaMatchId(null)
+    setMatchmakingActive(false)
+    setPendingMatchInvite(null)
+    setMatchAcceptBusy(false)
+    setMatchmakingInfo(null)
+    setMatchResult(null)
     setFriendPanelExpanded(false)
     setFriendNotificationCount(0)
     setFriends([])
@@ -854,6 +966,18 @@ function App() {
   useEffect(() => {
     privateChatMinimizedByFriendIdRef.current = privateChatMinimizedByFriendId
   }, [privateChatMinimizedByFriendId])
+
+  useEffect(() => {
+    friendPanelExpandedRef.current = friendPanelExpanded
+  }, [friendPanelExpanded])
+
+  useEffect(() => {
+    shouldPersistSessionRef.current = shouldPersistSession
+  }, [shouldPersistSession])
+
+  useEffect(() => {
+    sessionExpiresAtMsRef.current = sessionExpiresAtMs
+  }, [sessionExpiresAtMs])
 
   useEffect(() => {
     const loadShellSettings = async () => {
@@ -1027,10 +1151,10 @@ function App() {
       if (data.event === 'profileSync') {
         const payload = data as ProfileSyncPayload
         applyAccountSnapshot(payload)
-        if (shouldPersistSession) {
+        if (shouldPersistSessionRef.current) {
           persistStoredSession({
             token: sessionToken,
-            expiresAtMs: sessionExpiresAtMs,
+            expiresAtMs: sessionExpiresAtMsRef.current,
             username: payload.user.username,
             nickname: payload.user.nickname,
             tag: payload.user.tag,
@@ -1050,7 +1174,7 @@ function App() {
         const nextOutgoingRequests = (data.outgoingRequests || []) as OutgoingFriendRequest[]
         const nextRequestIds = nextIncomingRequests.map(request => request.requestId)
 
-        if (!friendPanelExpanded) {
+        if (!friendPanelExpandedRef.current) {
           const previousIds = new Set(lastIncomingRequestIdsRef.current)
           const newRequestCount = nextRequestIds.filter(requestId => !previousIds.has(requestId)).length
           if (newRequestCount > 0) {
@@ -1185,6 +1309,52 @@ function App() {
         return
       }
 
+      if (data.event === 'matchQueueStarted') {
+        setMatchmakingActive(true)
+        setMatchmakingInfo(i18n.t('matchmaking.searching'))
+        return
+      }
+
+      if (data.event === 'matchQueueCancelled') {
+        setMatchmakingActive(false)
+        setMatchmakingInfo(null)
+        setPendingMatchInvite(null)
+        setMatchAcceptBusy(false)
+        return
+      }
+
+      if (data.event === 'matchFound') {
+        setMatchmakingActive(false)
+        setMatchAcceptBusy(false)
+        setPendingMatchInvite(data as PendingMatchInvite)
+        return
+      }
+
+      if (data.event === 'matchCancelled') {
+        setPendingMatchInvite(null)
+        setMatchAcceptBusy(false)
+        setMatchmakingActive(false)
+        setMatchmakingInfo(i18n.t(`matchmaking.cancelled.${data.reason}`))
+        return
+      }
+
+      if (data.event === 'matchAccepted') {
+        setMatchAcceptBusy(true)
+        return
+      }
+
+      if (data.event === 'matchReady') {
+        setPendingMatchInvite(null)
+        setMatchAcceptBusy(false)
+        setMatchmakingActive(false)
+        setArenaJoinMode('match')
+        setArenaMatchId(data.matchId as string)
+        setLoadingStatus(i18n.t('matchmaking.preparingMatch'))
+        setScreen('loading')
+        window.setTimeout(() => setScreen('arena'), 250)
+        return
+      }
+
       if (data.event === 'playerReportSubmitted') {
         setReportBusy(false)
         setReportError(null)
@@ -1248,6 +1418,11 @@ function App() {
         setFriendSendInfo(null)
         if (typeof data.requestEvent === 'string' && data.requestEvent === 'submitPlayerReport') {
           setReportError(translatedMessage)
+        } else if (typeof data.requestEvent === 'string' && ['queueMatch', 'leaveQueue', 'acceptMatch', 'declineMatch'].includes(data.requestEvent)) {
+          setMatchmakingActive(false)
+          setMatchAcceptBusy(false)
+          setPendingMatchInvite(null)
+          setMatchmakingInfo(translatedMessage)
         } else if (typeof data.requestEvent === 'string' && data.requestEvent.startsWith('admin')) {
           if (data.requestEvent === 'adminBanUser') {
             pendingAcceptedReportIdRef.current = null
@@ -1290,7 +1465,7 @@ function App() {
       }
       ws = null
     }
-  }, [applyAccountSnapshot, authIntent, friendPanelExpanded, formatAuthErrorMessage, handleAuthFailure, handleClosePrivateChat, persistStoredSession, playerRole, screen, serverUrl, sessionExpiresAtMs, shouldPersistSession])
+  }, [applyAccountSnapshot, authIntent?.mode, authIntent?.sessionToken, formatAuthErrorMessage, handleAuthFailure, handleClosePrivateChat, persistStoredSession, playerRole, serverUrl])
 
   const privateUnreadByFriendId = useMemo(() => {
     const next: Record<number, number> = {}
@@ -1349,6 +1524,13 @@ function App() {
         label: `${message.senderNickname}${message.senderTag}`,
       })
     }
+  }, [])
+
+  const handleMatchEnded = useCallback((payload: MatchResultState) => {
+    setMatchResult(payload)
+    setPendingArenaLaunchMode(null)
+    setArenaMatchId(null)
+    setArenaJoinMode('training')
   }, [])
 
   return (
@@ -1447,7 +1629,8 @@ function App() {
                   nickname={`${playerName}${playerTag}`}
                   coins={playerCoins}
                   isBusy={enterArenaPending}
-                  onEnterArena={handleEnterArena}
+                  onEnterTraining={handleEnterTraining}
+                  onEnterMatchmaking={handleEnterMatchmaking}
                 />
               )}
               {screen === 'profile' && (
@@ -1487,15 +1670,17 @@ function App() {
                   playerUserId={playerUserId}
                   playerName={playerName}
                   authIntent={authIntent}
+                  joinMode={arenaJoinMode}
+                  matchId={arenaMatchId}
                   reportModalOpen={reportModalOpen}
                   characterId={characterId}
                   onAuthenticated={handleAuthenticated}
                   onAuthFailure={handleAuthFailure}
                   onArenaChatMessage={handleArenaChatMessage}
+                  onMatchEnded={handleMatchEnded}
                   onOpenReportModal={handleOpenReportModal}
                   replyTarget={arenaReplyTarget}
                   onReturnToHome={handleReturnToHome}
-                  onReturnToSelect={handleReturnToSelect}
                 />
               )}
             </div>
@@ -1532,6 +1717,98 @@ function App() {
           }}
           onSubmit={handleSubmitReport}
         />
+        {matchmakingActive && (
+          <div className="matchmaking-overlay">
+            <div className="matchmaking-card">
+              <div className="matchmaking-spinner" />
+              <span className="matchmaking-eyebrow">{i18n.t('matchmaking.eyebrow')}</span>
+              <h2>{i18n.t('matchmaking.searchingTitle')}</h2>
+              <p>{matchmakingInfo || i18n.t('matchmaking.searching')}</p>
+              <button
+                type="button"
+                className="matchmaking-button matchmaking-button--secondary"
+                onClick={handleCancelMatchmaking}
+              >
+                {i18n.t('matchmaking.cancel')}
+              </button>
+            </div>
+          </div>
+        )}
+        {pendingMatchInvite && (
+          <div className="matchmaking-overlay">
+            <div className="matchmaking-card">
+              <span className="matchmaking-eyebrow">{i18n.t('matchmaking.matchFoundEyebrow')}</span>
+              <h2>{i18n.t('matchmaking.matchFoundTitle')}</h2>
+              <p>{i18n.t('matchmaking.matchFoundText', {
+                opponent: `${pendingMatchInvite.opponent.nickname}${pendingMatchInvite.opponent.tag}`,
+              })}</p>
+              <p className="matchmaking-deadline">
+                {i18n.t('matchmaking.acceptUntil', {
+                  time: new Intl.DateTimeFormat(i18n.language, {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  }).format(pendingMatchInvite.acceptDeadlineMs),
+                })}
+              </p>
+              <div className="matchmaking-actions">
+                <button
+                  type="button"
+                  className="matchmaking-button matchmaking-button--secondary"
+                  disabled={matchAcceptBusy}
+                  onClick={handleDeclineMatch}
+                >
+                  {i18n.t('matchmaking.decline')}
+                </button>
+                <button
+                  type="button"
+                  className="matchmaking-button"
+                  disabled={matchAcceptBusy}
+                  onClick={handleAcceptMatch}
+                >
+                  {matchAcceptBusy ? i18n.t('matchmaking.waitingOpponent') : i18n.t('matchmaking.accept')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {matchResult && (
+          <div className="matchmaking-overlay">
+            <div className="matchmaking-card">
+              <span className="matchmaking-eyebrow">{i18n.t('matchmaking.resultEyebrow')}</span>
+              <h2>{i18n.t(`matchmaking.result.${matchResult.result}`)}</h2>
+              <p>{i18n.t(`matchmaking.finishReason.${matchResult.reason}`)}</p>
+              <div className="matchmaking-result-grid">
+                <div>
+                  <span>{i18n.t('arena.kills')}</span>
+                  <strong>{matchResult.yourKills}</strong>
+                </div>
+                <div>
+                  <span>{i18n.t('arena.deaths')}</span>
+                  <strong>{matchResult.yourDeaths}</strong>
+                </div>
+                <div>
+                  <span>{i18n.t('matchmaking.opponentKills')}</span>
+                  <strong>{matchResult.opponentKills}</strong>
+                </div>
+                <div>
+                  <span>{i18n.t('matchmaking.opponentDeaths')}</span>
+                  <strong>{matchResult.opponentDeaths}</strong>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="matchmaking-button"
+                onClick={() => {
+                  setMatchResult(null)
+                  handleReturnToHome()
+                }}
+              >
+                {i18n.t('matchmaking.backHome')}
+              </button>
+            </div>
+          </div>
+        )}
         {isLobbyScreen && (
           <>
             <FriendListPanel

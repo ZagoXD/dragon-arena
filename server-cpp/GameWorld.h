@@ -2,6 +2,7 @@
 #define GAME_WORLD_H
 
 #include <map>
+#include <optional>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -28,11 +29,17 @@ private:
     unsigned long long worldTick = 0;
     long long lastUpdateMs = 0;
     long long lastSnapshotMs = 0;
+    std::string instanceKey;
+    std::string instanceMode;
 
 public:
-    GameWorld();
+    GameWorld(std::string instanceKey = "", std::string instanceMode = "training");
     const MapLoader& getMapLoader() const { return mapLoader; }
     unsigned long long getCurrentTick() const { return worldTick; }
+    const std::string& getInstanceKey() const { return instanceKey; }
+    const std::string& getInstanceMode() const { return instanceMode; }
+    bool isTrainingInstance() const { return instanceMode == "training"; }
+    bool isMatchInstance() const { return instanceMode == "match"; }
     void addPlayer(std::string id, std::string name, std::string charId, std::string role = "player");
     void removePlayer(std::string id);
     bool movePlayer(std::string id, float inputX, float inputY, std::string dir, int anim);
@@ -43,6 +50,9 @@ public:
     json getWorldSnapshotJson();
     json getBootstrapJson(std::string playerId);
     json getSessionInitJson(std::string playerId);
+    std::optional<Player> getPlayerCopy(const std::string& id);
+    std::vector<Player> getPlayersCopy();
+    std::size_t getPlayerCount();
 
     struct HitResult {
         bool hit;
@@ -56,6 +66,7 @@ public:
     int hitDummy(std::string attackerId, std::string dummyId);
     int takeDamage(std::string id, int amount);
     bool respawnPlayer(std::string id);
+    bool changePlayerCharacter(const std::string& id, const std::string& charId);
     bool requestAutoAttack(std::string playerId, float targetX, float targetY, NetworkHandler* network);
     bool useSkill(std::string playerId, std::string skillId, float targetX, float targetY, NetworkHandler* network);
     void update(NetworkHandler* network); // High-frequency update

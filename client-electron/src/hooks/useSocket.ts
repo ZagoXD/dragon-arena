@@ -117,9 +117,43 @@ export interface ArenaChatMessage {
   createdAt: number
 }
 
+export interface ArenaJoinOptions {
+  mode: 'training' | 'match'
+  matchId?: string | null
+}
+
+export interface ArenaInstanceInfo {
+  key: string
+  mode: 'training' | 'match'
+  matchId?: string
+  matchStartedAtMs?: number
+  matchEndsAtMs?: number
+  matchDurationMs?: number
+  serverTimeMs?: number
+}
+
+export interface MatchEndedEvent {
+  event: 'matchEnded'
+  matchId: string
+  result: 'victory' | 'defeat' | 'draw'
+  reason: 'time_limit' | 'disconnect'
+  durationMs: number
+  yourKills: number
+  yourDeaths: number
+  opponentKills: number
+  opponentDeaths: number
+}
+
+export interface CharacterChangedEvent {
+  event: 'characterChanged'
+  characterId: string
+  tick?: number
+}
+
 export function useSocket(
   authIntent: ArenaAuthIntent,
   characterId: string,
+  joinOptions: ArenaJoinOptions,
   onCurrentDummies: (dummies: any[]) => void,
   onDummyDamaged: (id: string, hp: number) => void,
   onSelfDamaged: (newHp: number, shieldHp: number, shieldMaxHp: number, x?: number, y?: number, movementSpeed?: number) => void,
@@ -133,7 +167,10 @@ export function useSocket(
   onSkillRejected?: (skillId: string) => void,
   onAuthSucceeded?: (payload: AuthSuccessPayload) => void,
   onAuthFailed?: (code: string, reason: string) => void,
-  onArenaChatMessage?: (message: ArenaChatMessage) => void
+  onArenaChatMessage?: (message: ArenaChatMessage) => void,
+  onMatchEnded?: (event: MatchEndedEvent) => void,
+  onCharacterChanged?: (event: CharacterChangedEvent) => void,
+  onCharacterChangeRejected?: (code: string, reason: string) => void
 ) {
   const socketIdRef = useRef<string | undefined>(undefined)
   const [socketId, setSocketId] = useState<string | undefined>(undefined)
@@ -144,6 +181,7 @@ export function useSocket(
   const [burnZones, setBurnZones] = useState<WorldSnapshotState['burnZones']>([])
   const [kills, setKills] = useState(0)
   const [deaths, setDeaths] = useState(0)
+  const [instanceInfo, setInstanceInfo] = useState<ArenaInstanceInfo | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const latestSnapshotTickRef = useRef(0)
   const hasSessionInitRef = useRef(false)
@@ -162,6 +200,18 @@ export function useSocket(
   onSkillUsedRef.current = onSkillUsed
   const onSkillRejectedRef = useRef(onSkillRejected)
   onSkillRejectedRef.current = onSkillRejected
+  const onAuthSucceededRef = useRef(onAuthSucceeded)
+  onAuthSucceededRef.current = onAuthSucceeded
+  const onAuthFailedRef = useRef(onAuthFailed)
+  onAuthFailedRef.current = onAuthFailed
+  const onArenaChatMessageRef = useRef(onArenaChatMessage)
+  onArenaChatMessageRef.current = onArenaChatMessage
+  const onMatchEndedRef = useRef(onMatchEnded)
+  onMatchEndedRef.current = onMatchEnded
+  const onCharacterChangedRef = useRef(onCharacterChanged)
+  onCharacterChangedRef.current = onCharacterChanged
+  const onCharacterChangeRejectedRef = useRef(onCharacterChangeRejected)
+  onCharacterChangeRejectedRef.current = onCharacterChangeRejected
 
   const serverUrl = (import.meta.env.VITE_SERVER_URL || 'ws://localhost:3001').replace('http', 'ws')
 
@@ -215,17 +265,19 @@ export function useSocket(
         switch (eventName) {
         case 'authSuccess': {
           const authPayload = data as AuthSuccessPayload
-          onAuthSucceeded?.(authPayload)
+          onAuthSucceededRef.current?.(authPayload)
           socket.send(JSON.stringify({
             event: 'join',
             characterId,
+            mode: joinOptions.mode,
+            matchId: joinOptions.matchId ?? undefined,
           }))
           break
         }
 
         case 'authError':
           console.error('Authentication error:', data.code || 'unknown', data.reason || '')
-          onAuthFailed?.(data.code || 'auth_error', data.reason || 'Authentication failed')
+          onAuthFailedRef.current?.(data.code || 'auth_error', data.reason || 'Authentication failed')
           socket.close()
           break
 
@@ -241,6 +293,10 @@ export function useSocket(
           socketIdRef.current = session.selfId
           setSocketId(session.selfId)
           setBootstrap(session.bootstrap)
+          setInstanceInfo(session.instance ? {
+            ...session.instance,
+            serverTimeMs: session.serverTimeMs,
+          } : null)
           setMapData(md)
           ;(window as any).currentGameMapData = md
           hasSessionInitRef.current = true
@@ -433,27 +489,36 @@ export function useSocket(
           console.warn('Action rejected:', data.requestEvent, data.code || 'unknown', data.reason || '')
           if (data.requestEvent === 'shoot') onAutoAttackRejectedRef.current?.()
           if (data.requestEvent === 'useSkill' && typeof data.skillId === 'string') onSkillRejectedRef.current?.(data.skillId)
+          if (data.requestEvent === 'changeCharacter') onCharacterChangeRejectedRef.current?.(data.code || 'change_rejected', data.reason || 'Character change was rejected')
           break
 
         case 'protocolError':
           console.error('Protocol error:', data.code || 'unknown', data.reason || '')
           break
 
+        case 'matchEnded':
+          onMatchEndedRef.current?.(data as MatchEndedEvent)
+          break
+
+        case 'characterChanged':
+          onCharacterChangedRef.current?.(data as CharacterChangedEvent)
+          break
+
         case 'arenaMessage':
-          onArenaChatMessage?.(data.message as ArenaChatMessage)
+          onArenaChatMessageRef.current?.(data.message as ArenaChatMessage)
           break
 
         case 'arenaChatSync':
           for (const message of (data.messages || []) as ArenaChatMessage[]) {
-            onArenaChatMessage?.(message)
+            onArenaChatMessageRef.current?.(message)
           }
           break
 
         case 'arenaWhisper':
           if (data.message?.senderNickname) {
-            onArenaChatMessage?.(data.message as ArenaChatMessage)
+            onArenaChatMessageRef.current?.(data.message as ArenaChatMessage)
           } else {
-            onArenaChatMessage?.({
+            onArenaChatMessageRef.current?.({
               id: data.message?.id,
               type: 'whisper_in',
               senderUserId: data.friendUserId,
@@ -466,7 +531,7 @@ export function useSocket(
           break
 
         case 'arenaSystemMessage':
-          onArenaChatMessage?.(data.message as ArenaChatMessage)
+          onArenaChatMessageRef.current?.(data.message as ArenaChatMessage)
           break
         }
       }
@@ -493,7 +558,7 @@ export function useSocket(
         wsRef.current = null
       }
     }
-  }, [authIntent, characterId, serverUrl, onAuthFailed, onAuthSucceeded, onCurrentDummies, onDummyDamaged, onSelfDamaged, onSelfMoved])
+  }, [authIntent, joinOptions.matchId, joinOptions.mode, serverUrl, onCurrentDummies, onDummyDamaged, onSelfDamaged, onSelfMoved])
 
   const emitMove = (inputX: number, inputY: number, direction: Direction, animRow: number) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -525,10 +590,17 @@ export function useSocket(
     }
   }
 
+  const emitChangeCharacter = (nextCharacterId: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'changeCharacter', characterId: nextCharacterId }))
+    }
+  }
+
   return {
     socketId,
     mapData,
     bootstrap,
+    instanceInfo,
     otherPlayers,
     burnStatuses,
     burnZones,
@@ -539,6 +611,7 @@ export function useSocket(
     emitRespawn,
     emitUseSkill,
     emitArenaChat,
+    emitChangeCharacter,
     isConnected: !!socketId && !!bootstrap && hasSessionInitRef.current,
   }
 }

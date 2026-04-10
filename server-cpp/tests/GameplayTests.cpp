@@ -6,6 +6,7 @@
 #include "../CombatSystem.h"
 #include "../DashSystem.h"
 #include "../GameConfig.h"
+#include "../GameWorld.h"
 #include "../MapLoader.h"
 #include "../MovementSystem.h"
 #include "../Player.h"
@@ -312,6 +313,16 @@ void testWorldSetupAndProtocolPayloads() {
     assert(reportRejected["requestEvent"] == "submitPlayerReport");
     assert(reportRejected["code"] == "report_target_not_found");
 }
+
+void testArenaInstanceModes() {
+    GameWorld trainingWorld("training:test", "training");
+    GameWorld matchWorld("match:test", "match");
+
+    assert(trainingWorld.getInstanceMode() == "training");
+    assert(matchWorld.getInstanceMode() == "match");
+    assert(trainingWorld.getDummiesJson().size() >= 1);
+    assert(matchWorld.getDummiesJson().empty());
+}
 }
 
 int main() {
@@ -325,6 +336,7 @@ int main() {
     testSkillCooldownAndDashState();
     testDashDamageAndRespawn();
     testWorldSetupAndProtocolPayloads();
+    testArenaInstanceModes();
 
     std::cout << "GameplayTests passed." << std::endl;
     return 0;

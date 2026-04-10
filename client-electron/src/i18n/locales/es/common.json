@@ -61,7 +61,42 @@
     "eyebrow": "Dragon Arena",
     "title": "Tu portal hacia la batalla está listo",
     "subtitle": "Revisa tu perfil, acompaña tus recursos y entra cuando quieras.",
-    "enterArena": "Entrar a la arena"
+    "enterArena": "Entrar a la arena",
+    "trainingMode": "Modo entrenamiento",
+    "playMatch": "Jugar"
+  },
+  "matchmaking": {
+    "eyebrow": "Emparejamiento",
+    "searchingTitle": "Buscando partida",
+    "searching": "Buscando un oponente para un duelo 1v1...",
+    "cancel": "Cancelar búsqueda",
+    "matchFoundEyebrow": "Partida encontrada",
+    "matchFoundTitle": "¿Aceptar duelo?",
+    "matchFoundText": "Has sido emparejado contra {{opponent}}.",
+    "acceptUntil": "Acepta antes de {{time}}",
+    "accept": "Aceptar",
+    "decline": "Rechazar",
+    "waitingOpponent": "Esperando...",
+    "preparingMatch": "Preparando partida...",
+    "backHome": "Volver al inicio",
+    "opponentKills": "Bajas del oponente",
+    "opponentDeaths": "Muertes del oponente",
+    "connectionUnavailable": "La conexión de matchmaking no está disponible ahora.",
+    "resultEyebrow": "Resultado de la partida",
+    "result": {
+      "victory": "Victoria",
+      "defeat": "Derrota",
+      "draw": "Empate"
+    },
+    "finishReason": {
+      "time_limit": "El tiempo de la partida terminó.",
+      "disconnect": "La partida terminó por desconexión."
+    },
+    "cancelled": {
+      "declined": "El duelo fue rechazado.",
+      "cancelled": "La cola de emparejamiento fue cancelada.",
+      "timeout": "La invitación expiró."
+    }
   },
   "profile": {
     "eyebrow": "Perfil del invocador",
@@ -310,6 +345,13 @@
     "leaveConfirm": "Volver a la pantalla principal",
     "diedTitle": "Has muerto",
     "respawningIn": "Reapareciendo en {{seconds}}s...",
+    "changeCharacter": "Cambiar leyenda",
+    "changeCharacterEyebrow": "Reconfigurar combatiente",
+    "changeCharacterTitle": "Elige tu próxima leyenda",
+    "changeCharacterText": "Sigues en la misma partida. La nueva leyenda se aplicará sin volver al inicio.",
+    "currentCharacter": "Leyenda actual",
+    "selectCharacter": "Seleccionar leyenda",
+    "changingCharacter": "Cambiando leyenda...",
     "backToSelect": "Volver a la selección de personaje",
     "deadHint": "Presiona ESC mientras estés muerto para cambiar de personaje",
     "scoreboardTitle": "Dragon Arena - Marcador",
@@ -318,7 +360,8 @@
     "kills": "Bajas",
     "deaths": "Muertes",
     "you": "(Tú)",
-    "releaseTab": "Suelta TAB para cerrar"
+    "releaseTab": "Suelta TAB para cerrar",
+    "matchTimer": "Tiempo restante {{time}}"
   },
   "hud": {
     "hpShort": "HP",
