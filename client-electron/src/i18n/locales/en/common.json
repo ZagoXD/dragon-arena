@@ -385,6 +385,7 @@
       "nickname_taken": "This nickname is already in use.",
       "invalid_identifier": "Email or username is required.",
       "invalid_credentials": "Invalid email/username or password.",
+      "session_revoked": "This account was connected elsewhere. If this access was not authorized, contact support.",
       "invalid_payload": "The submitted data is invalid.",
       "password_hash_failed": "Could not process the password.",
       "password_verification_failed": "Could not verify the password.",

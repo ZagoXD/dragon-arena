@@ -1218,17 +1218,29 @@ void NetworkHandler::sendPrivateMessageToUser(long long userId, const json& payl
     }
 }
 
-void NetworkHandler::disconnectUserSessions(long long userId, const json& payload) {
+void NetworkHandler::disconnectUserSessions(
+    long long userId,
+    const json& payload,
+    uWS::WebSocket<false, true, PerSocketData>* excludedSocket,
+    bool invalidateStoredSessions
+) {
     std::vector<uWS::WebSocket<false, true, PerSocketData>*> sockets;
     {
         std::lock_guard<std::mutex> lock(social_mtx);
         auto it = authenticatedSockets.find(userId);
         if (it != authenticatedSockets.end()) {
-            sockets.assign(it->second.begin(), it->second.end());
+            for (uWS::WebSocket<false, true, PerSocketData>* socket : it->second) {
+                if (socket == excludedSocket) {
+                    continue;
+                }
+                sockets.push_back(socket);
+            }
         }
     }
 
-    sessionService.invalidateSessionsForUser(userId);
+    if (invalidateStoredSessions) {
+        sessionService.invalidateSessionsForUser(userId);
+    }
 
     for (uWS::WebSocket<false, true, PerSocketData>* socket : sockets) {
         socket->send(payload.dump(), uWS::OpCode::TEXT);
@@ -1337,6 +1349,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 return;
             }
 
+            sessionService.invalidateSessionsForUser(auth.authenticatedUser->user.id);
             SessionAuthResult session = sessionService.createSession(*auth.authenticatedUser);
             if (!session.ok || !session.authenticatedSession.has_value()) {
                 ws->send(ProtocolPayloadBuilder::buildAuthError(session.code, session.message, session.extras).dump(), uWS::OpCode::TEXT);
@@ -1357,6 +1370,12 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 session.authenticatedSession->session.token,
                 session.authenticatedSession->session.expiresAtMs
             ).dump(), uWS::OpCode::TEXT);
+            disconnectUserSessions(userData->userId, json({
+                {"event", "authError"},
+                {"code", "session_revoked"},
+                {"reason", "Conta conectada em outro lugar. Se o acesso não foi autorizado, contate o suporte."},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }), ws, false);
             notifyFriendsPresenceChanged(userData->userId);
         }
         else if (event == "login") {
@@ -1371,6 +1390,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 return;
             }
 
+            sessionService.invalidateSessionsForUser(auth.authenticatedUser->user.id);
             SessionAuthResult session = sessionService.createSession(*auth.authenticatedUser);
             if (!session.ok || !session.authenticatedSession.has_value()) {
                 ws->send(ProtocolPayloadBuilder::buildAuthError(session.code, session.message, session.extras).dump(), uWS::OpCode::TEXT);
@@ -1391,6 +1411,12 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 session.authenticatedSession->session.token,
                 session.authenticatedSession->session.expiresAtMs
             ).dump(), uWS::OpCode::TEXT);
+            disconnectUserSessions(userData->userId, json({
+                {"event", "authError"},
+                {"code", "session_revoked"},
+                {"reason", "Conta conectada em outro lugar. Se o acesso não foi autorizado, contate o suporte."},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }), ws, false);
             notifyFriendsPresenceChanged(userData->userId);
         }
         else if (event == "authToken") {
@@ -1419,6 +1445,12 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 session.authenticatedSession->session.token,
                 session.authenticatedSession->session.expiresAtMs
             ).dump(), uWS::OpCode::TEXT);
+            disconnectUserSessions(userData->userId, json({
+                {"event", "authError"},
+                {"code", "session_revoked"},
+                {"reason", "Conta conectada em outro lugar. Se o acesso não foi autorizado, contate o suporte."},
+                {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
+            }), ws, false);
             notifyFriendsPresenceChanged(userData->userId);
         }
         else if (event == "profileSync") {

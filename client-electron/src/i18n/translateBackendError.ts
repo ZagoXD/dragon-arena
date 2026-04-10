@@ -10,6 +10,7 @@ const authErrorKeyByCode: Record<string, string> = {
   nickname_taken: 'errors.auth.nickname_taken',
   invalid_identifier: 'errors.auth.invalid_identifier',
   invalid_credentials: 'errors.auth.invalid_credentials',
+  session_revoked: 'errors.auth.session_revoked',
   invalid_payload: 'errors.auth.invalid_payload',
   password_hash_failed: 'errors.auth.password_hash_failed',
   password_verification_failed: 'errors.auth.password_verification_failed',

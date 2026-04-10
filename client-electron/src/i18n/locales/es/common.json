@@ -385,6 +385,7 @@
       "nickname_taken": "Este nickname ya está en uso.",
       "invalid_identifier": "Email o username es obligatorio.",
       "invalid_credentials": "Email/username o contraseña inválidos.",
+      "session_revoked": "Esta cuenta fue conectada en otro lugar. Si ese acceso no fue autorizado, contacta al soporte.",
       "invalid_payload": "Los datos enviados no son válidos.",
       "password_hash_failed": "No fue posible procesar la contraseña.",
       "password_verification_failed": "No fue posible validar la contraseña.",

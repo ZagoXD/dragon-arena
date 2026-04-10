@@ -166,7 +166,12 @@ private:
     void notifyFriendsPresenceChanged(long long userId);
     void sendArenaPublicMessage(const json& payload);
     void sendPrivateMessageToUser(long long userId, const json& payload, bool alsoSendArenaWhisper = false);
-    void disconnectUserSessions(long long userId, const json& payload);
+    void disconnectUserSessions(
+        long long userId,
+        const json& payload,
+        uWS::WebSocket<false, true, PerSocketData>* excludedSocket = nullptr,
+        bool invalidateStoredSessions = true
+    );
 public:
     void broadcast(const std::string &message);
     void sendTo(const std::string &id, const std::string &message);
