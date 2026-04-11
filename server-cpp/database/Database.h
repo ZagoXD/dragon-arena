@@ -14,6 +14,7 @@ struct DatabaseConfig {
     std::string database = "dragon_arena";
     std::string user = "dragon_app";
     std::string password;
+    bool autoApplySchema = true;
 
     static DatabaseConfig fromFileSystem();
     static DatabaseConfig fromEnvironment();
@@ -63,6 +64,12 @@ public:
     bool beginTransaction(std::string* error = nullptr);
     bool commitTransaction(std::string* error = nullptr);
     bool rollbackTransaction(std::string* error = nullptr);
+    bool executeScript(const std::string& sql, std::string* error = nullptr);
+    bool executeScriptFromFile(
+        const std::vector<std::string>& pathsToTry,
+        std::string* loadedPath = nullptr,
+        std::string* error = nullptr
+    );
 
     const DatabaseConfig& getConfig() const { return config; }
 };

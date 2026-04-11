@@ -56,6 +56,34 @@ namespace {
             }
         }
     }
+
+    void assignBoolIfPresent(const json& data, const char* key, bool& target) {
+        if (data.contains(key) && data[key].is_boolean()) {
+            target = data[key].get<bool>();
+        }
+    }
+
+    std::optional<bool> readEnvironmentBool(const char* key) {
+        std::optional<std::string> value = readEnvironmentValue(key);
+        if (!value.has_value()) {
+            return std::nullopt;
+        }
+
+        std::string normalized = *value;
+        for (char& ch : normalized) {
+            ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        }
+
+        if (normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on") {
+            return true;
+        }
+
+        if (normalized == "0" || normalized == "false" || normalized == "no" || normalized == "off") {
+            return false;
+        }
+
+        return std::nullopt;
+    }
 }
 
 DatabaseConfig DatabaseConfig::fromFileSystem() {
@@ -88,6 +116,8 @@ DatabaseConfig DatabaseConfig::fromFileSystem() {
             assignIfPresent(data, "user", config.user);
             assignIfPresent(data, "username", config.user);
             assignIfPresent(data, "password", config.password);
+            assignBoolIfPresent(data, "autoApplySchema", config.autoApplySchema);
+            assignBoolIfPresent(data, "auto_apply_schema", config.autoApplySchema);
 
             std::cout << "[Database] Loaded config file: " << path << std::endl;
             return config;
@@ -131,6 +161,9 @@ DatabaseConfig DatabaseConfig::fromEnvironment() {
         {readEnvironmentValue("DRAGON_DB_PASSWORD"), readEnvironmentValue("PGPASSWORD")},
         config.password
     );
+    if (std::optional<bool> autoApplySchema = readEnvironmentBool("DRAGON_DB_AUTO_APPLY_SCHEMA"); autoApplySchema.has_value()) {
+        config.autoApplySchema = *autoApplySchema;
+    }
 
     return config;
 }
@@ -157,6 +190,9 @@ DatabaseConfig DatabaseConfig::load() {
     }
     if (const auto password = readEnvironmentValue("DRAGON_DB_PASSWORD").value_or(readEnvironmentValue("PGPASSWORD").value_or("")); !password.empty()) {
         config.password = password;
+    }
+    if (std::optional<bool> autoApplySchema = readEnvironmentBool("DRAGON_DB_AUTO_APPLY_SCHEMA"); autoApplySchema.has_value()) {
+        config.autoApplySchema = *autoApplySchema;
     }
 
     return config;
@@ -215,6 +251,9 @@ bool Database::connect(std::string* error) {
         disconnect();
         return false;
     }
+
+    std::string setupError;
+    executeCommand("SET client_min_messages TO warning", &setupError);
 
     return true;
 }
@@ -359,6 +398,73 @@ bool Database::ping(std::string* error) {
     }
 
     return true;
+}
+
+bool Database::executeScript(const std::string& sql, std::string* error) {
+    std::string connectError;
+    if (!ensureConnected(&connectError)) {
+        if (error != nullptr) {
+            *error = connectError;
+        }
+        return false;
+    }
+
+    using ResultPtr = std::unique_ptr<PGresult, decltype(&PQclear)>;
+    ResultPtr pgResult(PQexec(connection, sql.c_str()), &PQclear);
+    if (!pgResult) {
+        if (error != nullptr) {
+            *error = "PQexec returned null";
+        }
+        return false;
+    }
+
+    ExecStatusType status = PQresultStatus(pgResult.get());
+    if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
+        if (error != nullptr) {
+            *error = PQresultErrorMessage(pgResult.get());
+        }
+        return false;
+    }
+
+    return true;
+}
+
+bool Database::executeScriptFromFile(
+    const std::vector<std::string>& pathsToTry,
+    std::string* loadedPath,
+    std::string* error
+) {
+    for (const std::string& path : pathsToTry) {
+        std::ifstream file(path);
+        if (!file.is_open()) {
+            continue;
+        }
+
+        std::string sql((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        if (sql.empty()) {
+            if (error != nullptr) {
+                *error = "SQL script file is empty";
+            }
+            return false;
+        }
+
+        if (!executeScript(sql, error)) {
+            if (error != nullptr && !error->empty()) {
+                *error = "Failed while executing '" + path + "': " + *error;
+            }
+            return false;
+        }
+
+        if (loadedPath != nullptr) {
+            *loadedPath = path;
+        }
+        return true;
+    }
+
+    if (error != nullptr) {
+        *error = "Could not find SQL script file";
+    }
+    return false;
 }
 
 std::optional<std::string> DatabaseRow::get(const std::string& key) const {

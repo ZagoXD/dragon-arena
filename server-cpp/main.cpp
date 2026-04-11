@@ -1,8 +1,5 @@
 #include "database/Database.h"
 #include "database/UserRepository.h"
-#include "moderation/ModerationRepository.h"
-#include "moderation/ReportRepository.h"
-#include "social/FriendshipRepository.h"
 #include "social/PrivateChatRepository.h"
 #include "social/ArenaChatRepository.h"
 #include "GameWorld.h"
@@ -25,26 +22,31 @@ int main() {
             std::cerr << "[Database] Ping failed: " << pingError << std::endl;
         }
 
-        UserRepository users(database);
-        ModerationRepository moderation(database);
-        ReportRepository reports(database);
-        FriendshipRepository friendships(database);
-        PrivateChatRepository privateChats(database);
-        ArenaChatRepository arenaChats(database);
-        std::string roleSchemaError;
-        if (users.ensureRoleSchema(&roleSchemaError)) {
-            std::cout << "[Database] users.role schema ready." << std::endl;
+        if (database.getConfig().autoApplySchema) {
+            std::string schemaPath;
+            std::string schemaError;
+            if (database.executeScriptFromFile(
+                {
+                    "config/database_schema.sql",
+                    "../config/database_schema.sql",
+                    "../../config/database_schema.sql",
+                    "../../../config/database_schema.sql",
+                    "../../../../config/database_schema.sql",
+                },
+                &schemaPath,
+                &schemaError
+            )) {
+                std::cout << "[Database] Schema executed from: " << schemaPath << std::endl;
+            } else {
+                std::cerr << "[Database] Could not execute schema script: " << schemaError << std::endl;
+            }
         } else {
-            std::cerr << "[Database] Could not ensure users.role schema: " << roleSchemaError << std::endl;
+            std::cout << "[Database] Auto schema apply disabled by config." << std::endl;
         }
 
-        std::string promoteAdminError;
-        if (users.updateRoleByEmailOrUsername("skyziinxd@gmail.com", "admin", &promoteAdminError) ||
-            users.updateRoleByEmailOrUsername("Skyziinxd", "admin", &promoteAdminError)) {
-            std::cout << "[Database] Admin role ensured for skyziinxd@gmail.com / Skyziinxd." << std::endl;
-        } else if (!promoteAdminError.empty()) {
-            std::cerr << "[Database] Could not ensure admin role: " << promoteAdminError << std::endl;
-        }
+        UserRepository users(database);
+        PrivateChatRepository privateChats(database);
+        ArenaChatRepository arenaChats(database);
 
         std::string countError;
         long long totalUsers = users.countUsers(&countError);
@@ -52,27 +54,6 @@ int main() {
             std::cout << "[Database] users table reachable. Current users: " << totalUsers << std::endl;
         } else {
             std::cerr << "[Database] Could not count users: " << countError << std::endl;
-        }
-
-        std::string friendshipSchemaError;
-        if (friendships.ensureSchema(&friendshipSchemaError)) {
-            std::cout << "[Database] friendships schema ready." << std::endl;
-        } else {
-            std::cerr << "[Database] Could not ensure friendships schema: " << friendshipSchemaError << std::endl;
-        }
-
-        std::string moderationSchemaError;
-        if (moderation.ensureSchema(&moderationSchemaError)) {
-            std::cout << "[Database] user_bans schema ready." << std::endl;
-        } else {
-            std::cerr << "[Database] Could not ensure user_bans schema: " << moderationSchemaError << std::endl;
-        }
-
-        std::string reportSchemaError;
-        if (reports.ensureSchema(&reportSchemaError)) {
-            std::cout << "[Database] player_reports schema ready." << std::endl;
-        } else {
-            std::cerr << "[Database] Could not ensure player_reports schema: " << reportSchemaError << std::endl;
         }
 
         std::string privateChatCleanupError;
