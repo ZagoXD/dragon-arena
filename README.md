@@ -2,7 +2,7 @@
 
 Dragon Arena roda hoje com backend autoritativo em C++ e cliente desktop em Electron/React/PixiJS.
 
-O servidor e a fonte de verdade do gameplay. O cliente envia intencao, recebe estado autoritativo e cuida da renderizacao, HUD, camera, menus e feedback visual.
+O servidor é a fonte de verdade do gameplay. O cliente envia intenção, recebe estado autoritativo e cuida da renderização, HUD, câmera, menus e feedback visual.
 
 ## Arquitetura
 
@@ -11,10 +11,10 @@ O servidor e a fonte de verdade do gameplay. O cliente envia intencao, recebe es
 Servidor autoritativo do jogo.
 
 - `uWebSockets` + `nlohmann/json` no networking
-- tick autoritativo com snapshots periodicos
+- tick autoritativo com snapshots periódicos
 - mapa carregado do Tiled
-- gameplay carregado por arquivos JSON separados por dominio
-- autenticacao, sessao, social e chat integrados ao mesmo backend
+- gameplay carregado por arquivos JSON separados por domínio
+- autenticação, sessão, social e chat integrados ao mesmo backend
 
 Sistemas principais:
 
@@ -31,11 +31,11 @@ Sistemas principais:
 
 Responsabilidades do backend:
 
-- movimento e colisao autoritativos
+- movimento e colisão autoritativos
 - auto attack, skills, passivas e escudos
-- projeteis, areas de efeito, dano e status
+- projéteis, áreas de efeito, dano e status
 - spawn e respawn de players e dummies
-- autenticacao e sessao
+- autenticação e sessão
 - friend list, chat privado e chat da arena
 
 ### `client-electron/`
@@ -50,19 +50,19 @@ Cliente desktop do jogo.
 Responsabilidades do cliente:
 
 - input local
-- camera
+- câmera
 - HUD e menus
 - render de mapa, players, dummies e efeitos
-- feedback visual de skills, projeteis, passivas e escudos
+- feedback visual de skills, projéteis, passivas e escudos
 - friend list, chat privado e chat da arena
 
-O cliente nao decide gameplay critico.
+O cliente não decide gameplay crítico.
 
-## Persistencia
+## Persistência
 
 O backend usa PostgreSQL via `libpq` em `server-cpp/database/`.
 
-Hoje a persistencia cobre:
+Hoje a persistência cobre:
 
 - usuarios e perfis
 - amizades em `friendships`
@@ -71,7 +71,7 @@ Hoje a persistencia cobre:
 - denuncias em `player_reports`
 - banimentos e desbanimentos em `user_bans`
 - pedidos pendentes recebidos e enviados
-- presenca online e offline via socket autenticado
+- presença online e offline via socket autenticado
 
 A fonte central do schema fica em:
 
@@ -87,7 +87,7 @@ Tabelas atuais esperadas pelo projeto:
 - `public.player_reports`
 - `public.user_bans`
 
-Configuracoes aceitas pelo backend:
+Configurações aceitas pelo backend:
 
 - `DRAGON_DB_URL` ou `DATABASE_URL`
 - `DRAGON_DB_HOST` ou `PGHOST`
@@ -97,7 +97,7 @@ Configuracoes aceitas pelo backend:
 - `DRAGON_DB_PASSWORD` ou `PGPASSWORD`
 - `DRAGON_DB_AUTO_APPLY_SCHEMA`
 
-Defaults quando nenhuma env e informada:
+Defaults quando nenhuma env é informada:
 
 - host: `127.0.0.1`
 - port: `5432`
@@ -105,15 +105,15 @@ Defaults quando nenhuma env e informada:
 - user: `dragon_app`
 - `autoApplySchema`: `true`
 
-Quando `autoApplySchema` esta ativo, o servidor tenta executar `database_schema.sql` no startup.
+Quando `autoApplySchema` está ativo, o servidor tenta executar `database_schema.sql` no startup.
 
-Para isso funcionar bem, o usuario configurado no backend precisa:
+Para isso funcionar bem, o usuário configurado no backend precisa:
 
 - conseguir conectar no banco
 - ter `USAGE` e `CREATE` no schema `public`
-- ser dono das tabelas e sequences existentes se o banco ja tiver sido criado antes por outro usuario
+- ser dono das tabelas e sequences existentes se o banco já tiver sido criado antes por outro usuário
 
-Quando `autoApplySchema` esta desativado, o servidor apenas usa as tabelas ja existentes.
+Quando `autoApplySchema` está desativado, o servidor apenas usa as tabelas já existentes.
 
 ## Sistema Social
 
@@ -126,7 +126,7 @@ Hoje o sistema social cobre:
 - modal central de pedidos enviados pendentes
 - cancelamento de pedidos enviados
 - menu contextual customizado no clique direito
-- exclusao de amizade com confirmacao
+- exclusão de amizade com confirmação
 
 Arquivos principais:
 
@@ -135,48 +135,48 @@ Arquivos principais:
 - `client-electron/src/components/FriendListPanel/FriendListPanel.tsx`
 - `client-electron/src/App.tsx`
 
-## Moderacao e Reports
+## Moderação e Reports
 
 O projeto possui dois fluxos administrativos integrados ao backend:
 
-- penalizacoes (`ban` / `unban`)
-- denuncias de jogadores (`reports`)
+- penalizações (`ban` / `unban`)
+- denúncias de jogadores (`reports`)
 
 ### Reports para jogadores
 
 Qualquer jogador autenticado pode abrir o modal `Reportar`:
 
-- pelo botao `Reportar` no menu superior
+- pelo botão `Reportar` no menu superior
 - pelo comando `/report` dentro da arena
 
 O modal permite:
 
 - informar `nickname + tag`
 - selecionar de `1` a `3` motivos
-- escrever uma descricao
+- escrever uma descrição
 - validar no envio se o jogador alvo existe
 - receber feedback visual de sucesso ou erro
 
 ### Painel admin
 
-Admins possuem uma tela `Admin` com duas areas principais:
+Admins possuem uma tela `Admin` com duas áreas principais:
 
-- `Usuarios`
-- `Denuncias`
+- `Usuários`
+- `Denúncias`
 
-Hoje a aba `Denuncias` cobre:
+Hoje a aba `Denúncias` cobre:
 
 - fila de reports abertos
-- detalhes da denuncia
-- log do chat da arena da ultima `1 hora` do denunciado
-- `Recusar denuncia`
+- detalhes da denúncia
+- log do chat da arena da última `1 hora` do denunciado
+- `Recusar denúncia`
 - `Aceitar e banir`
 
-Hoje a aba `Usuarios` cobre:
+Hoje a aba `Usuários` cobre:
 
 - busca por `nickname + tag`
 - dados de conta e perfil
-- amizade direta forcada
+- amizade direta forçada
 - `Banir`
 - `Desbanir`
 
@@ -196,11 +196,11 @@ O projeto possui dois fluxos de chat integrados ao backend C++.
 ### Chat privado entre amigos
 
 - abre por duplo clique ou pelo menu contextual
-- ate 4 chats privados simultaneos
+- até 4 chats privados simultâneos
 - ao abrir o quinto, o mais antigo fecha automaticamente
 - minimizar, expandir e fechar
 - badge por conversa e badge agregada em `Amigos`
-- historico persistido no banco
+- histórico persistido no banco
 
 Arquivos principais:
 
@@ -213,7 +213,7 @@ Arquivos principais:
 - caixa de chat sobreposta ao viewport
 - `Enter` abre o input
 - com o input aberto, movimento e skills ficam bloqueados
-- ate 100 mensagens no historico local do overlay
+- até 100 mensagens no histórico local do overlay
 - rolagem manual com o chat aberto
 - whispers com cor diferenciada
 - ajuda de comandos ao digitar `/`
@@ -225,7 +225,7 @@ Comandos atuais:
 - `/r mensagem`
 - `/report`
 
-Ao abrir o chat da arena ou o modal de `report`, movimento e skills do personagem ficam bloqueados ate o fechamento da interface.
+Ao abrir o chat da arena ou o modal de `report`, movimento e skills do personagem ficam bloqueados até o fechamento da interface.
 
 Arquivos principais:
 
@@ -237,20 +237,20 @@ Arquivos principais:
 
 Hoje o cliente autenticado possui:
 
-- `Inicio`
+- `Início`
 - `Perfil`
-- `Colecao`
+- `Coleção`
 - `Reportar`
 - `Modo treino`
 - `Jogar` com pareamento
-- `Selecao de personagem`
+- `Seleção de personagem`
 - `Arena`
 
-Admins tambem possuem:
+Admins também possuem:
 
 - `Admin`
 
-O menu superior com `Inicio`, `Perfil`, `Colecao` e configuracoes fica disponivel nas telas autenticadas fora da arena.
+O menu superior com `Início`, `Perfil`, `Coleção` e configurações fica disponível nas telas autenticadas fora da arena.
 
 ## Modos de Jogo
 
@@ -263,14 +263,14 @@ O jogo possui dois fluxos principais de arena:
 
 - cria uma instancia privada da arena
 - entra apenas o jogador atual
-- mantem o loop livre para testar personagem, movimentacao e skills
+- mantém o loop livre para testar personagem, movimentação e skills
 
 ### Jogar
 
 - usa pareamento `1x1`
-- o personagem e escolhido antes de entrar na fila
+- o personagem é escolhido antes de entrar na fila
 - abre overlay de busca de partida
-- quando dois jogadores sao encontrados, ambos recebem um modal global para aceitar ou recusar
+- quando dois jogadores são encontrados, ambos recebem um modal global para aceitar ou recusar
 - se os dois aceitarem, cada um entra em uma instancia exclusiva daquela partida
 - a partida dura `5 minutos`
 - vence quem tiver mais eliminacoes
@@ -289,7 +289,7 @@ Arquivos principais:
 
 ## Gameplay Atual
 
-O gameplay e montado a partir de arquivos em `server-cpp/config/`.
+O gameplay é montado a partir de arquivos em `server-cpp/config/`.
 
 Arquivos principais:
 
@@ -320,11 +320,11 @@ Roster atual:
 ### Status especiais atuais
 
 - `Burn`: dano ao longo do tempo
-- `Poison`: dano ao longo do tempo + reducao de velocidade
-- `Shield`: vida extra temporaria absorvida antes da vida normal
-- `Root`: imobilizacao temporaria
+- `Poison`: dano ao longo do tempo + redução de velocidade
+- `Shield`: vida extra temporária absorvida antes da vida normal
+- `Root`: imobilização temporária
 
-## Renderizacao da Arena
+## Renderização da Arena
 
 Arquivos principais:
 
@@ -349,7 +349,7 @@ Hoje a arena cobre:
 
 ## Mapa
 
-O mapa principal e:
+O mapa principal é:
 
 - `server-cpp/map-assets/tiled/default_map.tmj`
 
@@ -366,12 +366,12 @@ Camadas usadas hoje:
 
 ### Banco de dados
 
-O jeito mais simples de preparar uma maquina nova e:
+O jeito mais simples de preparar uma máquina nova é:
 
 1. instalar PostgreSQL
 2. criar o banco `dragon_arena`
 3. criar o usuario `dragon_app`
-4. conceder permissoes ao `dragon_app`
+4. conceder permissões ao `dragon_app`
 5. criar `server-cpp/config/database.json`
 6. iniciar o servidor com `autoApplySchema: true`
 
@@ -388,7 +388,7 @@ Depois conecte no banco:
 \c dragon_arena
 ```
 
-Conceda as permissoes necessarias para o servidor conseguir aplicar o schema automaticamente:
+Conceda as permissões necessárias para o servidor conseguir aplicar o schema automaticamente:
 
 ```sql
 GRANT USAGE, CREATE ON SCHEMA public TO dragon_app;
@@ -398,7 +398,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO dragon_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO dragon_app;
 ```
 
-Se as tabelas ja existirem e tiverem sido criadas por outro usuario, transfira a ownership para `dragon_app`:
+Se as tabelas já existirem e tiverem sido criadas por outro usuário, transfira a ownership para `dragon_app`:
 
 ```sql
 ALTER TABLE users OWNER TO dragon_app;
@@ -410,7 +410,7 @@ ALTER TABLE player_reports OWNER TO dragon_app;
 ALTER TABLE user_bans OWNER TO dragon_app;
 ```
 
-Dependendo do historico do banco, tambem pode ser necessario transferir as sequences:
+Dependendo do histórico do banco, também pode ser necessário transferir as sequences:
 
 ```sql
 ALTER SEQUENCE users_id_seq OWNER TO dragon_app;
@@ -447,7 +447,7 @@ Campos principais:
 - `host`: host do PostgreSQL
 - `port`: porta do PostgreSQL
 - `database`: nome do banco
-- `user`: usuario que o servidor vai usar
+- `user`: usuário que o servidor vai usar
 - `password`: senha desse usuario
 - `autoApplySchema`: quando `true`, o servidor executa `database_schema.sql` automaticamente no startup
 
@@ -456,11 +456,11 @@ Quando usar cada modo:
 - `autoApplySchema: true`
   Use em ambiente novo, ambiente local ou sempre que quiser que o servidor garanta a estrutura do banco.
 - `autoApplySchema: false`
-  Use quando o schema ja foi provisionado manualmente e o usuario do backend nao deve alterar estrutura.
+  Use quando o schema já foi provisionado manualmente e o usuário do backend não deve alterar estrutura.
 
 ### Startup esperado do banco
 
-Com `autoApplySchema: true` e permissoes corretas, o log do servidor deve ficar parecido com:
+Com `autoApplySchema: true` e permissões corretas, o log do servidor deve ficar parecido com:
 
 ```txt
 [Database] Loaded config file: ...
@@ -469,13 +469,13 @@ Com `autoApplySchema: true` e permissoes corretas, o log do servidor deve ficar 
 [Database] Schema executed from: .../config/database_schema.sql
 ```
 
-O `SELECT 1 succeeded.` e so um ping simples para validar que a conexao com o PostgreSQL esta funcionando.
+O `SELECT 1 succeeded.` é só um ping simples para validar que a conexão com o PostgreSQL está funcionando.
 
-Se o schema falhar no startup, normalmente o motivo sera um destes:
+Se o schema falhar no startup, normalmente o motivo será um destes:
 
-- falta de permissao no schema `public`
-- tabelas existentes pertencendo a outro usuario
-- arquivo `database_schema.sql` nao encontrado
+- falta de permissão no schema `public`
+- tabelas existentes pertencendo a outro usuário
+- arquivo `database_schema.sql` não encontrado
 
 ### Backend
 
@@ -514,7 +514,7 @@ server/
       default_map.tmj
 ```
 
-Observacoes:
+Observações:
 
 - o servidor procura `config/` e `map-assets/tiled/default_map.tmj` por caminhos relativos
 - o arquivo `config/database_schema.sql` tambem precisa acompanhar a pasta `config/`
@@ -534,7 +534,7 @@ Por padrao o cliente tenta conectar em:
 ws://localhost:3001
 ```
 
-Voce pode ajustar isso por `VITE_SERVER_URL`.
+Você pode ajustar isso por `VITE_SERVER_URL`.
 
 ### Cliente empacotado
 
@@ -542,7 +542,7 @@ Para distribuir manualmente, use a pasta inteira:
 
 - `client-electron/release/0.0.1/win-unpacked/`
 
-Nao copie apenas o `.exe`.
+Não copie apenas o `.exe`.
 
 ## Testes
 
@@ -552,23 +552,23 @@ O projeto possui um executavel de testes de gameplay em:
 
 Hoje ele valida, entre outros pontos:
 
-- carregamento do conteudo (`GameConfig`)
+- carregamento do conteúdo (`GameConfig`)
 - roster atual de `Meteor` e `Hydra`
 - kit atual do Hydra
 - movimento e colisao
 - dano em players e dummies
-- absorcao de escudo
+- absorção de escudo
 - auto attack e lifecycle de projeteis
 - skill com cooldown e dash
 - respawn e payloads de protocolo
-- diferenca entre instancia de treino e instancia de match
-- payloads de rejeicao tambem usados pelos fluxos sociais e de report
+- diferença entre instância de treino e instância de match
+- payloads de rejeição também usados pelos fluxos sociais e de report
 
-O suporte de testes e stubs tambem acompanha os repositorios sociais e de moderacao usados pelo `NetworkHandler`, incluindo `ban` e `report`.
+O suporte de testes e stubs também acompanha os repositórios sociais e de moderação usados pelo `NetworkHandler`, incluindo `ban` e `report`.
 
 ## Estado Atual
 
-Hoje o projeto esta consolidado neste modelo:
+Hoje o projeto está consolidado neste modelo:
 
 - backend C++ autoritativo
 - frontend Electron/React/Pixi
@@ -584,4 +584,4 @@ Hoje o projeto esta consolidado neste modelo:
 
 Em resumo:
 
-**a arquitetura principal de servidor autoritativo + cliente visual ja esta estabelecida e o projeto ja possui base solida de gameplay, social e conteudo.**
+**a arquitetura principal de servidor autoritativo + cliente visual já está estabelecida e o projeto já possui base sólida de gameplay, social e conteúdo.**
