@@ -78,6 +78,7 @@ struct ArenaInstance {
     std::unordered_set<std::string> playerIds;
     std::unordered_set<long long> userIds;
     std::optional<std::string> matchId;
+    std::unordered_map<std::string, long long> revealedUntilByPlayerId;
 };
 
 class NetworkHandler {
@@ -167,6 +168,8 @@ private:
     void notifyFriendsPresenceChanged(long long userId);
     void sendArenaPublicMessage(const json& payload);
     void sendPrivateMessageToUser(long long userId, const json& payload, bool alsoSendArenaWhisper = false);
+    void sendWorldSnapshotToInstanceObservers(const std::string& instanceKey);
+    void updateHideRevealState(const std::string& instanceKey, const json& payload);
     void disconnectUserSessions(
         long long userId,
         const json& payload,

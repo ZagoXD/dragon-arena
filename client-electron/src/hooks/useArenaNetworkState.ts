@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { resolveCharacterConfig, ResolvedCharacterConfig } from '../config/visualConfig'
 import { useGameLoop } from './useGameLoop'
+import { ANIMATION_FPS } from '../config/spriteMap'
 import {
   AutoAttackStartedEvent,
   AuthSuccessPayload,
@@ -8,14 +9,14 @@ import {
   ArenaAuthIntent,
   ArenaJoinOptions,
   NetPlayer,
-  PlayerDamagedEvent,
   ProjectileSpawnEvent,
   SkillUsedEvent,
   MatchEndedEvent,
   CharacterChangedEvent,
+  PlayerDamagedEvent,
   useSocket,
 } from './useSocket'
-import { GameplayBootstrap } from '../types/gameplay'
+import { GameplayBootstrap, WorldSnapshotAreaEffectState } from '../types/gameplay'
 import { BurnStatusData, BurnZoneData, DummyData, ProjectileData } from '../types/arenaWorld'
 import { ActiveSkillEffectView } from '../components/Arena/pixi/pixiTypes'
 
@@ -44,6 +45,13 @@ interface LocalDashState {
   isDashing: boolean
   dashAngle?: number
 }
+
+interface RemoteAnimationState {
+  moving: boolean
+  phaseStartedAt: number
+}
+
+const HIDE_REVEAL_DURATION_MS = 2500
 
 interface ImpactEffect {
   id: string
@@ -107,15 +115,18 @@ export function useArenaNetworkState({
   const [authoritativePosition, setAuthoritativePosition] = useState<{ x: number, y: number } | null>(null)
   const [localDashState, setLocalDashState] = useState<LocalDashState>({ isDashing: false })
   const [impactEffects, setImpactEffects] = useState<ImpactEffect[]>([])
-  const [activeSkillEffects, setActiveSkillEffects] = useState<ActiveSkillEffectView[]>([])
-  const [revealedPlayerIds, setRevealedPlayerIds] = useState<Record<string, number>>({})
+  const [transientSkillEffects, setTransientSkillEffects] = useState<ActiveSkillEffectView[]>([])
+  const [authoritativeSkillEffects, setAuthoritativeSkillEffects] = useState<ActiveSkillEffectView[]>([])
+  const [revealedPlayerIds, setRevealedPlayerIds] = useState<string[]>([])
 
   const otherPlayersRef = useRef<Record<string, NetPlayer>>({})
   const remoteSamplesRef = useRef<Record<string, RemotePlayerSample[]>>({})
+  const remoteAnimationStateRef = useRef<Record<string, RemoteAnimationState>>({})
   const projectilesRef = useRef<ProjectileData[]>([])
   const socketIdRef = useRef<string | undefined>(undefined)
   const bootstrapRef = useRef<GameplayBootstrap | null>(null)
   const localDashTimeoutRef = useRef<number | null>(null)
+  const revealedUntilRef = useRef<Record<string, number>>({})
 
   const onCurrentDummies = useCallback((data: DummyData[]) => setDummies(data), [])
   const onDummyDamaged = useCallback((id: string, newHp: number) => {
@@ -140,6 +151,15 @@ export function useArenaNetworkState({
       setMovementSpeed(nextMovementSpeed)
     }
     setAuthoritativePosition({ x, y })
+  }, [])
+
+  const handlePlayerDamaged = useCallback((event: PlayerDamagedEvent) => {
+    if (!event.attackerId) {
+      return
+    }
+
+    revealedUntilRef.current[event.attackerId] = Date.now() + HIDE_REVEAL_DURATION_MS
+    setRevealedPlayerIds(Object.keys(revealedUntilRef.current))
   }, [])
 
   const resolveProjectile = useCallback((data: ProjectileSpawnEvent): ProjectileData | null => {
@@ -170,18 +190,6 @@ export function useArenaNetworkState({
       spell,
       isLocal: data.ownerId === socketIdRef.current,
     }
-  }, [])
-
-  const onPlayerDamaged = useCallback((event: PlayerDamagedEvent) => {
-    if (!event.attackerId || event.attackerId === socketIdRef.current) {
-      return
-    }
-
-    const revealUntil = Date.now() + 2500
-    setRevealedPlayerIds(prev => ({
-      ...prev,
-      [event.attackerId!]: Math.max(prev[event.attackerId!] || 0, revealUntil),
-    }))
   }, [])
 
   const onProjectileSpawned = useCallback((data: ProjectileSpawnEvent) => {
@@ -250,7 +258,7 @@ export function useArenaNetworkState({
           const slashOffset = Math.cos(event.angle) >= 0 ? 72 : 72
           const originX = centerX + Math.cos(event.angle) * slashOffset
           const originY = centerY + Math.sin(event.angle) * slashOffset
-          setActiveSkillEffects(prev => [
+          setTransientSkillEffects(prev => [
             ...prev,
             {
               id: `${event.playerId}-${event.spellId}-${performance.now()}`,
@@ -297,8 +305,7 @@ export function useArenaNetworkState({
         if (
           resolvedSpell?.effectKind === 'beam' ||
           resolvedSpell?.effectKind === 'tile_burst' ||
-          resolvedSpell?.effectKind === 'line_burst' ||
-          resolvedSpell?.effectKind === 'self_aura'
+          resolvedSpell?.effectKind === 'line_burst'
         ) {
           const fallbackOriginX = owner.x + owner.colliderWidth / 2
           const fallbackOriginY = owner.y + owner.colliderHeight / 2
@@ -306,7 +313,7 @@ export function useArenaNetworkState({
           const originY = event.originY ?? fallbackOriginY
           const angle = event.angle ?? Math.atan2(event.targetY - originY, event.targetX - originX)
 
-          setActiveSkillEffects(prev => [
+          setTransientSkillEffects(prev => [
             ...prev,
             {
               id: `${event.id}-${event.skillId}-${performance.now()}`,
@@ -350,7 +357,9 @@ export function useArenaNetworkState({
     mapData,
     bootstrap,
     instanceInfo,
+    serverTimeOffsetMs,
     otherPlayers,
+    areaEffects,
     burnStatuses,
     burnZones,
     kills,
@@ -369,7 +378,7 @@ export function useArenaNetworkState({
     onDummyDamaged,
     onSelfDamaged,
     onSelfMoved,
-    onPlayerDamaged,
+    handlePlayerDamaged,
     onProjectileSpawned,
     onProjectileRemoved,
     onProjectilesSnapshot,
@@ -384,6 +393,47 @@ export function useArenaNetworkState({
     onCharacterChanged,
     onCharacterChangeRejected,
   )
+
+  const resolveAreaEffect = useCallback((effect: WorldSnapshotAreaEffectState): ActiveSkillEffectView | null => {
+    const currentBootstrap = bootstrapRef.current
+    if (!currentBootstrap) {
+      return null
+    }
+
+    const owner =
+      effect.ownerId === socketIdRef.current
+        ? currentBootstrap.player
+        : otherPlayersRef.current[effect.ownerId]
+    if (!owner) {
+      return null
+    }
+
+    const resolvedCharacter = resolveCharacterConfig(owner.characterId, currentBootstrap.characters, currentBootstrap.spells, currentBootstrap.passives)
+    const resolvedSpell = resolvedCharacter?.skills.find(skill => skill.id === effect.spellId)
+    if (!resolvedSpell) {
+      return null
+    }
+
+    const nowMs = Date.now() + serverTimeOffsetMs
+    const maxLife = Math.max(1, effect.endTimeMs - effect.startTimeMs)
+
+    return {
+      id: effect.id,
+      ownerId: effect.ownerId,
+      spellId: effect.spellId,
+      spell: resolvedSpell,
+      x: effect.x,
+      y: effect.y,
+      angle: effect.angle,
+      warmupMs: Math.max(0, effect.startTimeMs - nowMs),
+      activeDurationMs: Math.max(0, effect.endTimeMs - effect.startTimeMs),
+      life: Math.max(0, effect.endTimeMs - nowMs),
+      maxLife,
+      visibleLineSteps: effect.visibleLineSteps,
+      visibleTileOffsets: effect.visibleTileOffsets,
+      visibleBeamSlices: effect.visibleBeamSlices,
+    }
+  }, [serverTimeOffsetMs])
 
   const character = useMemo<ResolvedCharacterConfig | null>(() => {
     if (!bootstrap) return null
@@ -462,6 +512,9 @@ export function useArenaNetworkState({
     }
 
     remoteSamplesRef.current = nextSamples
+    remoteAnimationStateRef.current = Object.fromEntries(
+      Object.entries(remoteAnimationStateRef.current).filter(([id]) => id in otherPlayers)
+    )
 
     setRenderOtherPlayers(prev => {
       const next: Record<string, NetPlayer> = {}
@@ -491,6 +544,13 @@ export function useArenaNetworkState({
     setHasAuthoritativePlayerState(true)
     setAuthoritativePosition({ x: bootstrap.player.x, y: bootstrap.player.y })
   }, [bootstrap])
+
+  useEffect(() => {
+    const resolvedEffects = areaEffects
+      .map(resolveAreaEffect)
+      .filter((effect): effect is ActiveSkillEffectView => effect !== null)
+    setAuthoritativeSkillEffects(resolvedEffects)
+  }, [areaEffects, resolveAreaEffect])
 
   useEffect(() => {
     return () => {
@@ -528,6 +588,7 @@ export function useArenaNetworkState({
           const rendered = prev[id] ?? authoritative
           const samples = remoteSamplesRef.current[id] ?? []
           const latest = samples[samples.length - 1]?.state ?? authoritative
+          const previous = samples.length >= 2 ? samples[samples.length - 2]?.state ?? null : null
 
           let x = latest.x
           let y = latest.y
@@ -556,11 +617,38 @@ export function useArenaNetworkState({
             y = latest.y
           }
 
+          const resolvedCharacter = bootstrapRef.current
+            ? resolveCharacterConfig(latest.characterId, bootstrapRef.current.characters, bootstrapRef.current.spells, bootstrapRef.current.passives)
+            : null
+
+          let animRow = latest.animRow
+          if (resolvedCharacter) {
+            const isMoving =
+              previous !== null &&
+              Math.hypot(latest.x - previous.x, latest.y - previous.y) > 0.75
+            const currentAnimationState = remoteAnimationStateRef.current[id]
+            const now = performance.now()
+
+            if (!currentAnimationState || currentAnimationState.moving !== isMoving) {
+              remoteAnimationStateRef.current[id] = {
+                moving: isMoving,
+                phaseStartedAt: now,
+              }
+            }
+
+            const animationState = remoteAnimationStateRef.current[id]
+            const rows = isMoving ? resolvedCharacter.walkRows : resolvedCharacter.idleRows
+            const msPerFrame = 1000 / ANIMATION_FPS
+            const elapsedFrames = Math.floor((now - animationState.phaseStartedAt) / msPerFrame)
+            animRow = rows[elapsedFrames % rows.length]
+          }
+
           const nextRendered: NetPlayer = {
             ...rendered,
             ...latest,
             x,
             y,
+            animRow,
           }
 
           if (
@@ -590,13 +678,30 @@ export function useArenaNetworkState({
       .map(effect => ({ ...effect, life: effect.life - deltaMs }))
       .filter(effect => effect.life > 0))
 
-    setActiveSkillEffects(prev => prev
+    setTransientSkillEffects(prev => prev
       .map(effect => ({
         ...effect,
         warmupMs: Math.max(0, effect.warmupMs - deltaMs),
         life: effect.life - deltaMs,
       }))
       .filter(effect => effect.life > 0))
+
+    setAuthoritativeSkillEffects(prev => prev
+      .map(effect => ({
+        ...effect,
+        warmupMs: Math.max(0, effect.warmupMs - deltaMs),
+        life: effect.life - deltaMs,
+      }))
+      .filter(effect => effect.life > 0))
+
+    const now = Date.now()
+    const nextRevealedEntries = Object.entries(revealedUntilRef.current)
+      .filter(([, until]) => until > now)
+
+    if (nextRevealedEntries.length !== Object.keys(revealedUntilRef.current).length) {
+      revealedUntilRef.current = Object.fromEntries(nextRevealedEntries)
+      setRevealedPlayerIds(Object.keys(revealedUntilRef.current))
+    }
 
     setSkillCooldowns(prev => {
       const next: Record<string, number> = {}
@@ -610,22 +715,22 @@ export function useArenaNetworkState({
       return changed ? next : prev
     })
 
-    setRevealedPlayerIds(prev => {
-      const now = Date.now()
-      let changed = false
-      const next: Record<string, number> = {}
-
-      for (const [playerId, revealUntil] of Object.entries(prev)) {
-        if (revealUntil > now) {
-          next[playerId] = revealUntil
-        } else {
-          changed = true
-        }
-      }
-
-      return changed ? next : prev
-    })
   })
+
+  const activeSkillEffects = useMemo(() => {
+    if (authoritativeSkillEffects.length === 0) {
+      return transientSkillEffects
+    }
+
+    const authoritativeKeys = new Set(
+      authoritativeSkillEffects.map(effect => `${effect.ownerId}:${effect.spellId}`)
+    )
+
+    return [
+      ...authoritativeSkillEffects,
+      ...transientSkillEffects.filter(effect => !authoritativeKeys.has(`${effect.ownerId}:${effect.spellId}`)),
+    ]
+  }, [authoritativeSkillEffects, transientSkillEffects])
 
   return {
     socketId,

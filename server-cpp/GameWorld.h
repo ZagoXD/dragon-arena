@@ -5,6 +5,7 @@
 #include <optional>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "MapCatalog.h"
 #include "Player.h"
@@ -53,8 +54,11 @@ public:
     json getDummiesJson();
     json getProjectilesJson();
     json getWorldSnapshotJson();
+    json getWorldSnapshotJsonForObserver(const std::string& observerId, const std::unordered_map<std::string, long long>& revealedUntilByPlayerId, long long nowMs);
+    bool canObserverSeePlayer(const std::string& observerId, const std::string& targetId, const std::unordered_map<std::string, long long>& revealedUntilByPlayerId, long long nowMs);
     json getBootstrapJson(std::string playerId);
     json getSessionInitJson(std::string playerId);
+    json getSessionInitJsonForObserver(const std::string& playerId, const std::unordered_map<std::string, long long>& revealedUntilByPlayerId, long long nowMs);
     std::optional<Player> getPlayerCopy(const std::string& id);
     std::vector<Player> getPlayersCopy();
     std::size_t getPlayerCount();

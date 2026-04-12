@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
+#include <stack>
 
 MapLoader::MapLoader() 
     : widthTiles(0), heightTiles(0), sourceTileSize(32), worldTileSize(64), scale(2.0f),
@@ -11,6 +12,7 @@ bool MapLoader::loadMap(const std::string& filepath) {
     loaded = false;
     rawMapData = json();
     collisionGrid.clear();
+    hideRegionGrid.clear();
     playerSpawns.clear();
     dummySpawns.clear();
 
@@ -54,8 +56,10 @@ bool MapLoader::loadMap(const std::string& filepath) {
         heightPixels = heightTiles * worldTileSize;
         
         collisionGrid.assign(widthTiles * heightTiles, false);
-        
+        hideRegionGrid.assign(widthTiles * heightTiles, 0);
+
         int totalBlocked = 0;
+        int nextHideRegionId = 1;
         for (const auto& layer : rawMapData["layers"]) {
             std::string type = layer["type"];
             std::string name = layer["name"];
@@ -71,6 +75,49 @@ bool MapLoader::loadMap(const std::string& filepath) {
                 }
                 totalBlocked += blockedCount;
                 std::cout << "[MapLoader] Collision layer '" << name << "' blocked tiles: " << blockedCount << std::endl;
+            }
+            else if (type == "tilelayer" && (name == "Hide" || name == "hide")) {
+                const auto& data = layer["data"];
+                for (int row = 0; row < heightTiles; ++row) {
+                    for (int col = 0; col < widthTiles; ++col) {
+                        const int startIndex = row * widthTiles + col;
+                        if (startIndex >= static_cast<int>(data.size()) || data[startIndex] <= 0 || hideRegionGrid[startIndex] != 0) {
+                            continue;
+                        }
+
+                        std::stack<std::pair<int, int>> flood;
+                        flood.push({col, row});
+                        hideRegionGrid[startIndex] = nextHideRegionId;
+
+                        while (!flood.empty()) {
+                            const auto [currentCol, currentRow] = flood.top();
+                            flood.pop();
+
+                            const std::vector<std::pair<int, int>> neighbors = {
+                                {currentCol + 1, currentRow},
+                                {currentCol - 1, currentRow},
+                                {currentCol, currentRow + 1},
+                                {currentCol, currentRow - 1}
+                            };
+
+                            for (const auto& [neighborCol, neighborRow] : neighbors) {
+                                if (neighborCol < 0 || neighborCol >= widthTiles || neighborRow < 0 || neighborRow >= heightTiles) {
+                                    continue;
+                                }
+
+                                const int neighborIndex = neighborRow * widthTiles + neighborCol;
+                                if (neighborIndex >= static_cast<int>(data.size()) || data[neighborIndex] <= 0 || hideRegionGrid[neighborIndex] != 0) {
+                                    continue;
+                                }
+
+                                hideRegionGrid[neighborIndex] = nextHideRegionId;
+                                flood.push({neighborCol, neighborRow});
+                            }
+                        }
+
+                        nextHideRegionId += 1;
+                    }
+                }
             }
             else if (type == "objectgroup" && name == "spawns") {
                 for (const auto& obj : layer["objects"]) {
@@ -136,6 +183,32 @@ bool MapLoader::isBlocked(float x, float y, float width, float height) const {
     }
     
     return false;
+}
+
+int MapLoader::getHideRegionIdAtWorldPoint(float worldX, float worldY) const {
+    if (!loaded) {
+        return 0;
+    }
+
+    const int col = static_cast<int>(std::floor(worldX / static_cast<float>(worldTileSize)));
+    const int row = static_cast<int>(std::floor(worldY / static_cast<float>(worldTileSize)));
+
+    if (col < 0 || col >= widthTiles || row < 0 || row >= heightTiles) {
+        return 0;
+    }
+
+    const int index = row * widthTiles + col;
+    if (index < 0 || index >= static_cast<int>(hideRegionGrid.size())) {
+        return 0;
+    }
+
+    return hideRegionGrid[index];
+}
+
+int MapLoader::getHideRegionIdForActor(float x, float y, float width, float height) const {
+    const float probeX = x + width / 2.0f;
+    const float probeY = y + height - 4.0f;
+    return getHideRegionIdAtWorldPoint(probeX, probeY);
 }
 
 const SpawnPoint* MapLoader::findPlayerSpawnByName(const std::string& spawnName) const {

@@ -273,8 +273,9 @@ void testWorldSetupAndProtocolPayloads() {
 
     std::vector<ActiveBurnStatus> burnStatuses;
     std::vector<BurnZone> burnZones;
+    std::vector<ActiveAreaEffect> areaEffects;
 
-    json snapshot = WorldSnapshotBuilder::buildWorldSnapshot(42, players, dummies, projectiles, burnStatuses, burnZones);
+    json snapshot = WorldSnapshotBuilder::buildWorldSnapshot(42, players, dummies, projectiles, areaEffects, burnStatuses, burnZones);
     assert(snapshot["event"] == "worldSnapshot");
     assert(snapshot["tick"] == 42);
     assert(snapshot["projectiles"].size() == 1);
@@ -286,6 +287,7 @@ void testWorldSetupAndProtocolPayloads() {
         players,
         dummies,
         projectiles,
+        areaEffects,
         burnStatuses,
         burnZones,
         json({{"width", 32}, {"height", 20}}),

@@ -75,11 +75,38 @@ json ProtocolPayloadBuilder::buildSessionInit(
     const std::map<std::string, Player>& players,
     const std::map<std::string, DummyEntity>& dummies,
     const std::vector<ActiveProjectile>& activeProjectiles,
+    const std::vector<ActiveAreaEffect>& activeAreaEffects,
     const std::vector<ActiveBurnStatus>& activeBurnStatuses,
     const std::vector<BurnZone>& burnZones,
     const json& map,
-    const std::string& playerId
+    const std::string& playerId,
+    const MapLoader* mapLoader,
+    const std::unordered_map<std::string, long long>* revealedUntilByPlayerId
 ) {
+    const json snapshot = (mapLoader != nullptr && revealedUntilByPlayerId != nullptr)
+        ? WorldSnapshotBuilder::buildWorldStateForObserver(
+            worldTick,
+            players,
+            dummies,
+            activeProjectiles,
+            activeAreaEffects,
+            activeBurnStatuses,
+            burnZones,
+            *mapLoader,
+            playerId,
+            *revealedUntilByPlayerId,
+            serverTimeMs
+        )
+        : WorldSnapshotBuilder::buildWorldState(
+            worldTick,
+            players,
+            dummies,
+            activeProjectiles,
+            activeAreaEffects,
+            activeBurnStatuses,
+            burnZones
+        );
+
     return {
         {"event", "sessionInit"},
         {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION},
@@ -88,7 +115,7 @@ json ProtocolPayloadBuilder::buildSessionInit(
         {"selfId", playerId},
         {"bootstrap", buildBootstrap(worldDefinition, players, playerId)},
         {"map", map},
-        {"snapshot", WorldSnapshotBuilder::buildWorldState(worldTick, players, dummies, activeProjectiles, activeBurnStatuses, burnZones)}
+        {"snapshot", snapshot}
     };
 }
 

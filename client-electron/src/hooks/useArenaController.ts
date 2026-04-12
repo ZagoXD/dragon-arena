@@ -177,10 +177,10 @@ export function useArenaController({
     const px = player.x + (character?.colliderWidth ?? 64) / 2
     const py = player.y + (character?.colliderHeight ?? 64) / 2
     return {
-      cameraX: Math.max(0, Math.min(mapWidth - VIEWPORT_WIDTH, px - VIEWPORT_WIDTH / 2)),
-      cameraY: Math.max(0, Math.min(mapHeight - VIEWPORT_HEIGHT, py - VIEWPORT_HEIGHT / 2)),
+      cameraX: px - VIEWPORT_WIDTH / 2,
+      cameraY: py - VIEWPORT_HEIGHT / 2,
     }
-  }, [player.x, player.y, character, mapWidth, mapHeight])
+  }, [player.x, player.y, character])
 
   const cameraRef = useRef(camera)
   cameraRef.current = camera

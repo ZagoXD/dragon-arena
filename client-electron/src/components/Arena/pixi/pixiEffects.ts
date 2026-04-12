@@ -125,8 +125,9 @@ export function buildSkillEffect(
   const frameCount = effect.spell.frameCount || 1
   const elapsedMs = effect.activeDurationMs - effect.life
   const activeDurationMs = Math.max(1, effect.activeDurationMs)
-  const progress = Math.min(0.999, Math.max(0, elapsedMs / activeDurationMs))
-  const frameIndex = Math.min(frameCount - 1, Math.floor(progress * frameCount))
+  const frameIndex = effect.spell.effectKind === 'self_aura'
+    ? Math.min(frameCount - 1, Math.floor(Math.max(0, elapsedMs) / 80))
+    : Math.min(frameCount - 1, Math.floor(Math.min(0.999, Math.max(0, elapsedMs / activeDurationMs)) * frameCount))
 
   const frameTexture = getCachedFrameTexture(
     frameTextureCache,

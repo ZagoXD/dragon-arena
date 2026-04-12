@@ -2,9 +2,11 @@
 #define PROTOCOL_PAYLOAD_BUILDER_H
 
 #include <map>
+#include <unordered_map>
 #include <string>
 #include "GameConfig.h"
 #include "GameState.h"
+#include "MapLoader.h"
 #include "Player.h"
 #include "auth/AuthService.h"
 
@@ -27,10 +29,13 @@ public:
         const std::map<std::string, Player>& players,
         const std::map<std::string, DummyEntity>& dummies,
         const std::vector<ActiveProjectile>& activeProjectiles,
+        const std::vector<ActiveAreaEffect>& activeAreaEffects,
         const std::vector<ActiveBurnStatus>& activeBurnStatuses,
         const std::vector<BurnZone>& burnZones,
         const json& map,
-        const std::string& playerId
+        const std::string& playerId,
+        const MapLoader* mapLoader = nullptr,
+        const std::unordered_map<std::string, long long>* revealedUntilByPlayerId = nullptr
     );
     static json buildActionRejected(
         const std::string& requestEvent,

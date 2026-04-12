@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <cstdint>
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -27,6 +28,7 @@ private:
     int heightPixels;
     
     std::vector<bool> collisionGrid;
+    std::vector<int> hideRegionGrid;
     std::vector<SpawnPoint> playerSpawns;
     std::vector<SpawnPoint> dummySpawns;
     json rawMapData;
@@ -52,6 +54,8 @@ public:
     const SpawnPoint* findPlayerSpawnByName(const std::string& spawnName) const;
     
     bool isBlocked(float x, float y, float width = 64.0f, float height = 64.0f) const;
+    int getHideRegionIdAtWorldPoint(float worldX, float worldY) const;
+    int getHideRegionIdForActor(float x, float y, float width = 64.0f, float height = 64.0f) const;
 };
 
 #endif

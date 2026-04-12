@@ -11,6 +11,45 @@ import { ArenaChatBox } from '../ArenaChatBox/ArenaChatBox'
 import { buildHideRegionAnalysis, getHideRegionIdForActor, getHideRegionIdForPoint } from './pixi/hideRegions'
 import './Arena.css'
 
+const HIDE_VISIBILITY_THRESHOLD = 0.6
+
+function buildRectSamples(centerX: number, centerY: number, width: number, height: number) {
+  const halfWidth = width / 2
+  const halfHeight = height / 2
+  return [
+    [centerX, centerY],
+    [centerX - halfWidth, centerY - halfHeight],
+    [centerX, centerY - halfHeight],
+    [centerX + halfWidth, centerY - halfHeight],
+    [centerX - halfWidth, centerY],
+    [centerX + halfWidth, centerY],
+    [centerX - halfWidth, centerY + halfHeight],
+    [centerX, centerY + halfHeight],
+    [centerX + halfWidth, centerY + halfHeight],
+  ] as const
+}
+
+function isRectOutsideHideRegion(
+  hideAnalysis: ReturnType<typeof buildHideRegionAnalysis>,
+  hideRegionId: number,
+  centerX: number,
+  centerY: number,
+  width: number,
+  height: number,
+  threshold = HIDE_VISIBILITY_THRESHOLD
+) {
+  if (!hideAnalysis || hideRegionId <= 0) {
+    return true
+  }
+
+  const samples = buildRectSamples(centerX, centerY, width, height)
+  const outsideCount = samples.reduce((count, [sampleX, sampleY]) => (
+    getHideRegionIdForPoint(hideAnalysis, sampleX, sampleY) !== hideRegionId ? count + 1 : count
+  ), 0)
+
+  return outsideCount / samples.length >= threshold
+}
+
 interface Props {
   playerUserId: number | null
   playerName: string
@@ -44,7 +83,6 @@ export function Arena({
   replyTarget,
   onReturnToHome,
 }: Props) {
-  const HIDE_EFFECT_VISIBILITY_THRESHOLD = 0.6
   const { t } = useTranslation()
   const [inArenaCharacterId, setInArenaCharacterId] = useState(characterId)
   const fallbackVisual = CHARACTER_VISUALS[inArenaCharacterId] || CHARACTER_VISUALS.meteor
@@ -320,22 +358,8 @@ export function Arena({
     })
   }, [character, controller.player.x, controller.player.y, hideAnalysis, hp])
 
-  const localPlayerHideTarget = useMemo(() => {
-    if (!character || hp <= 0) {
-      return null
-    }
-
-    return {
-      id: socketId || 'local',
-      x: controller.player.x,
-      y: controller.player.y,
-      colliderWidth: character.colliderWidth,
-      colliderHeight: character.colliderHeight,
-    }
-  }, [character, controller.player.x, controller.player.y, hp, socketId])
-
   const visibleRemotePlayers = useMemo(() => resolvedOtherPlayers
-    .map(player => {
+    .flatMap(player => {
       const remoteHideRegionId = getHideRegionIdForActor(hideAnalysis, {
         x: player.x,
         y: player.y,
@@ -343,290 +367,226 @@ export function Arena({
         colliderHeight: player.character.colliderHeight,
       })
 
-      const isTemporarilyRevealed = (revealedPlayerIds[player.id] || 0) > Date.now()
+      const isRevealed = revealedPlayerIds.includes(player.id)
 
-      if (isTemporarilyRevealed) {
-        return {
-          ...player,
-          opacity: remoteHideRegionId > 0 ? 0.6 : 1,
-        }
+      if (remoteHideRegionId > 0 && remoteHideRegionId !== localHideRegionId && !isRevealed) {
+        return []
       }
 
-      if (remoteHideRegionId <= 0) {
-        return {
-          ...player,
-          opacity: 1,
-        }
-      }
-
-      const isVisibleFromSameHideRegion = localHideRegionId > 0 && localHideRegionId === remoteHideRegionId
-      if (!isVisibleFromSameHideRegion) {
-        return null
-      }
-
-      return {
+      return [{
         ...player,
-        opacity: 0.6,
-      }
-    })
-    .filter((player): player is NonNullable<typeof player> => player !== null), [hideAnalysis, localHideRegionId, resolvedOtherPlayers, revealedPlayerIds])
+        opacity: remoteHideRegionId > 0 ? 0.6 : 1,
+      }]
+    }), [hideAnalysis, localHideRegionId, resolvedOtherPlayers, revealedPlayerIds])
 
-  const isHideRegionVisibleToLocalPlayer = useCallback((regionId: number) => {
-    if (regionId <= 0) {
+  const localPlayer = useMemo(() => {
+    if (!character || hp <= 0) {
+      return null
+    }
+
+    return {
+      id: socketId || 'local',
+      name: displayPlayerName,
+      role: bootstrap?.player?.role,
+      character,
+      x: controller.player.x,
+      y: controller.player.y,
+      direction: controller.player.direction,
+      animRow: controller.player.animRow,
+      opacity: localHideRegionId > 0 ? 0.6 : 1,
+      hp,
+      shieldHp,
+      shieldMaxHp,
+      isDashing: localDashState.isDashing || controller.player.isDashing,
+      dashAngle: localDashState.dashAngle,
+    }
+  }, [
+    bootstrap?.player?.role,
+    character,
+    controller.player.animRow,
+    controller.player.direction,
+    controller.player.isDashing,
+    controller.player.x,
+    controller.player.y,
+    displayPlayerName,
+    hp,
+    localDashState.dashAngle,
+    localDashState.isDashing,
+    localHideRegionId,
+    shieldHp,
+    shieldMaxHp,
+    socketId,
+  ])
+
+  const playersById = useMemo(() => {
+    const byId = new Map<string, {
+      x: number
+      y: number
+      colliderWidth: number
+      colliderHeight: number
+    }>()
+
+    if (localPlayer) {
+      byId.set(localPlayer.id, {
+        x: localPlayer.x,
+        y: localPlayer.y,
+        colliderWidth: localPlayer.character.colliderWidth,
+        colliderHeight: localPlayer.character.colliderHeight,
+      })
+    }
+
+    resolvedOtherPlayers.forEach(player => {
+      byId.set(player.id, {
+        x: player.x,
+        y: player.y,
+        colliderWidth: player.character.colliderWidth,
+        colliderHeight: player.character.colliderHeight,
+      })
+    })
+
+    return byId
+  }, [localPlayer, resolvedOtherPlayers])
+
+  const filteredProjectiles = useMemo(() => projectiles.filter(projectile => {
+    if (!projectile.ownerId) {
       return true
     }
 
-    return localHideRegionId > 0 && localHideRegionId === regionId
-  }, [localHideRegionId])
-
-  const getRemotePlayerHideRegionId = useCallback((playerId: string) => {
-    const player = resolvedOtherPlayers.find(candidate => candidate.id === playerId)
-    if (!player) {
-      return 0
-    }
-
-    return getHideRegionIdForActor(hideAnalysis, {
-      x: player.x,
-      y: player.y,
-      colliderWidth: player.character.colliderWidth,
-      colliderHeight: player.character.colliderHeight,
-    })
-  }, [hideAnalysis, resolvedOtherPlayers])
-
-  const getOwnerHideRegionId = useCallback((ownerId?: string) => {
-    if (!ownerId) {
-      return 0
-    }
-
-    if (localPlayerHideTarget && ownerId === localPlayerHideTarget.id) {
-      return getHideRegionIdForActor(hideAnalysis, localPlayerHideTarget)
-    }
-
-    return getRemotePlayerHideRegionId(ownerId)
-  }, [getRemotePlayerHideRegionId, hideAnalysis, localPlayerHideTarget])
-
-  const getHideRegionIdForGroundPoint = useCallback((x: number, y: number, groundOffsetY = 0) => (
-    getHideRegionIdForPoint(hideAnalysis, x, y + groundOffsetY)
-  ), [hideAnalysis])
-
-  const buildRectSamples = useCallback((centerX: number, centerY: number, width: number, height: number) => {
-    const halfWidth = width / 2
-    const halfHeight = height / 2
-    return [
-      { x: centerX, y: centerY },
-      { x: centerX - halfWidth, y: centerY - halfHeight },
-      { x: centerX, y: centerY - halfHeight },
-      { x: centerX + halfWidth, y: centerY - halfHeight },
-      { x: centerX - halfWidth, y: centerY },
-      { x: centerX + halfWidth, y: centerY },
-      { x: centerX - halfWidth, y: centerY + halfHeight },
-      { x: centerX, y: centerY + halfHeight },
-      { x: centerX + halfWidth, y: centerY + halfHeight },
-    ]
-  }, [])
-
-  const isRectFullyOutsideHideRegion = useCallback((
-    ownerHideRegionId: number,
-    centerX: number,
-    centerY: number,
-    width: number,
-    height: number,
-    groundOffsetY = 0,
-    outsideThreshold = 1
-  ) => {
-    const samples = buildRectSamples(centerX, centerY, width, height)
-    const outsideCount = samples.filter(sample => {
-      const regionId = getHideRegionIdForGroundPoint(sample.x, sample.y, groundOffsetY)
-      return regionId !== ownerHideRegionId
-    }).length
-
-    return outsideCount / samples.length >= outsideThreshold
-  }, [buildRectSamples, getHideRegionIdForGroundPoint])
-
-  const isEffectVisibleFromHideRule = useCallback((
-    ownerId: string | undefined,
-    samples: Array<{ x: number, y: number }>,
-    groundOffsetY = 0
-  ) => {
-    if (!hideAnalysis) {
+    const owner = playersById.get(projectile.ownerId)
+    if (!owner) {
       return true
     }
 
-    const ownerHideRegionId = getOwnerHideRegionId(ownerId)
-    const ownerRevealed = ownerId ? (revealedPlayerIds[ownerId] || 0) > Date.now() : false
-    if (ownerRevealed || ownerHideRegionId <= 0 || isHideRegionVisibleToLocalPlayer(ownerHideRegionId)) {
+    const ownerHideRegionId = getHideRegionIdForActor(hideAnalysis, owner)
+    if (ownerHideRegionId <= 0 || ownerHideRegionId === localHideRegionId || revealedPlayerIds.includes(projectile.ownerId)) {
       return true
     }
 
-    return samples.every(sample => {
-      const regionId = getHideRegionIdForGroundPoint(sample.x, sample.y, groundOffsetY)
-      return regionId !== ownerHideRegionId
-    })
-  }, [getHideRegionIdForGroundPoint, getOwnerHideRegionId, hideAnalysis, isHideRegionVisibleToLocalPlayer, revealedPlayerIds])
-
-  const visibleProjectiles = useMemo(() => projectiles.filter(projectile => {
-    const frameWidth = projectile.spell.frameWidth ?? projectile.spell.frameSize
-    const frameHeight = projectile.spell.frameHeight ?? projectile.spell.frameSize
-    return isEffectVisibleFromHideRule(
-      projectile.ownerId,
-      buildRectSamples(projectile.x, projectile.y, frameWidth, frameHeight)
+    const projectileSize = Math.max(
+      projectile.spell.frameWidth || projectile.spell.frameSize || 64,
+      projectile.spell.frameHeight || projectile.spell.frameSize || 64,
+      projectile.spell.projectileRadius * 2 || 0
     )
-  }), [buildRectSamples, isEffectVisibleFromHideRule, projectiles])
 
-  const visibleImpactEffects = useMemo(() => impactEffects.filter(effect => {
-    const diameter = Math.max(16, effect.radius * 2)
-    return isEffectVisibleFromHideRule(
-      effect.ownerId,
-      buildRectSamples(effect.x, effect.y, diameter, diameter)
+    return isRectOutsideHideRegion(
+      hideAnalysis,
+      ownerHideRegionId,
+      projectile.x,
+      projectile.y,
+      projectileSize,
+      projectileSize
     )
-  }), [buildRectSamples, impactEffects, isEffectVisibleFromHideRule])
+  }), [hideAnalysis, localHideRegionId, playersById, projectiles, revealedPlayerIds])
 
-  const visibleSkillEffects = useMemo(() => activeSkillEffects.flatMap(effect => {
-    const ownerHideRegionId = getOwnerHideRegionId(effect.ownerId)
-    const ownerRevealed = effect.ownerId ? (revealedPlayerIds[effect.ownerId] || 0) > Date.now() : false
-    const ownerVisible = ownerRevealed || ownerHideRegionId <= 0 || isHideRegionVisibleToLocalPlayer(ownerHideRegionId)
-    const forwardX = Math.cos(effect.angle)
-    const forwardY = Math.sin(effect.angle)
-    const frameWidth = effect.spell.frameWidth ?? effect.spell.frameSize
-    const frameHeight = effect.spell.frameHeight ?? effect.spell.frameSize
+  const filteredImpactEffects = useMemo(() => impactEffects.filter(effect => {
+    if (!effect.ownerId) {
+      return true
+    }
+
+    const owner = playersById.get(effect.ownerId)
+    if (!owner) {
+      return true
+    }
+
+    const ownerHideRegionId = getHideRegionIdForActor(hideAnalysis, owner)
+    if (ownerHideRegionId <= 0 || ownerHideRegionId === localHideRegionId || revealedPlayerIds.includes(effect.ownerId)) {
+      return true
+    }
+
+    return isRectOutsideHideRegion(
+      hideAnalysis,
+      ownerHideRegionId,
+      effect.x,
+      effect.y,
+      effect.radius * 2,
+      effect.radius * 2
+    )
+  }), [hideAnalysis, impactEffects, localHideRegionId, playersById, revealedPlayerIds])
+
+  const filteredSkillEffects = useMemo(() => activeSkillEffects.flatMap(effect => {
+    const owner = playersById.get(effect.ownerId)
+    if (!owner) {
+      return [effect]
+    }
+
+    const ownerHideRegionId = getHideRegionIdForActor(hideAnalysis, owner)
+    if (ownerHideRegionId <= 0 || ownerHideRegionId === localHideRegionId || revealedPlayerIds.includes(effect.ownerId)) {
+      return [effect]
+    }
+
+    const frameWidth = effect.spell.frameWidth || effect.spell.frameSize || 64
+    const frameHeight = effect.spell.frameHeight || effect.spell.frameSize || 64
+
+    if (effect.spell.effectKind === 'self_aura') {
+      return []
+    }
 
     if (effect.spell.effectKind === 'line_burst') {
-      const visibleLineSteps = ownerVisible
-        ? [1, 2, 3, 4, 5]
-        : [1, 2, 3, 4, 5].filter(step =>
-            isRectFullyOutsideHideRegion(
-              ownerHideRegionId,
-              effect.x + forwardX * frameWidth * step,
-              effect.y + forwardY * frameHeight * step,
-              frameWidth,
-              frameHeight,
-              0,
-              HIDE_EFFECT_VISIBILITY_THRESHOLD
-            )
-          )
+      const forwardX = Math.cos(effect.angle)
+      const forwardY = Math.sin(effect.angle)
+      const visibleLineSteps = [1, 2, 3, 4, 5].filter(step => isRectOutsideHideRegion(
+        hideAnalysis,
+        ownerHideRegionId,
+        effect.x + forwardX * frameWidth * step,
+        effect.y + forwardY * frameHeight * step,
+        frameWidth,
+        frameHeight
+      ))
 
-      if (visibleLineSteps.length === 0) {
-        return []
-      }
-
-      return [{ ...effect, visibleLineSteps }]
-    }
-
-    if (effect.spell.effectKind === 'beam') {
-      const sliceCount = 6
-      const visibleBeamSlices = ownerVisible
-        ? Array.from({ length: sliceCount }, (_, index) => index)
-        : Array.from({ length: sliceCount }, (_, index) => index).filter(sliceIndex => {
-            const centerDistance = (sliceIndex + 0.5) * frameHeight * 0.25
-            return isRectFullyOutsideHideRegion(
-              ownerHideRegionId,
-              effect.x + forwardX * centerDistance,
-              effect.y + forwardY * centerDistance,
-              frameWidth,
-              frameHeight / sliceCount,
-              0,
-              HIDE_EFFECT_VISIBILITY_THRESHOLD
-            )
-          })
-
-      if (visibleBeamSlices.length === 0) {
-        return []
-      }
-
-      return [{ ...effect, visibleBeamSlices }]
+      return visibleLineSteps.length > 0
+        ? [{ ...effect, visibleLineSteps }]
+        : []
     }
 
     if (effect.spell.effectKind === 'tile_burst') {
       const visibleTileOffsets: Array<[number, number]> = []
       for (let tileY = -3; tileY <= 3; tileY += 1) {
         for (let tileX = -3; tileX <= 3; tileX += 1) {
-          if (
-            ownerVisible ||
-            isRectFullyOutsideHideRegion(
-              ownerHideRegionId,
-              effect.x + tileX * frameWidth,
-              effect.y + tileY * frameHeight,
-              frameWidth,
-              frameHeight,
-              0,
-              HIDE_EFFECT_VISIBILITY_THRESHOLD
-            )
-          ) {
+          if (isRectOutsideHideRegion(
+            hideAnalysis,
+            ownerHideRegionId,
+            effect.x + tileX * frameWidth,
+            effect.y + tileY * frameHeight,
+            frameWidth,
+            frameHeight
+          )) {
             visibleTileOffsets.push([tileX, tileY])
           }
         }
       }
 
-      if (visibleTileOffsets.length === 0) {
-        return []
-      }
-
-      return [{ ...effect, visibleTileOffsets }]
-    }
-
-    if (effect.spell.effectKind === 'self_aura') {
-        const radius = Math.max(frameWidth, frameHeight) * (effect.spell.effectScale ?? 1) * 0.5
-        return isEffectVisibleFromHideRule(effect.ownerId, [
-          ...buildRectSamples(effect.x, effect.y, radius * 2, radius * 2),
-      ])
-        ? [{ ...effect }]
+      return visibleTileOffsets.length > 0
+        ? [{ ...effect, visibleTileOffsets }]
         : []
     }
 
-    return isEffectVisibleFromHideRule(effect.ownerId, buildRectSamples(effect.x, effect.y, frameWidth, frameHeight))
-      ? [{ ...effect }]
-      : []
-  }), [activeSkillEffects, buildRectSamples, getOwnerHideRegionId, isEffectVisibleFromHideRule, isHideRegionVisibleToLocalPlayer, isRectFullyOutsideHideRegion, revealedPlayerIds, HIDE_EFFECT_VISIBILITY_THRESHOLD])
+    if (effect.spell.effectKind === 'beam') {
+      const visibleBeamSlices = [0, 1, 2, 3, 4, 5].filter(sliceIndex => {
+        const centerDistance = (sliceIndex + 0.5) * frameHeight * 0.25
+        return isRectOutsideHideRegion(
+          hideAnalysis,
+          ownerHideRegionId,
+          effect.x + Math.cos(effect.angle) * centerDistance,
+          effect.y + Math.sin(effect.angle) * centerDistance,
+          frameWidth,
+          frameHeight / 6
+        )
+      })
 
-  const visibleBurnZones = useMemo(() => burnZones.filter(zone => {
-    const centerX = zone.x + zone.size / 2
-    const centerY = zone.y + zone.size / 2
-    return isEffectVisibleFromHideRule(
-      zone.ownerId,
-      buildRectSamples(centerX, centerY, zone.size, zone.size)
-    )
-  }), [buildRectSamples, burnZones, isEffectVisibleFromHideRule])
-
-  const visibleBurnStatuses = useMemo(() => burnStatuses.filter(status => {
-    const localPlayerTarget = localPlayerHideTarget && status.targetType === 'player' && status.targetId === localPlayerHideTarget.id
-      ? localPlayerHideTarget
-      : null
-    const remotePlayerTarget = status.targetType === 'player'
-      ? visibleRemotePlayers.find(player => player.id === status.targetId)
-      : null
-    const dummyTarget = status.targetType === 'dummy'
-      ? dummies.find(dummy => dummy.id === status.targetId)
-      : null
-
-    if (localPlayerTarget) {
-      return isHideRegionVisibleToLocalPlayer(getHideRegionIdForActor(hideAnalysis, {
-        x: localPlayerTarget.x,
-        y: localPlayerTarget.y,
-        colliderWidth: localPlayerTarget.colliderWidth,
-        colliderHeight: localPlayerTarget.colliderHeight,
-      }))
+      return visibleBeamSlices.length > 0
+        ? [{ ...effect, visibleBeamSlices }]
+        : []
     }
 
-    if (remotePlayerTarget) {
-      return isHideRegionVisibleToLocalPlayer(getHideRegionIdForActor(hideAnalysis, {
-        x: remotePlayerTarget.x,
-        y: remotePlayerTarget.y,
-        colliderWidth: remotePlayerTarget.character.colliderWidth,
-        colliderHeight: remotePlayerTarget.character.colliderHeight,
-      }))
-    }
-
-    if (dummyTarget) {
-      return isHideRegionVisibleToLocalPlayer(getHideRegionIdForActor(hideAnalysis, {
-        x: dummyTarget.x - dummyColliderSize / 2,
-        y: dummyTarget.y - dummyColliderSize / 2,
-        colliderWidth: dummyColliderSize,
-        colliderHeight: dummyColliderSize,
-      }))
-    }
-
-    return false
-  }), [burnStatuses, dummies, dummyColliderSize, hideAnalysis, isHideRegionVisibleToLocalPlayer, localPlayerHideTarget, visibleRemotePlayers])
+    return isRectOutsideHideRegion(
+      hideAnalysis,
+      ownerHideRegionId,
+      effect.x,
+      effect.y,
+      frameWidth,
+      frameHeight
+    ) ? [effect] : []
+  }), [activeSkillEffects, hideAnalysis, localHideRegionId, playersById, revealedPlayerIds])
 
   if (!bootstrap || !character || !mapData) {
     return (
@@ -646,26 +606,6 @@ export function Arena({
       </div>
     )
   }
-
-  const localPlayer =
-    hp > 0
-      ? {
-          id: socketId || 'local',
-          name: displayPlayerName,
-          role: bootstrap.player?.role,
-          character,
-          x: controller.player.x,
-          y: controller.player.y,
-          direction: controller.player.direction,
-          animRow: controller.player.animRow,
-          opacity: localHideRegionId > 0 ? 0.6 : 1,
-          hp,
-          shieldHp,
-          shieldMaxHp,
-          isDashing: localDashState.isDashing || controller.player.isDashing,
-          dashAngle: localDashState.dashAngle,
-        }
-      : null
 
   return (
     <div className="arena-shell">
@@ -687,11 +627,11 @@ export function Arena({
           dummyColliderSize={dummyColliderSize}
           remotePlayers={visibleRemotePlayers}
           localPlayer={localPlayer}
-          projectiles={visibleProjectiles}
-          impactEffects={visibleImpactEffects}
-          activeSkillEffects={visibleSkillEffects}
-          burnStatuses={visibleBurnStatuses}
-          burnZones={visibleBurnZones}
+          projectiles={filteredProjectiles}
+          impactEffects={filteredImpactEffects}
+          activeSkillEffects={filteredSkillEffects}
+          burnStatuses={burnStatuses}
+          burnZones={burnZones}
           aimingArrowData={controller.aimingArrowData}
           onReadyChange={setPixiReady}
         />

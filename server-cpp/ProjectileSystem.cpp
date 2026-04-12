@@ -630,6 +630,11 @@ void ProjectileSystem::updateAreaEffects(
             continue;
         }
 
+        if (effect.spellId == "poison_shield") {
+            remaining.push_back(effect);
+            continue;
+        }
+
         while (effect.nextTickTimeMs <= nowMs && effect.ticksApplied < FLAMETHROWER_TICK_COUNT) {
             for (auto& [targetId, target] : players) {
                 if (targetId == effect.ownerId || target.hp <= 0) {

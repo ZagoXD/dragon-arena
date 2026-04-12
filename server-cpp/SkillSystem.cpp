@@ -235,6 +235,18 @@ bool SkillSystem::useSkill(
     }
 
     if (skillId == "poison_shield") {
+        activeAreaEffects.push_back({
+            "area_" + playerId + "_" + std::to_string(nowMs),
+            playerId,
+            skillId,
+            originX,
+            originY,
+            0.0f,
+            nowMs,
+            nowMs + spell.effectDurationMs,
+            nowMs,
+            0
+        });
         player.grantShield(500, 3000, nowMs);
         player.lastSkillUseTimes[skillId] = nowMs;
 

@@ -167,6 +167,100 @@ void NetworkHandler::popBroadcastContext(const std::string& previousInstanceKey)
 }
 
 void NetworkHandler::broadcastToInstance(const std::string& instanceKey, const std::string& message) {
+    try {
+        const json payload = json::parse(message);
+        const std::string event = payload.value("event", "");
+
+        if (event == "playerDamaged") {
+            updateHideRevealState(instanceKey, payload);
+        }
+
+        if (event == "worldSnapshot") {
+            sendWorldSnapshotToInstanceObservers(instanceKey);
+            return;
+        }
+
+        if (event == "autoAttackStarted" && payload.contains("playerId") && payload["playerId"].is_string()) {
+            const std::string ownerId = payload["playerId"].get<std::string>();
+            sendTo(ownerId, message);
+            std::vector<uWS::WebSocket<false, true, PerSocketData>*> sockets;
+            {
+                std::lock_guard<std::mutex> lock(arena_mtx);
+                auto instanceIt = arenaInstances.find(instanceKey);
+                if (instanceIt != arenaInstances.end() && instanceIt->second.world) {
+                    const long long nowMs = getCurrentTimeMs();
+                    std::lock_guard<std::mutex> clientsLock(clients_mtx);
+                    for (const auto& [socketId, ws] : clients) {
+                        (void)socketId;
+                        PerSocketData* socketData = ws->getUserData();
+                        if (socketData == nullptr || socketData->currentInstanceKey != instanceKey || socketData->id.empty() || socketData->id == ownerId) {
+                            continue;
+                        }
+
+                        if (instanceIt->second.world->canObserverSeePlayer(socketData->id, ownerId, instanceIt->second.revealedUntilByPlayerId, nowMs)) {
+                            sockets.push_back(ws);
+                        }
+                    }
+                }
+            }
+            for (uWS::WebSocket<false, true, PerSocketData>* socket : sockets) {
+                socket->send(message, uWS::OpCode::TEXT);
+            }
+            sendWorldSnapshotToInstanceObservers(instanceKey);
+            return;
+        }
+
+        if (event == "skillUsed" && payload.contains("id") && payload["id"].is_string()) {
+            const std::string ownerId = payload["id"].get<std::string>();
+            sendTo(ownerId, message);
+            std::vector<uWS::WebSocket<false, true, PerSocketData>*> sockets;
+            {
+                std::lock_guard<std::mutex> lock(arena_mtx);
+                auto instanceIt = arenaInstances.find(instanceKey);
+                if (instanceIt != arenaInstances.end() && instanceIt->second.world) {
+                    const long long nowMs = getCurrentTimeMs();
+                    std::lock_guard<std::mutex> clientsLock(clients_mtx);
+                    for (const auto& [socketId, ws] : clients) {
+                        (void)socketId;
+                        PerSocketData* socketData = ws->getUserData();
+                        if (socketData == nullptr || socketData->currentInstanceKey != instanceKey || socketData->id.empty() || socketData->id == ownerId) {
+                            continue;
+                        }
+
+                        if (instanceIt->second.world->canObserverSeePlayer(socketData->id, ownerId, instanceIt->second.revealedUntilByPlayerId, nowMs)) {
+                            sockets.push_back(ws);
+                        }
+                    }
+                }
+            }
+            for (uWS::WebSocket<false, true, PerSocketData>* socket : sockets) {
+                socket->send(message, uWS::OpCode::TEXT);
+            }
+            sendWorldSnapshotToInstanceObservers(instanceKey);
+            return;
+        }
+
+        const std::unordered_set<std::string> snapshotRefreshEvents = {
+            "playerJoined",
+            "playerMoved",
+            "playerDamaged",
+            "playerRespawned",
+            "playerShieldChanged",
+            "playerLeft",
+            "playerScored",
+            "dummyDamaged",
+            "projectileSpawned",
+            "projectileRemoved"
+        };
+
+        if (snapshotRefreshEvents.count(event) > 0) {
+            sendWorldSnapshotToInstanceObservers(instanceKey);
+            return;
+        }
+    } catch (...) {
+        // Fallback to raw broadcast below when payload is not JSON or filtering is not applicable.
+    }
+
     std::vector<uWS::WebSocket<false, true, PerSocketData>*> sockets;
     {
         std::lock_guard<std::mutex> clientsLock(clients_mtx);
@@ -183,6 +277,65 @@ void NetworkHandler::broadcastToInstance(const std::string& instanceKey, const s
     for (uWS::WebSocket<false, true, PerSocketData>* socket : sockets) {
         socket->send(message, uWS::OpCode::TEXT);
     }
+}
+
+void NetworkHandler::sendWorldSnapshotToInstanceObservers(const std::string& instanceKey) {
+    struct PendingSend {
+        uWS::WebSocket<false, true, PerSocketData>* socket = nullptr;
+        std::string message;
+    };
+
+    std::vector<PendingSend> pendingSends;
+    {
+        std::lock_guard<std::mutex> lock(arena_mtx);
+        auto instanceIt = arenaInstances.find(instanceKey);
+        if (instanceIt == arenaInstances.end() || !instanceIt->second.world) {
+            return;
+        }
+
+        const long long nowMs = getCurrentTimeMs();
+
+        std::lock_guard<std::mutex> clientsLock(clients_mtx);
+        for (const auto& [socketId, ws] : clients) {
+            (void)socketId;
+            PerSocketData* socketData = ws->getUserData();
+            if (socketData == nullptr || socketData->currentInstanceKey != instanceKey || socketData->id.empty()) {
+                continue;
+            }
+
+            pendingSends.push_back({
+                ws,
+                instanceIt->second.world->getWorldSnapshotJsonForObserver(
+                    socketData->id,
+                    instanceIt->second.revealedUntilByPlayerId,
+                    nowMs
+                ).dump()
+            });
+        }
+    }
+
+    for (const PendingSend& pendingSend : pendingSends) {
+        pendingSend.socket->send(pendingSend.message, uWS::OpCode::TEXT);
+    }
+}
+
+void NetworkHandler::updateHideRevealState(const std::string& instanceKey, const json& payload) {
+    if (!payload.contains("attackerId") || !payload["attackerId"].is_string()) {
+        return;
+    }
+
+    const std::string attackerId = payload["attackerId"].get<std::string>();
+    if (attackerId.empty()) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(arena_mtx);
+    auto instanceIt = arenaInstances.find(instanceKey);
+    if (instanceIt == arenaInstances.end()) {
+        return;
+    }
+
+    instanceIt->second.revealedUntilByPlayerId[attackerId] = getCurrentTimeMs() + 2500;
 }
 
 void NetworkHandler::sendToUser(long long userId, const std::string& message) {
@@ -539,6 +692,15 @@ void NetworkHandler::updateArenaInstances() {
                 continue;
             }
 
+            const long long nowMs = getCurrentTimeMs();
+            for (auto it = instance.revealedUntilByPlayerId.begin(); it != instance.revealedUntilByPlayerId.end();) {
+                if (it->second <= nowMs) {
+                    it = instance.revealedUntilByPlayerId.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+
             if (instance.mode == "match") {
                 auto matchIdIt = instance.matchId;
                 if (matchIdIt.has_value()) {
@@ -632,7 +794,11 @@ bool NetworkHandler::joinArenaInstance(
         userData->role
     );
 
-    json sessionInit = arenaInstance->world->getSessionInitJson(socketId);
+    json sessionInit = arenaInstance->world->getSessionInitJsonForObserver(
+        socketId,
+        arenaInstance->revealedUntilByPlayerId,
+        nowMs
+    );
     sessionInit["instance"] = {
         {"key", instanceKey},
         {"mode", mode}
@@ -705,12 +871,13 @@ void NetworkHandler::removeFromArenaInstance(uWS::WebSocket<false, true, PerSock
     {
         std::lock_guard<std::mutex> lock(arena_mtx);
         auto instanceIt = arenaInstances.find(instanceKey);
-        if (instanceIt != arenaInstances.end()) {
-            if (instanceIt->second.world) {
-                instanceIt->second.world->removePlayer(socketId);
-            }
-            instanceIt->second.playerIds.erase(socketId);
-            instanceIt->second.userIds.erase(userId);
+            if (instanceIt != arenaInstances.end()) {
+                if (instanceIt->second.world) {
+                    instanceIt->second.world->removePlayer(socketId);
+                }
+                instanceIt->second.playerIds.erase(socketId);
+                instanceIt->second.revealedUntilByPlayerId.erase(socketId);
+                instanceIt->second.userIds.erase(userId);
             if (instanceIt->second.userIds.empty() && instanceIt->second.mode == "training") {
                 arenaInstances.erase(instanceIt);
                 trainingInstanceByUserId.erase(userId);

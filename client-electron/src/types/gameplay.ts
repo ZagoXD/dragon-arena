@@ -100,11 +100,26 @@ export interface WorldSnapshotProjectileState {
   distance?: number
 }
 
+export interface WorldSnapshotAreaEffectState {
+  id: string
+  ownerId: string
+  spellId: string
+  x: number
+  y: number
+  angle: number
+  startTimeMs: number
+  endTimeMs: number
+  visibleLineSteps?: number[]
+  visibleTileOffsets?: Array<[number, number]>
+  visibleBeamSlices?: number[]
+}
+
 export interface WorldSnapshotState {
   tick: number
   players: Record<string, WorldSnapshotPlayerState>
   dummies: WorldSnapshotDummyState[]
   projectiles: WorldSnapshotProjectileState[]
+  areaEffects: WorldSnapshotAreaEffectState[]
   burnStatuses: {
     id: string
     targetType: 'player' | 'dummy'

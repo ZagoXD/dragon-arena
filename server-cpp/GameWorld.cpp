@@ -84,7 +84,71 @@ json GameWorld::getProjectilesJson() {
 
 json GameWorld::getWorldSnapshotJson() {
     std::lock_guard<std::mutex> lock(mtx);
-    return WorldSnapshotBuilder::buildWorldSnapshot(worldTick, players, dummies, activeProjectiles, activeBurnStatuses, burnZones);
+    return WorldSnapshotBuilder::buildWorldSnapshot(worldTick, players, dummies, activeProjectiles, activeAreaEffects, activeBurnStatuses, burnZones);
+}
+
+json GameWorld::getWorldSnapshotJsonForObserver(
+    const std::string& observerId,
+    const std::unordered_map<std::string, long long>& revealedUntilByPlayerId,
+    long long nowMs
+) {
+    std::lock_guard<std::mutex> lock(mtx);
+    return WorldSnapshotBuilder::buildWorldSnapshotForObserver(
+        worldTick,
+        players,
+        dummies,
+        activeProjectiles,
+        activeAreaEffects,
+        activeBurnStatuses,
+        burnZones,
+        mapLoader,
+        observerId,
+        revealedUntilByPlayerId,
+        nowMs
+    );
+}
+
+bool GameWorld::canObserverSeePlayer(
+    const std::string& observerId,
+    const std::string& targetId,
+    const std::unordered_map<std::string, long long>& revealedUntilByPlayerId,
+    long long nowMs
+) {
+    std::lock_guard<std::mutex> lock(mtx);
+
+    if (observerId == targetId) {
+        return true;
+    }
+
+    const auto observerIt = players.find(observerId);
+    const auto targetIt = players.find(targetId);
+    if (observerIt == players.end() || targetIt == players.end()) {
+        return false;
+    }
+
+    const int observerRegionId = mapLoader.getHideRegionIdForActor(
+        observerIt->second.x,
+        observerIt->second.y,
+        observerIt->second.colliderWidth,
+        observerIt->second.colliderHeight
+    );
+    const int targetRegionId = mapLoader.getHideRegionIdForActor(
+        targetIt->second.x,
+        targetIt->second.y,
+        targetIt->second.colliderWidth,
+        targetIt->second.colliderHeight
+    );
+
+    if (targetRegionId <= 0) {
+        return true;
+    }
+
+    if (observerRegionId > 0 && observerRegionId == targetRegionId) {
+        return true;
+    }
+
+    const auto revealedIt = revealedUntilByPlayerId.find(targetId);
+    return revealedIt != revealedUntilByPlayerId.end() && revealedIt->second > nowMs;
 }
 
 json GameWorld::getBootstrapJson(std::string playerId) {
@@ -106,10 +170,35 @@ json GameWorld::getSessionInitJson(std::string playerId) {
         players,
         dummies,
         activeProjectiles,
+        activeAreaEffects,
         activeBurnStatuses,
         burnZones,
         mapLoader.isLoaded() ? mapLoader.getRawMapData() : json(),
         playerId
+    );
+}
+
+json GameWorld::getSessionInitJsonForObserver(
+    const std::string& playerId,
+    const std::unordered_map<std::string, long long>& revealedUntilByPlayerId,
+    long long nowMs
+) {
+    std::lock_guard<std::mutex> lock(mtx);
+
+    return ProtocolPayloadBuilder::buildSessionInit(
+        worldTick,
+        nowMs,
+        worldDefinition,
+        players,
+        dummies,
+        activeProjectiles,
+        activeAreaEffects,
+        activeBurnStatuses,
+        burnZones,
+        mapLoader.isLoaded() ? mapLoader.getRawMapData() : json(),
+        playerId,
+        &mapLoader,
+        &revealedUntilByPlayerId
     );
 }
 
@@ -270,7 +359,7 @@ void GameWorld::broadcastSnapshot(NetworkHandler* network, long long now_ms) {
         {"dummies", dummies.size()},
         {"projectiles", activeProjectiles.size()}
     });
-    network->broadcast(WorldSnapshotBuilder::buildWorldSnapshot(worldTick, players, dummies, activeProjectiles, activeBurnStatuses, burnZones).dump());
+    network->broadcast(WorldSnapshotBuilder::buildWorldSnapshot(worldTick, players, dummies, activeProjectiles, activeAreaEffects, activeBurnStatuses, burnZones).dump());
 }
 
 void GameWorld::updateDashes(NetworkHandler* network, long long now_ms) {
