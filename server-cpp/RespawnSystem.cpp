@@ -3,10 +3,28 @@
 #include "WorldSetup.h"
 #include <chrono>
 
+namespace {
+void placePlayerAtAssignedSpawn(
+    Player& player,
+    const MapLoader& mapLoader,
+    const WorldDefinition& worldDefinition,
+    const std::map<std::string, std::string>& assignedPlayerSpawnNames
+) {
+    const auto assignedSpawnIt = assignedPlayerSpawnNames.find(player.id);
+    if (assignedSpawnIt != assignedPlayerSpawnNames.end() &&
+        WorldSetup::placePlayerAtNamedSpawn(player, mapLoader, worldDefinition, assignedSpawnIt->second)) {
+        return;
+    }
+
+    WorldSetup::placePlayerAtSpawn(player, mapLoader, worldDefinition);
+}
+}
+
 void RespawnSystem::updatePlayerRespawns(
     std::map<std::string, Player>& players,
     const MapLoader& mapLoader,
     const WorldDefinition& worldDefinition,
+    const std::map<std::string, std::string>& assignedPlayerSpawnNames,
     unsigned long long worldTick,
     long long nowMs,
     NetworkHandler* network
@@ -16,7 +34,7 @@ void RespawnSystem::updatePlayerRespawns(
             continue;
         }
 
-        WorldSetup::placePlayerAtSpawn(player, mapLoader, worldDefinition);
+        placePlayerAtAssignedSpawn(player, mapLoader, worldDefinition, assignedPlayerSpawnNames);
         player.respawn(player.x, player.y);
         player.inputX = 0.0f;
         player.inputY = 0.0f;
@@ -70,6 +88,7 @@ bool RespawnSystem::respawnPlayer(
     std::map<std::string, Player>& players,
     const MapLoader& mapLoader,
     const WorldDefinition& worldDefinition,
+    const std::map<std::string, std::string>& assignedPlayerSpawnNames,
     const std::string& playerId
 ) {
     auto it = players.find(playerId);
@@ -85,7 +104,7 @@ bool RespawnSystem::respawnPlayer(
         return false;
     }
 
-    WorldSetup::placePlayerAtSpawn(player, mapLoader, worldDefinition);
+    placePlayerAtAssignedSpawn(player, mapLoader, worldDefinition, assignedPlayerSpawnNames);
     player.respawn(player.x, player.y);
     player.inputX = 0.0f;
     player.inputY = 0.0f;

@@ -49,6 +49,7 @@ public:
     
     const std::vector<SpawnPoint>& getPlayerSpawns() const { return playerSpawns; }
     const std::vector<SpawnPoint>& getDummySpawns() const { return dummySpawns; }
+    const SpawnPoint* findPlayerSpawnByName(const std::string& spawnName) const;
     
     bool isBlocked(float x, float y, float width = 64.0f, float height = 64.0f) const;
 };

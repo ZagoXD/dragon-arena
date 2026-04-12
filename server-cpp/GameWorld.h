@@ -6,6 +6,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include "MapCatalog.h"
 #include "Player.h"
 #include "GameConfig.h"
 #include "GameState.h"
@@ -31,6 +32,9 @@ private:
     long long lastSnapshotMs = 0;
     std::string instanceKey;
     std::string instanceMode;
+    MapCatalogEntry mapEntry;
+    std::map<std::string, std::string> assignedPlayerSpawnNames;
+    std::size_t nextReservedSpawnIndex = 0;
 
 public:
     GameWorld(std::string instanceKey = "", std::string instanceMode = "training");
@@ -38,6 +42,7 @@ public:
     unsigned long long getCurrentTick() const { return worldTick; }
     const std::string& getInstanceKey() const { return instanceKey; }
     const std::string& getInstanceMode() const { return instanceMode; }
+    const std::string& getMapId() const { return mapEntry.id; }
     bool isTrainingInstance() const { return instanceMode == "training"; }
     bool isMatchInstance() const { return instanceMode == "match"; }
     void addPlayer(std::string id, std::string name, std::string charId, std::string role = "player");
@@ -71,6 +76,8 @@ public:
     bool useSkill(std::string playerId, std::string skillId, float targetX, float targetY, NetworkHandler* network);
     void update(NetworkHandler* network); // High-frequency update
 private:
+    void assignPlayerSpawnNameIfNeeded(const std::string& playerId);
+    void placePlayerUsingAssignedSpawn(Player& player);
     void updateSimulation(NetworkHandler* network, float deltaSeconds, long long now_ms);
     void broadcastSnapshot(NetworkHandler* network, long long now_ms);
     void updateDashes(NetworkHandler* network, long long now_ms);

@@ -92,7 +92,7 @@ void testMovementIntentAndBounds() {
 
 void testMovementCollisionWithMap() {
     MapLoader mapLoader;
-    assert(mapLoader.loadMap("map-assets/tiled/default_map.tmj"));
+    assert(mapLoader.loadMap("map-assets/tiled/training_map.tmj"));
 
     Player player = makeMeteor("p2");
     player.x = 0.0f;
@@ -246,10 +246,10 @@ void testDashDamageAndRespawn() {
     assert(dummies["dummy"].hp < GameConfig::getWorldDefinition().dummyMaxHp);
 
     MapLoader mapLoader;
-    assert(mapLoader.loadMap("map-assets/tiled/default_map.tmj"));
+    assert(mapLoader.loadMap("map-assets/tiled/training_map.tmj"));
     players["target"].hp = 0;
     players["target"].deathTimeMs = 0;
-    bool respawned = RespawnSystem::respawnPlayer(players, mapLoader, GameConfig::getWorldDefinition(), "target");
+    bool respawned = RespawnSystem::respawnPlayer(players, mapLoader, GameConfig::getWorldDefinition(), {}, "target");
     assert(respawned);
     assert(players["target"].hp == players["target"].maxHp);
   }
@@ -320,8 +320,32 @@ void testArenaInstanceModes() {
 
     assert(trainingWorld.getInstanceMode() == "training");
     assert(matchWorld.getInstanceMode() == "match");
+    assert(trainingWorld.getMapId() == "training_map");
+    assert(matchWorld.getMapId() == "arena_map");
     assert(trainingWorld.getDummiesJson().size() >= 1);
     assert(matchWorld.getDummiesJson().empty());
+}
+
+void testMatchPlayersUseReservedNamedSpawns() {
+    GameWorld matchWorld("match:test", "match");
+    const SpawnPoint* spawn1 = WorldSetup::findPlayerSpawnByName(matchWorld.getMapLoader(), "player_spawn_1");
+    const SpawnPoint* spawn2 = WorldSetup::findPlayerSpawnByName(matchWorld.getMapLoader(), "player_spawn_2");
+
+    assert(spawn1 != nullptr);
+    assert(spawn2 != nullptr);
+
+    matchWorld.addPlayer("player_a", "Player A", "meteor");
+    matchWorld.addPlayer("player_b", "Player B", "hydra");
+
+    auto playerA = matchWorld.getPlayerCopy("player_a");
+    auto playerB = matchWorld.getPlayerCopy("player_b");
+
+    assert(playerA.has_value());
+    assert(playerB.has_value());
+    assert(approx(playerA->x, spawn1->x));
+    assert(approx(playerA->y, spawn1->y));
+    assert(approx(playerB->x, spawn2->x));
+    assert(approx(playerB->y, spawn2->y));
 }
 }
 
@@ -337,6 +361,7 @@ int main() {
     testDashDamageAndRespawn();
     testWorldSetupAndProtocolPayloads();
     testArenaInstanceModes();
+    testMatchPlayersUseReservedNamedSpawns();
 
     std::cout << "GameplayTests passed." << std::endl;
     return 0;

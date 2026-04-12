@@ -15,6 +15,7 @@ public:
         std::map<std::string, Player>& players,
         const MapLoader& mapLoader,
         const WorldDefinition& worldDefinition,
+        const std::map<std::string, std::string>& assignedPlayerSpawnNames,
         unsigned long long worldTick,
         long long nowMs,
         NetworkHandler* network
@@ -32,6 +33,7 @@ public:
         std::map<std::string, Player>& players,
         const MapLoader& mapLoader,
         const WorldDefinition& worldDefinition,
+        const std::map<std::string, std::string>& assignedPlayerSpawnNames,
         const std::string& playerId
     );
 };

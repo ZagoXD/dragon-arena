@@ -1,5 +1,4 @@
 #include "WorldSetup.h"
-#include <cstdlib>
 
 WorldDefinition WorldSetup::resolveWorldDefinition(const MapLoader& mapLoader) {
     WorldDefinition worldDefinition = GameConfig::getWorldDefinition();
@@ -61,12 +60,32 @@ std::map<std::string, DummyEntity> WorldSetup::createInitialDummies(const MapLoa
     return dummies;
 }
 
+const SpawnPoint* WorldSetup::findPlayerSpawnByName(const MapLoader& mapLoader, const std::string& spawnName) {
+    return mapLoader.findPlayerSpawnByName(spawnName);
+}
+
+bool WorldSetup::placePlayerAtNamedSpawn(
+    Player& player,
+    const MapLoader& mapLoader,
+    const WorldDefinition& worldDefinition,
+    const std::string& spawnName
+) {
+    (void)worldDefinition;
+    const SpawnPoint* spawn = findPlayerSpawnByName(mapLoader, spawnName);
+    if (spawn == nullptr) {
+        return false;
+    }
+
+    player.x = spawn->x;
+    player.y = spawn->y;
+    return true;
+}
+
 void WorldSetup::placePlayerAtSpawn(Player& player, const MapLoader& mapLoader, const WorldDefinition& worldDefinition) {
     const auto& playerSpawns = mapLoader.getPlayerSpawns();
     if (!playerSpawns.empty()) {
-        int spawnIndex = rand() % playerSpawns.size();
-        player.x = playerSpawns[spawnIndex].x;
-        player.y = playerSpawns[spawnIndex].y;
+        player.x = playerSpawns.front().x;
+        player.y = playerSpawns.front().y;
         return;
     }
 

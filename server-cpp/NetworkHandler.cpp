@@ -1222,6 +1222,7 @@ void NetworkHandler::disconnectUserSessions(
     long long userId,
     const json& payload,
     uWS::WebSocket<false, true, PerSocketData>* excludedSocket,
+    const std::string* allowedSessionToken,
     bool invalidateStoredSessions
 ) {
     std::vector<uWS::WebSocket<false, true, PerSocketData>*> sockets;
@@ -1231,6 +1232,12 @@ void NetworkHandler::disconnectUserSessions(
         if (it != authenticatedSockets.end()) {
             for (uWS::WebSocket<false, true, PerSocketData>* socket : it->second) {
                 if (socket == excludedSocket) {
+                    continue;
+                }
+                PerSocketData* socketData = socket->getUserData();
+                if (allowedSessionToken != nullptr &&
+                    socketData != nullptr &&
+                    socketData->sessionToken == *allowedSessionToken) {
                     continue;
                 }
                 sockets.push_back(socket);
@@ -1362,6 +1369,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             userData->username = session.authenticatedSession->authenticatedUser.user.username;
             userData->nickname = session.authenticatedSession->authenticatedUser.user.nickname;
             userData->tag = session.authenticatedSession->authenticatedUser.user.tag;
+            userData->sessionToken = session.authenticatedSession->session.token;
             userData->role = session.authenticatedSession->authenticatedUser.user.role;
             registerAuthenticatedSocket(ws, userData);
             ws->send(ProtocolPayloadBuilder::buildAuthSuccess(
@@ -1375,7 +1383,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 {"code", "session_revoked"},
                 {"reason", "Conta conectada em outro lugar. Se o acesso não foi autorizado, contate o suporte."},
                 {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
-            }), ws, false);
+            }), ws, &userData->sessionToken, false);
             notifyFriendsPresenceChanged(userData->userId);
         }
         else if (event == "login") {
@@ -1403,6 +1411,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             userData->username = session.authenticatedSession->authenticatedUser.user.username;
             userData->nickname = session.authenticatedSession->authenticatedUser.user.nickname;
             userData->tag = session.authenticatedSession->authenticatedUser.user.tag;
+            userData->sessionToken = session.authenticatedSession->session.token;
             userData->role = session.authenticatedSession->authenticatedUser.user.role;
             registerAuthenticatedSocket(ws, userData);
             ws->send(ProtocolPayloadBuilder::buildAuthSuccess(
@@ -1416,7 +1425,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 {"code", "session_revoked"},
                 {"reason", "Conta conectada em outro lugar. Se o acesso não foi autorizado, contate o suporte."},
                 {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
-            }), ws, false);
+            }), ws, &userData->sessionToken, false);
             notifyFriendsPresenceChanged(userData->userId);
         }
         else if (event == "authToken") {
@@ -1437,6 +1446,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
             userData->username = session.authenticatedSession->authenticatedUser.user.username;
             userData->nickname = session.authenticatedSession->authenticatedUser.user.nickname;
             userData->tag = session.authenticatedSession->authenticatedUser.user.tag;
+            userData->sessionToken = session.authenticatedSession->session.token;
             userData->role = session.authenticatedSession->authenticatedUser.user.role;
             registerAuthenticatedSocket(ws, userData);
             ws->send(ProtocolPayloadBuilder::buildAuthSuccess(
@@ -1450,7 +1460,7 @@ void NetworkHandler::handleMessage(uWS::WebSocket<false, true, PerSocketData> *w
                 {"code", "session_revoked"},
                 {"reason", "Conta conectada em outro lugar. Se o acesso não foi autorizado, contate o suporte."},
                 {"protocolVersion", DRAGON_ARENA_PROTOCOL_VERSION}
-            }), ws, false);
+            }), ws, &userData->sessionToken, false);
             notifyFriendsPresenceChanged(userData->userId);
         }
         else if (event == "profileSync") {

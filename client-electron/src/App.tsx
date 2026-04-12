@@ -1390,6 +1390,7 @@ function App() {
       if (data.event === 'matchFound') {
         setMatchmakingActive(false)
         setMatchmakingStartedAtMs(null)
+        setMatchmakingInfo(null)
         setMatchAcceptBusy(false)
         setPendingMatchInvite(data as PendingMatchInvite)
         return
@@ -1423,6 +1424,7 @@ function App() {
       }
 
       if (data.event === 'matchAccepted') {
+        setMatchmakingInfo(null)
         setMatchAcceptBusy(true)
         return
       }
@@ -1432,6 +1434,7 @@ function App() {
         setMatchAcceptBusy(false)
         setMatchmakingActive(false)
         setMatchmakingStartedAtMs(null)
+        setMatchmakingInfo(null)
         setArenaJoinMode('match')
         setArenaMatchId(data.matchId as string)
         setLoadingStatus(i18n.t('matchmaking.preparingMatch'))

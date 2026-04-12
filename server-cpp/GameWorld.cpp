@@ -24,8 +24,9 @@ int scaleDamageForCharacter(const Player& player, int baseDamage) {
 GameWorld::GameWorld(std::string instanceKeyValue, std::string instanceModeValue)
     : worldDefinition(GameConfig::getWorldDefinition()),
       instanceKey(std::move(instanceKeyValue)),
-      instanceMode(std::move(instanceModeValue)) {
-    mapLoader.loadMap("map-assets/tiled/default_map.tmj");
+      instanceMode(std::move(instanceModeValue)),
+      mapEntry(MapCatalog::getForInstanceMode(instanceMode)) {
+    mapLoader.loadMap(mapEntry.path);
     worldDefinition = WorldSetup::resolveWorldDefinition(mapLoader);
     if (isTrainingInstance()) {
         dummies = WorldSetup::createInitialDummies(mapLoader, worldDefinition);
@@ -36,7 +37,8 @@ void GameWorld::addPlayer(std::string id, std::string name, std::string charId, 
     std::lock_guard<std::mutex> lock(mtx);
     const auto& definition = GameConfig::getCharacterDefinition(charId);
     Player p(id, name, definition, role);
-    WorldSetup::placePlayerAtSpawn(p, mapLoader, worldDefinition);
+    assignPlayerSpawnNameIfNeeded(id);
+    placePlayerUsingAssignedSpawn(p);
     players[id] = p;
 }
 
@@ -280,7 +282,7 @@ void GameWorld::updateDummyRespawns(NetworkHandler* network, long long now_ms) {
 }
 
 void GameWorld::updatePlayerRespawns(NetworkHandler* network, long long now_ms) {
-    RespawnSystem::updatePlayerRespawns(players, mapLoader, worldDefinition, worldTick, now_ms, network);
+    RespawnSystem::updatePlayerRespawns(players, mapLoader, worldDefinition, assignedPlayerSpawnNames, worldTick, now_ms, network);
 }
 
 void GameWorld::updatePendingAutoAttacks(NetworkHandler* network, long long now_ms) {
@@ -341,5 +343,32 @@ int GameWorld::takeDamage(std::string id, int amount) {
 
 bool GameWorld::respawnPlayer(std::string id) {
     std::lock_guard<std::mutex> lock(mtx);
-    return RespawnSystem::respawnPlayer(players, mapLoader, worldDefinition, id);
+    return RespawnSystem::respawnPlayer(players, mapLoader, worldDefinition, assignedPlayerSpawnNames, id);
+}
+
+void GameWorld::assignPlayerSpawnNameIfNeeded(const std::string& playerId) {
+    if (!isMatchInstance()) {
+        return;
+    }
+
+    if (assignedPlayerSpawnNames.contains(playerId)) {
+        return;
+    }
+
+    if (nextReservedSpawnIndex >= mapEntry.reservedPlayerSpawnNames.size()) {
+        return;
+    }
+
+    assignedPlayerSpawnNames[playerId] = mapEntry.reservedPlayerSpawnNames[nextReservedSpawnIndex];
+    nextReservedSpawnIndex += 1;
+}
+
+void GameWorld::placePlayerUsingAssignedSpawn(Player& player) {
+    const auto assignedSpawnIt = assignedPlayerSpawnNames.find(player.id);
+    if (assignedSpawnIt != assignedPlayerSpawnNames.end() &&
+        WorldSetup::placePlayerAtNamedSpawn(player, mapLoader, worldDefinition, assignedSpawnIt->second)) {
+        return;
+    }
+
+    WorldSetup::placePlayerAtSpawn(player, mapLoader, worldDefinition);
 }

@@ -8,6 +8,12 @@ MapLoader::MapLoader()
       widthPixels(0), heightPixels(0), loaded(false) {}
 
 bool MapLoader::loadMap(const std::string& filepath) {
+    loaded = false;
+    rawMapData = json();
+    collisionGrid.clear();
+    playerSpawns.clear();
+    dummySpawns.clear();
+
     std::vector<std::string> pathsToTry = {
         filepath,
         "../" + filepath,
@@ -130,4 +136,14 @@ bool MapLoader::isBlocked(float x, float y, float width, float height) const {
     }
     
     return false;
+}
+
+const SpawnPoint* MapLoader::findPlayerSpawnByName(const std::string& spawnName) const {
+    for (const SpawnPoint& spawn : playerSpawns) {
+        if (spawn.name == spawnName) {
+            return &spawn;
+        }
+    }
+
+    return nullptr;
 }

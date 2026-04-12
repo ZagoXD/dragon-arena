@@ -30,6 +30,7 @@ struct PerSocketData {
     std::string username;
     std::string nickname;
     std::string tag;
+    std::string sessionToken;
     std::string role = "player";
     long long lastWhisperFromUserId = 0;
     std::string lastWhisperFromDisplay;
@@ -170,6 +171,7 @@ private:
         long long userId,
         const json& payload,
         uWS::WebSocket<false, true, PerSocketData>* excludedSocket = nullptr,
+        const std::string* allowedSessionToken = nullptr,
         bool invalidateStoredSessions = true
     );
 public:

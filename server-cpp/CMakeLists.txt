@@ -139,6 +139,7 @@ add_executable(DragonArenaServer
     CombatSystem.cpp
     BurnSystem.cpp
     MovementSystem.cpp
+    MapCatalog.cpp
     GameWorld.cpp
     DashSystem.cpp
     SkillSystem.cpp
@@ -199,6 +200,7 @@ add_executable(DragonArenaGameplayTests
     CombatSystem.cpp
     BurnSystem.cpp
     MovementSystem.cpp
+    MapCatalog.cpp
     GameWorld.cpp
     SkillSystem.cpp
     ProjectileSystem.cpp
