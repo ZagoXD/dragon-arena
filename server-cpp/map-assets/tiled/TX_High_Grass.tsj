@@ -1,0 +1,14 @@
+{ "columns":25,
+ "image":"Texture\/TX_High_Grass.png",
+ "imageheight":448,
+ "imagewidth":800,
+ "margin":0,
+ "name":"TX_High_Grass",
+ "spacing":0,
+ "tilecount":350,
+ "tiledversion":"1.12.1",
+ "tileheight":32,
+ "tilewidth":32,
+ "type":"tileset",
+ "version":"1.10"
+}

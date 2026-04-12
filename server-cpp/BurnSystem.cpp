@@ -254,7 +254,8 @@ void BurnSystem::updateBurnStatuses(
                             {"event", "playerDamaged"},
                             {"tick", worldTick},
                             {"id", status.targetId},
-                            {"hp", damageResult.newHp}
+                            {"hp", damageResult.newHp},
+                            {"attackerId", status.ownerId}
                         }).dump());
                         if (damageResult.killed) {
                             network->broadcast(json({
@@ -373,7 +374,8 @@ void BurnSystem::updateBurnZones(
                         {"event", "playerDamaged"},
                         {"tick", worldTick},
                         {"id", playerId},
-                        {"hp", damageResult.newHp}
+                        {"hp", damageResult.newHp},
+                        {"attackerId", zone.ownerId}
                     }).dump());
                     if (damageResult.killed) {
                         network->broadcast(json({

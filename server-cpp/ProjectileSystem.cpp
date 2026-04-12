@@ -171,7 +171,8 @@ void ProjectileSystem::releasePendingAutoAttacks(
                         {"event", "playerDamaged"},
                         {"tick", worldTick},
                         {"id", targetId},
-                        {"hp", damageResult.newHp}
+                        {"hp", damageResult.newHp},
+                        {"attackerId", cast.playerId}
                     }).dump());
                     if (damageResult.killed) {
                         network->broadcast(json({
@@ -340,7 +341,7 @@ void ProjectileSystem::updateProjectiles(
                     });
 
                     if (network) {
-                        network->broadcast(json({{"event", "playerDamaged"}, {"tick", worldTick}, {"id", targetId}, {"hp", damageResult.newHp}}).dump());
+                        network->broadcast(json({{"event", "playerDamaged"}, {"tick", worldTick}, {"id", targetId}, {"hp", damageResult.newHp}, {"attackerId", projectile.ownerId}}).dump());
                         if (damageResult.killed) {
                             network->broadcast(json({
                                 {"event", "playerScored"},
@@ -475,7 +476,8 @@ void ProjectileSystem::updateAreaEffects(
                             {"event", "playerDamaged"},
                             {"tick", worldTick},
                             {"id", targetId},
-                            {"hp", damageResult.newHp}
+                            {"hp", damageResult.newHp},
+                            {"attackerId", effect.ownerId}
                         }).dump());
                         if (damageResult.killed) {
                             network->broadcast(json({
@@ -568,7 +570,8 @@ void ProjectileSystem::updateAreaEffects(
                             {"event", "playerDamaged"},
                             {"tick", worldTick},
                             {"id", targetId},
-                            {"hp", damageResult.newHp}
+                            {"hp", damageResult.newHp},
+                            {"attackerId", effect.ownerId}
                         }).dump());
                         if (damageResult.killed) {
                             network->broadcast(json({
@@ -653,7 +656,7 @@ void ProjectileSystem::updateAreaEffects(
                 });
 
                 if (network) {
-                    network->broadcast(json({{"event", "playerDamaged"}, {"tick", worldTick}, {"id", targetId}, {"hp", damageResult.newHp}}).dump());
+                    network->broadcast(json({{"event", "playerDamaged"}, {"tick", worldTick}, {"id", targetId}, {"hp", damageResult.newHp}, {"attackerId", effect.ownerId}}).dump());
                     if (damageResult.killed) {
                         network->broadcast(json({
                             {"event", "playerScored"},

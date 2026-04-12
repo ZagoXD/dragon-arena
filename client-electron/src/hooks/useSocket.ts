@@ -64,6 +64,16 @@ export interface SkillUsedEvent {
   effectDurationMs: number
 }
 
+export interface PlayerDamagedEvent {
+  tick?: number
+  id: string
+  hp: number
+  shieldHp?: number
+  shieldMaxHp?: number
+  movementSpeed?: number
+  attackerId?: string
+}
+
 export type AuthMode = 'login' | 'register' | 'session'
 
 export interface ArenaAuthIntent {
@@ -158,6 +168,7 @@ export function useSocket(
   onDummyDamaged: (id: string, hp: number) => void,
   onSelfDamaged: (newHp: number, shieldHp: number, shieldMaxHp: number, x?: number, y?: number, movementSpeed?: number) => void,
   onSelfMoved: (x: number, y: number, movementSpeed?: number) => void,
+  onPlayerDamaged?: (event: PlayerDamagedEvent) => void,
   onProjectileSpawned?: (projectile: ProjectileSpawnEvent) => void,
   onProjectileRemoved?: (projectileId: string) => void,
   onProjectilesSnapshot?: (projectiles: ProjectileSpawnEvent[]) => void,
@@ -186,6 +197,8 @@ export function useSocket(
   const latestSnapshotTickRef = useRef(0)
   const hasSessionInitRef = useRef(false)
 
+  const onPlayerDamagedRef = useRef(onPlayerDamaged)
+  onPlayerDamagedRef.current = onPlayerDamaged
   const onProjectileSpawnedRef = useRef(onProjectileSpawned)
   onProjectileSpawnedRef.current = onProjectileSpawned
   const onProjectileRemovedRef = useRef(onProjectileRemoved)
@@ -360,6 +373,7 @@ export function useSocket(
 
         case 'playerDamaged':
           if (data.tick && data.tick < latestSnapshotTickRef.current) break
+          onPlayerDamagedRef.current?.(data as PlayerDamagedEvent)
           if (data.id === socketIdRef.current) {
             onSelfDamaged(data.hp, data.shieldHp || 0, data.shieldMaxHp || 0, undefined, undefined, data.movementSpeed)
           } else {

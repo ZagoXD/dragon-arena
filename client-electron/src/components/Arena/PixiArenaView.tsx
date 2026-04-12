@@ -265,7 +265,8 @@ export function PixiArenaView(props: PixiArenaViewProps) {
           player.direction,
           player.animRow,
           player.isDashing,
-          player.dashAngle
+          player.dashAngle,
+          player.opacity ?? 1
         )
       )
       nextOverlay.push(
@@ -293,7 +294,8 @@ export function PixiArenaView(props: PixiArenaViewProps) {
           props.localPlayer.direction,
           props.localPlayer.animRow,
           props.localPlayer.isDashing,
-          props.localPlayer.dashAngle
+          props.localPlayer.dashAngle,
+          props.localPlayer.opacity ?? 1
         )
       )
       nextOverlay.push(

@@ -79,7 +79,8 @@ void DashSystem::updateDashes(
                         {"event", "playerDamaged"},
                         {"tick", worldTick},
                         {"id", otherId},
-                        {"hp", damageResult.newHp}
+                        {"hp", damageResult.newHp},
+                        {"attackerId", playerId}
                     }).dump());
                 }
                 BurnSystem::tryApplyToPlayer(target, player, "dragon_dive", activeBurnStatuses, worldTick, nowMs, network);

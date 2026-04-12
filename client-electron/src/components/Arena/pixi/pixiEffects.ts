@@ -145,11 +145,13 @@ export function buildSkillEffect(
   if (effect.spell.effectKind === 'tile_burst') {
     const container = new Container()
     const tileSize = frameWidth
-    const offsets: Array<[number, number]> = []
+    const offsets: Array<[number, number]> = effect.visibleTileOffsets ?? []
 
-    for (let tileY = -3; tileY <= 3; tileY += 1) {
-      for (let tileX = -3; tileX <= 3; tileX += 1) {
-        offsets.push([tileX, tileY])
+    if (offsets.length === 0) {
+      for (let tileY = -3; tileY <= 3; tileY += 1) {
+        for (let tileX = -3; tileX <= 3; tileX += 1) {
+          offsets.push([tileX, tileY])
+        }
       }
     }
 
@@ -180,8 +182,9 @@ export function buildSkillEffect(
 
     const forwardX = Math.cos(effect.angle)
     const forwardY = Math.sin(effect.angle)
+    const visibleSteps = effect.visibleLineSteps ?? [1, 2, 3, 4, 5]
 
-    for (let step = 1; step <= 5; step += 1) {
+    for (const step of visibleSteps) {
       const sprite = new Sprite(frameTexture)
       sprite.anchor.set(0.5)
       sprite.x = forwardX * frameWidth * step
@@ -241,14 +244,38 @@ export function buildSkillEffect(
   container.rotation = effect.angle + Math.PI / 2
   container.zIndex = effect.y + 110
 
-  const sprite = new Sprite(frameTexture)
-  sprite.anchor.set(0.5, 1)
-  sprite.width = frameWidth
-  sprite.height = frameHeight * 1.5
-  sprite.alpha = 0.98
-  sprite.roundPixels = true
+  const visibleSlices = effect.visibleBeamSlices ?? [0, 1, 2, 3, 4, 5]
+  const sliceCount = Math.max(1, visibleSlices.length > 0 ? Math.max(...visibleSlices) + 1 : 6)
+  const sourceSliceHeight = frameHeight / sliceCount
+  const renderedSliceHeight = (frameHeight * 1.5) / sliceCount
 
-  container.addChild(sprite)
+  for (const sliceIndex of visibleSlices) {
+    const clampedSliceIndex = Math.max(0, Math.min(sliceCount - 1, sliceIndex))
+    const sourceY = frameIndex * frameHeight + (frameHeight - sourceSliceHeight * (clampedSliceIndex + 1))
+    const sliceTexture = getCachedFrameTexture(
+      frameTextureCache,
+      `skill:${effect.spell.imageSrc}:beam-slice:${frameIndex}:${frameWidth}:${frameHeight}:${clampedSliceIndex}:${sliceCount}`,
+      texture,
+      0,
+      sourceY,
+      frameWidth,
+      sourceSliceHeight
+    )
+
+    if (!sliceTexture) {
+      continue
+    }
+
+    const sprite = new Sprite(sliceTexture)
+    sprite.anchor.set(0.5, 1)
+    sprite.width = frameWidth
+    sprite.height = renderedSliceHeight + 1
+    sprite.y = -(renderedSliceHeight * clampedSliceIndex)
+    sprite.alpha = 0.98
+    sprite.roundPixels = true
+    container.addChild(sprite)
+  }
+
   return container
 }
 

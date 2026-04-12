@@ -8,6 +8,7 @@ import {
   ArenaAuthIntent,
   ArenaJoinOptions,
   NetPlayer,
+  PlayerDamagedEvent,
   ProjectileSpawnEvent,
   SkillUsedEvent,
   MatchEndedEvent,
@@ -46,6 +47,7 @@ interface LocalDashState {
 
 interface ImpactEffect {
   id: string
+  ownerId?: string
   x: number
   y: number
   radius: number
@@ -106,6 +108,7 @@ export function useArenaNetworkState({
   const [localDashState, setLocalDashState] = useState<LocalDashState>({ isDashing: false })
   const [impactEffects, setImpactEffects] = useState<ImpactEffect[]>([])
   const [activeSkillEffects, setActiveSkillEffects] = useState<ActiveSkillEffectView[]>([])
+  const [revealedPlayerIds, setRevealedPlayerIds] = useState<Record<string, number>>({})
 
   const otherPlayersRef = useRef<Record<string, NetPlayer>>({})
   const remoteSamplesRef = useRef<Record<string, RemotePlayerSample[]>>({})
@@ -169,6 +172,18 @@ export function useArenaNetworkState({
     }
   }, [])
 
+  const onPlayerDamaged = useCallback((event: PlayerDamagedEvent) => {
+    if (!event.attackerId || event.attackerId === socketIdRef.current) {
+      return
+    }
+
+    const revealUntil = Date.now() + 2500
+    setRevealedPlayerIds(prev => ({
+      ...prev,
+      [event.attackerId!]: Math.max(prev[event.attackerId!] || 0, revealUntil),
+    }))
+  }, [])
+
   const onProjectileSpawned = useCallback((data: ProjectileSpawnEvent) => {
     const projectile = resolveProjectile(data)
     if (!projectile) return
@@ -188,6 +203,7 @@ export function useArenaNetworkState({
         ...prev,
         {
           id: `${projectileId}-${performance.now()}`,
+          ownerId: removedProjectile.ownerId,
           x: removedProjectile.x,
           y: removedProjectile.y,
           radius: isEmber ? 28 : 40,
@@ -353,6 +369,7 @@ export function useArenaNetworkState({
     onDummyDamaged,
     onSelfDamaged,
     onSelfMoved,
+    onPlayerDamaged,
     onProjectileSpawned,
     onProjectileRemoved,
     onProjectilesSnapshot,
@@ -592,6 +609,22 @@ export function useArenaNetworkState({
       }
       return changed ? next : prev
     })
+
+    setRevealedPlayerIds(prev => {
+      const now = Date.now()
+      let changed = false
+      const next: Record<string, number> = {}
+
+      for (const [playerId, revealUntil] of Object.entries(prev)) {
+        if (revealUntil > now) {
+          next[playerId] = revealUntil
+        } else {
+          changed = true
+        }
+      }
+
+      return changed ? next : prev
+    })
   })
 
   return {
@@ -625,6 +658,7 @@ export function useArenaNetworkState({
     localDashState,
     impactEffects,
     activeSkillEffects,
+    revealedPlayerIds,
     burnStatuses: burnStatuses as BurnStatusData[],
     burnZones: burnZones as BurnZoneData[],
     emitMove,

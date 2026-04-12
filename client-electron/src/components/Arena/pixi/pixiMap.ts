@@ -26,6 +26,8 @@ const TILESETS_LOCAL_PATHS: Record<string, { src: string, cols: number }> = {
   'TX Props.tsj': { src: 'tilesets/TX Props.png', cols: 16 },
   'props.png': { src: 'tilesets/TX Props.png', cols: 16 },
   'props.tsj': { src: 'tilesets/TX Props.png', cols: 16 },
+  'TX_High_Grass.png': { src: 'tilesets/TX_High_Grass.png', cols: 25 },
+  'TX_High_Grass.tsj': { src: 'tilesets/TX_High_Grass.png', cols: 25 },
 }
 
 export function getTilesetInfo(tileset: any, order = 0) {
@@ -97,7 +99,7 @@ export function buildMapLayer(
       return
     }
 
-    const isBackground = layer.name === 'ground' || layer.name === 'collision'
+    const isBackground = layer.name === 'ground' || layer.name === 'collision' || layer.name === 'Hide'
     if (renderLayer === 'background' && !isBackground) {
       return
     }

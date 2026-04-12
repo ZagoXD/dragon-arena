@@ -31,7 +31,8 @@ export function buildPlayer(
   direction: NetPlayer['direction'],
   animRow: number,
   isDashing?: boolean,
-  dashAngle?: number
+  dashAngle?: number,
+  opacity = 1
 ) {
   const container = new Container()
   container.x = x
@@ -92,9 +93,7 @@ export function buildPlayer(
   if (isDashSingleRotated) {
     sprite.rotation = dashAngle ?? fallbackDashAngle
   }
-  if (isDashing) {
-    sprite.alpha = 0.96
-  }
+  sprite.alpha = opacity
 
   const shadow = buildShadow(
     Math.max(26, character.colliderWidth * (isDashing ? 1.15 : 0.9)),
@@ -111,6 +110,7 @@ export function buildPlayer(
     aura.stroke({ width: 2, color: 0xffc36b, alpha: 0.45 })
     aura.x = character.colliderWidth / 2
     aura.y = character.colliderHeight * 0.55
+    aura.alpha = opacity
     container.addChild(aura)
   }
 

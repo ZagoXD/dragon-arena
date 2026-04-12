@@ -6,6 +6,7 @@ export interface RemotePlayerView {
   id: string
   name: string
   role?: string
+  opacity?: number
   character: ResolvedCharacterConfig
   x: number
   y: number
@@ -22,6 +23,7 @@ export interface LocalPlayerView {
   id: string
   name: string
   role?: string
+  opacity?: number
   character: ResolvedCharacterConfig
   x: number
   y: number
@@ -56,6 +58,7 @@ export interface AimingArrowView {
 
 export interface ImpactEffectView {
   id: string
+  ownerId?: string
   x: number
   y: number
   radius: number
@@ -76,6 +79,9 @@ export interface ActiveSkillEffectView {
   activeDurationMs: number
   life: number
   maxLife: number
+  visibleLineSteps?: number[]
+  visibleTileOffsets?: Array<[number, number]>
+  visibleBeamSlices?: number[]
 }
 
 export interface PixiArenaViewProps {
