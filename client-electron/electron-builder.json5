@@ -7,6 +7,12 @@
   "directories": {
     "output": "release/${version}"
   },
+  "publish": [
+    {
+      "provider": "generic",
+      "url": "https://pub-3a366535329647d1858b31551de3f193.r2.dev/updates/stable"
+    }
+  ],
   "files": [
     "dist",
     "dist-electron"

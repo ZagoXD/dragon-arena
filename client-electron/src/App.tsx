@@ -68,6 +68,19 @@ interface LobbyContentPayload {
   passives: Record<string, AuthoritativePassiveDefinition>
 }
 
+type AppUpdateStatus = 'disabled' | 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error' | 'not-available'
+
+interface AppUpdateState {
+  status: AppUpdateStatus
+  currentVersion: string
+  availableVersion?: string
+  progressPercent?: number
+  transferredBytes?: number
+  totalBytes?: number
+  message?: string
+  error?: string
+}
+
 interface ReportTargetDraft {
   nickname: string
   tag: string
@@ -97,6 +110,7 @@ interface MatchResultState {
 }
 
 function App() {
+  const [appUpdateState, setAppUpdateState] = useState<AppUpdateState | null>(null)
   const [shellSettings, setShellSettings] = useState<ShellSettings>(DEFAULT_SHELL_SETTINGS)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [screen, setScreen] = useState<Screen>('splash')
@@ -228,6 +242,101 @@ function App() {
   const isLobbyScreen = ['home', 'profile', 'collection', 'admin', 'select'].includes(screen)
   const showSettingsButton = isLobbyScreen
   const activeMenuView = screen === 'profile' || screen === 'collection' || screen === 'admin' ? screen : 'home'
+  const appUpdateBlocking = !!appUpdateState && ['checking', 'available', 'downloading', 'downloaded', 'error'].includes(appUpdateState.status)
+  const appUpdateTitle = useMemo(() => {
+    if (!appUpdateState) {
+      return i18n.t('appUpdate.titles.default')
+    }
+
+    if (appUpdateState.status === 'downloaded') {
+      return i18n.t('appUpdate.titles.downloaded')
+    }
+
+    if (appUpdateState.status === 'error') {
+      return i18n.t('appUpdate.titles.error')
+    }
+
+    return i18n.t('appUpdate.titles.default')
+  }, [appUpdateState])
+  const appUpdateStatusMessage = useMemo(() => {
+    if (!appUpdateState) {
+      return i18n.t('appUpdate.status.checking')
+    }
+
+    switch (appUpdateState.status) {
+      case 'disabled':
+        return i18n.t('appUpdate.status.disabled')
+      case 'idle':
+        return i18n.t('appUpdate.status.idle')
+      case 'checking':
+        return i18n.t('appUpdate.status.checking')
+      case 'available':
+        return i18n.t('appUpdate.status.available', { version: appUpdateState.availableVersion || '-' })
+      case 'downloading':
+        return i18n.t('appUpdate.status.downloading', { version: appUpdateState.availableVersion || '-' })
+      case 'downloaded':
+        return i18n.t('appUpdate.status.downloaded', { version: appUpdateState.availableVersion || '-' })
+      case 'error':
+        return i18n.t('appUpdate.status.error')
+      case 'not-available':
+        return i18n.t('appUpdate.status.notAvailable')
+      default:
+        return i18n.t('appUpdate.status.checking')
+    }
+  }, [appUpdateState])
+  const appUpdateGateMessage = useMemo(() => {
+    if (!appUpdateState) {
+      return i18n.t('appUpdate.gate.waiting')
+    }
+
+    return appUpdateState.status === 'error'
+      ? i18n.t('appUpdate.gate.error')
+      : i18n.t('appUpdate.gate.required')
+  }, [appUpdateState])
+
+  const formatUpdateBytes = useCallback((bytes?: number) => {
+    if (!bytes || bytes <= 0) {
+      return '0 MB'
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }, [])
+
+  const handleRetryAppUpdateCheck = useCallback(async () => {
+    const ipc = getIpcRenderer()
+    if (!ipc?.invoke) {
+      return
+    }
+    const nextState = await ipc.invoke('app-update-check') as AppUpdateState
+    setAppUpdateState(nextState)
+  }, [])
+
+  const handleInstallAppUpdate = useCallback(async () => {
+    const ipc = getIpcRenderer()
+    if (!ipc?.invoke) {
+      return
+    }
+    await ipc.invoke('app-update-install')
+  }, [])
+
+  useEffect(() => {
+    const ipc = getIpcRenderer()
+    if (!ipc?.on || !ipc?.off || !ipc?.invoke) {
+      return
+    }
+
+    const handleUpdateStatus = (_event: unknown, nextState: AppUpdateState) => {
+      setAppUpdateState(nextState)
+    }
+
+    ipc.on('app-update-status', handleUpdateStatus)
+    void ipc.invoke('app-update-get-state').then((state) => {
+      setAppUpdateState(state as AppUpdateState)
+    })
+
+    return () => {
+      ipc.off('app-update-status', handleUpdateStatus)
+    }
+  }, [])
 
   const formatAuthErrorMessage = useCallback((payload: { code?: string, reason?: string, isPermanent?: boolean, banReason?: string, bannedUntilMs?: number }) => {
     if (payload.code === 'user_banned') {
@@ -296,6 +405,12 @@ function App() {
   const serverUrl = (import.meta.env.VITE_SERVER_URL || 'ws://localhost:3001').replace('http', 'ws')
 
   const testConnection = useCallback(async (options?: { targetScreen?: Screen, preserveCurrentScreen?: boolean }) => {
+    if (appUpdateBlocking) {
+      setAuthError(appUpdateGateMessage)
+      setScreen('name')
+      return
+    }
+
     if (!options?.preserveCurrentScreen) {
       setScreen('loading')
     }
@@ -328,9 +443,13 @@ function App() {
     } catch {
       setConnError(i18n.t('app.connectionError'))
     }
-  }, [serverUrl])
+  }, [appUpdateBlocking, appUpdateGateMessage, serverUrl])
 
   const authenticate = useCallback((nextAuthIntent: ArenaAuthIntent, options?: { showLoadingScreen?: boolean }) => {
+    if (!appUpdateState || appUpdateBlocking) {
+      return Promise.reject(new Error(appUpdateGateMessage))
+    }
+
     if (options?.showLoadingScreen) {
       setScreen('loading')
       setConnError(null)
@@ -406,9 +525,16 @@ function App() {
         cleanup()
       }
     })
-  }, [formatAuthErrorMessage, serverUrl])
+  }, [appUpdateBlocking, appUpdateGateMessage, appUpdateState, formatAuthErrorMessage, serverUrl])
 
   const handleNameEnter = useCallback(async (nextAuthIntent: ArenaAuthIntent) => {
+    if (!appUpdateState || appUpdateBlocking) {
+      setAuthError(appUpdateGateMessage)
+      setAuthInfo(null)
+      setScreen('name')
+      return
+    }
+
     setAuthError(null)
     setAuthInfo(null)
     setNameScreenMode(nextAuthIntent.mode === 'register' ? 'register' : 'login')
@@ -455,7 +581,7 @@ function App() {
     } finally {
       setAuthPending(false)
     }
-  }, [applyAccountSnapshot, authenticate, clearPersistedSession, persistSession])
+  }, [appUpdateBlocking, appUpdateGateMessage, appUpdateState, applyAccountSnapshot, authenticate, clearPersistedSession, persistSession])
 
   const handleSelectCharacter = (id: string) => {
     if (selectionLockedUntil !== null && Date.now() < selectionLockedUntil) {
@@ -566,22 +692,32 @@ function App() {
   }, [applyAccountSnapshot, persistSession, shouldPersistSession])
 
   const handleEnterTraining = useCallback(() => {
+    if (!appUpdateState || appUpdateBlocking) {
+      setMatchmakingInfo(appUpdateGateMessage)
+      return
+    }
+
     setEnterArenaPending(true)
     setPendingArenaLaunchMode('training')
     window.setTimeout(() => {
       setEnterArenaPending(false)
       setScreen('select')
     }, 220)
-  }, [])
+  }, [appUpdateBlocking, appUpdateGateMessage, appUpdateState])
 
   const handleEnterMatchmaking = useCallback(() => {
+    if (!appUpdateState || appUpdateBlocking) {
+      setMatchmakingInfo(appUpdateGateMessage)
+      return
+    }
+
     setEnterArenaPending(true)
     setPendingArenaLaunchMode('match')
     window.setTimeout(() => {
       setEnterArenaPending(false)
       setScreen('select')
     }, 220)
-  }, [])
+  }, [appUpdateBlocking, appUpdateGateMessage, appUpdateState])
 
   const handleCancelMatchmaking = useCallback(() => {
     if (lobbySocketRef.current?.readyState === WebSocket.OPEN) {
@@ -1093,7 +1229,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!bootReady || attemptedStoredSessionRef.current) {
+    if (!bootReady || attemptedStoredSessionRef.current || !appUpdateState || appUpdateBlocking) {
       return
     }
 
@@ -1145,7 +1281,7 @@ function App() {
         preserveCurrentScreen: true,
       })
     }
-  }, [bootReady, clearPersistedSession, handleNameEnter, testConnection])
+  }, [appUpdateBlocking, appUpdateState, bootReady, clearPersistedSession, handleNameEnter, testConnection])
 
   useEffect(() => {
     if (authIntent?.mode !== 'session' || !authIntent.sessionToken) {
@@ -1700,6 +1836,7 @@ function App() {
                   authInfo={authInfo}
                   initialMode={nameScreenMode}
                   isBusy={authPending}
+                  versionLabel={appUpdateState?.currentVersion ? `version ${appUpdateState.currentVersion}` : null}
                   onLanguageChange={handleLanguageChange}
                   onStart={handleNameEnter}
                 />
@@ -1910,6 +2047,61 @@ function App() {
               >
                 {i18n.t('matchmaking.backHome')}
               </button>
+            </div>
+          </div>
+        )}
+        {appUpdateBlocking && appUpdateState && (
+          <div className="app-update-overlay">
+            <div className="app-update-card">
+              <span className="app-update-eyebrow">{i18n.t('appUpdate.eyebrow')}</span>
+              <h2>{appUpdateTitle}</h2>
+              <p>{appUpdateStatusMessage}</p>
+              {appUpdateState.availableVersion && (
+                <p className="app-update-meta">
+                  {i18n.t('appUpdate.meta.versions', {
+                    currentVersion: appUpdateState.currentVersion,
+                    availableVersion: appUpdateState.availableVersion,
+                  })}
+                </p>
+              )}
+              {(appUpdateState.status === 'checking' || appUpdateState.status === 'available' || appUpdateState.status === 'downloading') && (
+                <>
+                  <div className="app-update-progress">
+                    <div
+                      className="app-update-progress__bar"
+                      style={{ width: `${Math.max(6, Math.min(100, appUpdateState.progressPercent || 0))}%` }}
+                    />
+                  </div>
+                  <div className="app-update-progress__meta">
+                    <span>{Math.round(appUpdateState.progressPercent || 0)}%</span>
+                    {(appUpdateState.transferredBytes || appUpdateState.totalBytes) && (
+                      <span>{formatUpdateBytes(appUpdateState.transferredBytes)} / {formatUpdateBytes(appUpdateState.totalBytes)}</span>
+                    )}
+                  </div>
+                </>
+              )}
+              {appUpdateState.status === 'downloaded' && (
+                <div className="app-update-actions">
+                  <button
+                    type="button"
+                    className="matchmaking-button"
+                    onClick={handleInstallAppUpdate}
+                  >
+                    {i18n.t('appUpdate.actions.install')}
+                  </button>
+                </div>
+              )}
+              {appUpdateState.status === 'error' && (
+                <div className="app-update-actions">
+                  <button
+                    type="button"
+                    className="matchmaking-button"
+                    onClick={handleRetryAppUpdateCheck}
+                  >
+                    {i18n.t('appUpdate.actions.retry')}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

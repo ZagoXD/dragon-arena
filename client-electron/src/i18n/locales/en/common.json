@@ -25,6 +25,36 @@
     "connectionFailed": "Connection failed",
     "tryAgain": "Try again"
   },
+  "appUpdate": {
+    "eyebrow": "Game update",
+    "titles": {
+      "default": "Updating Dragon Arena",
+      "downloaded": "Update ready",
+      "error": "Update failed"
+    },
+    "status": {
+      "disabled": "Automatic updates are disabled in development mode.",
+      "idle": "Waiting to check for updates.",
+      "checking": "Checking whether a newer version is available...",
+      "available": "Update {{version}} found. Preparing download...",
+      "downloading": "Downloading update {{version}}...",
+      "downloaded": "Update {{version}} is ready to install.",
+      "error": "Could not complete the automatic update.",
+      "notAvailable": "You are already on the latest version."
+    },
+    "gate": {
+      "waiting": "Checking client updates. Please wait a moment.",
+      "required": "Update the client before continuing.",
+      "error": "Could not validate the client version."
+    },
+    "meta": {
+      "versions": "Installed version: {{currentVersion}} • Remote version: {{availableVersion}}"
+    },
+    "actions": {
+      "install": "Restart and install",
+      "retry": "Try again"
+    }
+  },
   "splash": {
     "eyebrow": "Official client",
     "subtitle": "Forging your connection to the arena, preparing core systems and synchronizing the battle experience.",

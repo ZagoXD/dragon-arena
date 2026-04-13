@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, screen } from 'electron'
+import { autoUpdater, ProgressInfo, UpdateInfo } from 'electron-updater'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -22,6 +23,35 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
 let win: BrowserWindow | null
+let updaterConfigured = false
+
+type AppUpdateStatus =
+  | 'disabled'
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+  | 'not-available'
+
+interface AppUpdateState {
+  status: AppUpdateStatus
+  currentVersion: string
+  availableVersion?: string
+  progressPercent?: number
+  transferredBytes?: number
+  totalBytes?: number
+  message?: string
+  error?: string
+}
+
+const UPDATE_FEED_URL = 'https://pub-3a366535329647d1858b31551de3f193.r2.dev/updates/stable'
+
+let currentAppUpdateState: AppUpdateState = {
+  status: app.isPackaged ? 'idle' : 'disabled',
+  currentVersion: app.getVersion(),
+}
 
 const BASE_WINDOW_WIDTH = 1600
 const BASE_WINDOW_HEIGHT = 900
@@ -45,6 +75,110 @@ let currentShellSettings: ShellSettings = {
     width: BASE_WINDOW_WIDTH,
     height: BASE_WINDOW_HEIGHT,
   },
+}
+
+function broadcastAppUpdateState() {
+  win?.webContents.send('app-update-status', currentAppUpdateState)
+}
+
+function setAppUpdateState(nextState: AppUpdateState) {
+  currentAppUpdateState = nextState
+  broadcastAppUpdateState()
+}
+
+function configureAutoUpdater() {
+  if (updaterConfigured) {
+    return
+  }
+
+  updaterConfigured = true
+
+  if (!app.isPackaged) {
+    setAppUpdateState({
+      status: 'disabled',
+      currentVersion: app.getVersion(),
+    })
+    return
+  }
+
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: UPDATE_FEED_URL,
+  })
+
+  autoUpdater.on('checking-for-update', () => {
+    setAppUpdateState({
+      status: 'checking',
+      currentVersion: app.getVersion(),
+    })
+  })
+
+  autoUpdater.on('update-available', (info: UpdateInfo) => {
+    setAppUpdateState({
+      status: 'available',
+      currentVersion: app.getVersion(),
+      availableVersion: info.version,
+      progressPercent: 0,
+    })
+  })
+
+  autoUpdater.on('download-progress', (progress: ProgressInfo) => {
+    setAppUpdateState({
+      status: 'downloading',
+      currentVersion: app.getVersion(),
+      availableVersion: currentAppUpdateState.availableVersion,
+      progressPercent: progress.percent,
+      transferredBytes: progress.transferred,
+      totalBytes: progress.total,
+    })
+  })
+
+  autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
+    setAppUpdateState({
+      status: 'downloaded',
+      currentVersion: app.getVersion(),
+      availableVersion: info.version,
+      progressPercent: 100,
+    })
+  })
+
+  autoUpdater.on('update-not-available', (info: UpdateInfo) => {
+    setAppUpdateState({
+      status: 'not-available',
+      currentVersion: app.getVersion(),
+      availableVersion: info.version,
+    })
+  })
+
+  autoUpdater.on('error', (error: Error) => {
+    setAppUpdateState({
+      status: 'error',
+      currentVersion: app.getVersion(),
+      availableVersion: currentAppUpdateState.availableVersion,
+      progressPercent: currentAppUpdateState.progressPercent,
+      transferredBytes: currentAppUpdateState.transferredBytes,
+      totalBytes: currentAppUpdateState.totalBytes,
+      error: error.message,
+    })
+  })
+}
+
+async function checkForAppUpdates() {
+  if (!app.isPackaged) {
+    return
+  }
+
+  try {
+    await autoUpdater.checkForUpdates()
+  } catch (error) {
+    setAppUpdateState({
+      status: 'error',
+      currentVersion: app.getVersion(),
+      error: error instanceof Error ? error.message : 'Unknown update check error.',
+    })
+  }
 }
 
 function centerWindowOnDisplay(target: BrowserWindow) {
@@ -212,6 +346,7 @@ function createWindow() {
 
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', (new Date).toLocaleString())
+    broadcastAppUpdateState()
   })
 
   win.once('ready-to-show', () => {
@@ -246,6 +381,10 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  configureAutoUpdater()
+  void checkForAppUpdates()
+})
 
 // Window manipulation handlers
 ipcMain.on('window-minimize', () => win?.minimize())
@@ -261,4 +400,14 @@ ipcMain.handle('window-apply-shell-settings', (_event, settings: ShellSettings) 
 })
 ipcMain.handle('app-quit', () => {
   app.quit()
+})
+ipcMain.handle('app-update-get-state', () => currentAppUpdateState)
+ipcMain.handle('app-update-check', async () => {
+  await checkForAppUpdates()
+  return currentAppUpdateState
+})
+ipcMain.handle('app-update-install', () => {
+  if (currentAppUpdateState.status === 'downloaded') {
+    autoUpdater.quitAndInstall(true, true)
+  }
 })

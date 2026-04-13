@@ -12,6 +12,7 @@ interface Props {
   authInfo?: string | null
   initialMode?: AuthMode
   isBusy?: boolean
+  versionLabel?: string | null
   onLanguageChange: (language: AppLanguage) => void
   onStart: (authIntent: ArenaAuthIntent) => void | Promise<void>
 }
@@ -27,6 +28,7 @@ export function NameScreen({
   authInfo,
   initialMode = 'login',
   isBusy = false,
+  versionLabel = null,
   onLanguageChange,
   onStart,
 }: Props) {
@@ -289,6 +291,12 @@ export function NameScreen({
           </button>
         </div>
       </div>
+
+      {versionLabel && (
+        <div className="name-screen__version">
+          {versionLabel}
+        </div>
+      )}
     </div>
   )
 }

@@ -15,6 +15,19 @@
   padding: 28px 24px;
 }
 
+.name-screen__version {
+  position: absolute;
+  right: 22px;
+  bottom: 18px;
+  z-index: 12;
+  color: rgba(214, 221, 233, 0.62);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  pointer-events: none;
+}
+
 /* Background effects */
 .name-screen::before {
   content: '';

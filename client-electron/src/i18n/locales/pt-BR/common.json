@@ -25,6 +25,36 @@
     "connectionFailed": "Falha na conexão",
     "tryAgain": "Tentar novamente"
   },
+  "appUpdate": {
+    "eyebrow": "Atualização do jogo",
+    "titles": {
+      "default": "Atualizando Dragon Arena",
+      "downloaded": "Atualização pronta",
+      "error": "Falha na atualização"
+    },
+    "status": {
+      "disabled": "Atualizações automáticas desativadas no modo de desenvolvimento.",
+      "idle": "Aguardando verificação de atualização.",
+      "checking": "Verificando se existe uma versão mais recente...",
+      "available": "Atualização {{version}} encontrada. Preparando download...",
+      "downloading": "Baixando atualização {{version}}...",
+      "downloaded": "Atualização {{version}} pronta para instalar.",
+      "error": "Não foi possível concluir a atualização automática.",
+      "notAvailable": "Você já está na versão mais recente."
+    },
+    "gate": {
+      "waiting": "Verificando atualizações do cliente. Aguarde alguns instantes.",
+      "required": "Atualize o cliente antes de continuar.",
+      "error": "Não foi possível validar a versão do cliente."
+    },
+    "meta": {
+      "versions": "Versão instalada: {{currentVersion}} • Versão remota: {{availableVersion}}"
+    },
+    "actions": {
+      "install": "Reiniciar e instalar",
+      "retry": "Tentar novamente"
+    }
+  },
   "splash": {
     "eyebrow": "Cliente oficial",
     "subtitle": "Forjando sua conexão com a arena, preparando os sistemas centrais e sincronizando a experiência de batalha.",
@@ -46,8 +76,8 @@
     "identifierPlaceholder": "voce@exemplo.com ou TreinadorDragon",
     "passwordPlaceholder": "Digite sua senha",
     "passwordHint": "Senha: 8+ caracteres, com maiúscula, minúscula e número.",
-    "submitLogin": "Entrar - Continuar",
-    "submitRegister": "Criar conta - Continuar",
+    "submitLogin": "Entrar",
+    "submitRegister": "Criar conta",
     "errors": {
       "invalidEmail": "Use um email válido.",
       "invalidUsername": "Username precisa ter 3-20 caracteres usando apenas letras, números ou _.",

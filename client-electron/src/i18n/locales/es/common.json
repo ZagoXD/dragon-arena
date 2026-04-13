@@ -25,6 +25,36 @@
     "connectionFailed": "Falló la conexión",
     "tryAgain": "Intentar de nuevo"
   },
+  "appUpdate": {
+    "eyebrow": "Actualización del juego",
+    "titles": {
+      "default": "Actualizando Dragon Arena",
+      "downloaded": "Actualización lista",
+      "error": "Falló la actualización"
+    },
+    "status": {
+      "disabled": "Las actualizaciones automáticas están desactivadas en el modo de desarrollo.",
+      "idle": "Esperando la verificación de actualizaciones.",
+      "checking": "Comprobando si existe una versión más reciente...",
+      "available": "Se encontró la actualización {{version}}. Preparando la descarga...",
+      "downloading": "Descargando la actualización {{version}}...",
+      "downloaded": "La actualización {{version}} está lista para instalarse.",
+      "error": "No se pudo completar la actualización automática.",
+      "notAvailable": "Ya estás en la versión más reciente."
+    },
+    "gate": {
+      "waiting": "Comprobando actualizaciones del cliente. Espera un momento.",
+      "required": "Actualiza el cliente antes de continuar.",
+      "error": "No se pudo validar la versión del cliente."
+    },
+    "meta": {
+      "versions": "Versión instalada: {{currentVersion}} • Versión remota: {{availableVersion}}"
+    },
+    "actions": {
+      "install": "Reiniciar e instalar",
+      "retry": "Intentar de nuevo"
+    }
+  },
   "splash": {
     "eyebrow": "Cliente oficial",
     "subtitle": "Forjando tu conexión con la arena, preparando los sistemas centrales y sincronizando la experiencia de batalla.",
@@ -46,8 +76,8 @@
     "identifierPlaceholder": "tu@ejemplo.com o EntrenadorDragon",
     "passwordPlaceholder": "Ingresa tu contraseña",
     "passwordHint": "Contraseña: 8+ caracteres, con mayúscula, minúscula y número.",
-    "submitLogin": "Entrar - Continuar",
-    "submitRegister": "Crear cuenta - Continuar",
+    "submitLogin": "Entrar",
+    "submitRegister": "Crear cuenta",
     "errors": {
       "invalidEmail": "Usa un email válido.",
       "invalidUsername": "El username debe tener entre 3 y 20 caracteres usando solo letras, números o _.",
