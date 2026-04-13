@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CHARACTER_VISUALS, PASSIVE_VISUALS, SPELL_VISUALS, VisualPassiveConfig, VisualSpellConfig } from '../../config/visualConfig'
+import {
+  PASSIVE_VISUALS,
+  SPELL_VISUALS,
+  VisualPassiveConfig,
+  VisualSpellConfig,
+  getCharacterAnimationFrames,
+  getCharacterFramePosition,
+  resolveCharacterCardConfig,
+} from '../../config/visualConfig'
 import { ANIMATION_FPS } from '../../config/spriteMap'
+import { AuthoritativeCharacterDefinition } from '../../types/gameplay'
 import './SelectScreen.css'
 
 function getSpellIconStyle(spell: VisualSpellConfig): React.CSSProperties {
@@ -66,10 +75,11 @@ function getPassiveIconStyle(passive: VisualPassiveConfig): React.CSSProperties 
 interface Props {
   playerName: string
   selectionLockedUntil: number | null
+  characters?: Record<string, AuthoritativeCharacterDefinition> | null
   onSelect: (characterId: string) => void
 }
 
-export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Props) {
+export function SelectScreen({ playerName, selectionLockedUntil, characters, onSelect }: Props) {
   const { t } = useTranslation()
   const [animIndex, setAnimIndex] = useState(0)
   const [hoveredSkill, setHoveredSkill] = useState<VisualSpellConfig | null>(null)
@@ -114,12 +124,17 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
       <p>{t('select.subtitle', { playerName })}</p>
 
       <div className="character-list">
-        {Object.values(CHARACTER_VISUALS).map(char => {
+        {Object.keys(characters || {}).map(characterId => {
+          const char = resolveCharacterCardConfig(characterId, characters)
+          if (!char) {
+            return null
+          }
           const portraitSize = 100
-          const sheetWidth = portraitSize * 4
-          const currentRow = char.idleRows[animIndex % char.idleRows.length]
-          const bgPosX = -(2 * portraitSize)
-          const bgPosY = -(currentRow * portraitSize)
+          const sheetWidth = portraitSize * char.presentation.directions.length
+          const idleFrames = getCharacterAnimationFrames(char, 'idle', 'down')
+          const framePosition = getCharacterFramePosition(char, idleFrames[animIndex % idleFrames.length])
+          const bgPosX = -(framePosition.col * portraitSize)
+          const bgPosY = -(framePosition.row * portraitSize)
           const allSkills = char.skillIds
             .map(skillId => SPELL_VISUALS[skillId])
             .filter((skill): skill is VisualSpellConfig => Boolean(skill))
@@ -144,7 +159,7 @@ export function SelectScreen({ playerName, selectionLockedUntil, onSelect }: Pro
                 style={{
                   width: portraitSize,
                   height: portraitSize,
-                  backgroundImage: `url(${char.imageSrc})`,
+                  backgroundImage: `url(${char.presentation.imageSrc})`,
                   backgroundSize: `${sheetWidth}px auto`,
                   backgroundPosition: `${bgPosX}px ${bgPosY}px`,
                 }}

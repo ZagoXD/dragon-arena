@@ -10,5 +10,30 @@
   "colliderHeight": 64.0,
   "autoAttackSpellId": "ember",
   "skillIds": ["dragon_dive", "flamethrower", "fire_blast"],
-  "passiveId": "burn"
+  "passiveId": "burn",
+  "presentation": {
+    "image": "meteor.png",
+    "frameWidth": 256,
+    "frameHeight": 256,
+    "renderScale": 0.5,
+    "directions": ["up", "right", "down", "left"],
+    "animations": {
+      "idle": {
+        "up": [0, 4, 8, 12],
+        "right": [1, 5, 9, 13],
+        "down": [2, 6, 10, 14],
+        "left": [3, 7, 11, 15],
+        "fps": 8,
+        "loop": true
+      },
+      "walk": {
+        "up": [16, 20, 24],
+        "right": [17, 21, 25],
+        "down": [18, 22, 26],
+        "left": [19, 23, 27],
+        "fps": 8,
+        "loop": true
+      }
+    }
+  }
 }

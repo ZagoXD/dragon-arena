@@ -10,6 +10,7 @@ import fireBlastSrc from '../assets/spells/fire_blast.png'
 import seedBiteSrc from '../assets/spells/seed_bite.png'
 import burnSrc from '../assets/spells/burn.png'
 import poisonSrc from '../assets/spells/poison.png'
+import { Direction } from './spriteMap'
 import {
   AuthoritativeCharacterDefinition,
   AuthoritativePassiveDefinition,
@@ -36,19 +37,6 @@ export interface VisualSpellConfig {
   effectScale?: number
 }
 
-export interface VisualCharacterConfig {
-  id: string
-  name: string
-  passiveId: string
-  skillIds: string[]
-  imageSrc: string
-  frameWidth: number
-  frameHeight: number
-  renderScale: number
-  idleRows: number[]
-  walkRows: number[]
-}
-
 export interface VisualPassiveConfig {
   id: string
   name: string
@@ -64,7 +52,31 @@ export interface VisualPassiveConfig {
 export type ResolvedSpellConfig = AuthoritativeSpellDefinition & VisualSpellConfig
 export type ResolvedPassiveConfig = AuthoritativePassiveDefinition & VisualPassiveConfig
 
-export interface ResolvedCharacterConfig extends AuthoritativeCharacterDefinition, VisualCharacterConfig {
+export interface ResolvedCharacterPresentation {
+  imageSrc: string
+  frameWidth: number
+  frameHeight: number
+  renderScale: number
+  directions: Direction[]
+  animations: Record<string, {
+    fps: number
+    loop: boolean
+    directions: Partial<Record<Direction, number[]>>
+  }>
+}
+
+export interface CharacterFramePosition {
+  frameIndex: number
+  col: number
+  row: number
+}
+
+export interface ResolvedCharacterConfig extends Omit<AuthoritativeCharacterDefinition, 'presentation'> {
+  imageSrc: string
+  frameWidth: number
+  frameHeight: number
+  renderScale: number
+  presentation: ResolvedCharacterPresentation
   autoAttack: ResolvedSpellConfig
   skills: ResolvedSpellConfig[]
   passive: ResolvedPassiveConfig
@@ -224,31 +236,129 @@ export function resolvePassiveConfig(
   }
 }
 
-export const CHARACTER_VISUALS: Record<string, VisualCharacterConfig> = {
-  meteor: {
-    id: 'meteor',
-    name: 'Meteor',
-    passiveId: 'burn',
-    skillIds: ['dragon_dive', 'flamethrower', 'fire_blast'],
-    imageSrc: meteorSrc,
-    frameWidth: 256,
-    frameHeight: 256,
-    renderScale: 0.5,
-    idleRows: [0, 1, 2, 3],
-    walkRows: [4, 5, 6],
-  },
-  hydra: {
-    id: 'hydra',
-    name: 'Hydra',
-    passiveId: 'poison',
-    skillIds: ['poison_flash', 'poison_shield', 'seed_bite'],
-    imageSrc: hydraSrc,
-    frameWidth: 256,
-    frameHeight: 256,
-    renderScale: 0.5,
-    idleRows: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-    walkRows: [12, 13],
-  },
+const CHARACTER_IMAGE_SRCS: Record<string, string> = {
+  'meteor.png': meteorSrc,
+  'hydra.png': hydraSrc,
+}
+
+function getCharacterImageSrc(gameplay: AuthoritativeCharacterDefinition) {
+  return CHARACTER_IMAGE_SRCS[gameplay.presentation.image] || null
+}
+
+function buildResolvedPresentation(
+  gameplay: AuthoritativeCharacterDefinition
+): ResolvedCharacterPresentation | null {
+  const imageSrc = getCharacterImageSrc(gameplay)
+  if (!imageSrc) {
+    return null
+  }
+
+  const directions = gameplay.presentation.directions as Direction[]
+  const gameplayAnimations = gameplay.presentation.animations || {}
+  const animationIds = Object.keys(gameplayAnimations)
+
+  const animations = Object.fromEntries(
+    animationIds.map(animationId => {
+      const gameplayClip = gameplayAnimations[animationId]
+      const resolvedDirections: Partial<Record<Direction, number[]>> = {}
+
+      for (const direction of directions) {
+        const gameplayFrames = gameplayClip?.[direction]
+        if (Array.isArray(gameplayFrames) && gameplayFrames.length > 0) {
+          resolvedDirections[direction] = gameplayFrames
+        }
+      }
+
+      return [animationId, {
+        fps: gameplayClip?.fps || 8,
+        loop: gameplayClip?.loop ?? true,
+        directions: resolvedDirections,
+      }]
+    })
+  )
+
+  return {
+    imageSrc,
+    frameWidth: gameplay.presentation.frameWidth,
+    frameHeight: gameplay.presentation.frameHeight,
+    renderScale: gameplay.presentation.renderScale,
+    directions,
+    animations,
+  }
+}
+
+export function getCharacterAnimationFrames(
+  character: Pick<ResolvedCharacterConfig, 'presentation'> | { presentation: ResolvedCharacterPresentation },
+  animationId: string,
+  direction?: Direction
+): number[] {
+  const clip = character.presentation.animations[animationId]
+  if (!clip) {
+    return [0]
+  }
+
+  if (direction) {
+    const directionalFrames = clip.directions[direction]
+    if (Array.isArray(directionalFrames) && directionalFrames.length > 0) {
+      return directionalFrames
+    }
+  }
+
+  const frames: number[] = []
+  for (const candidateDirection of character.presentation.directions) {
+    const candidateFrames = clip.directions[candidateDirection]
+    if (Array.isArray(candidateFrames) && candidateFrames.length > 0) {
+      frames.push(...candidateFrames)
+    }
+  }
+
+  return frames.length > 0 ? frames : [0]
+}
+
+export function getCharacterAnimationFps(
+  character: Pick<ResolvedCharacterConfig, 'presentation'> | { presentation: ResolvedCharacterPresentation },
+  animationId: string,
+  fallbackFps = 8
+) {
+  return character.presentation.animations[animationId]?.fps || fallbackFps
+}
+
+export function getCharacterFramePosition(
+  character: Pick<ResolvedCharacterConfig, 'presentation'> | { presentation: ResolvedCharacterPresentation },
+  frameIndex: number
+): CharacterFramePosition {
+  const columnCount = Math.max(1, character.presentation.directions.length)
+  return {
+    frameIndex,
+    col: ((frameIndex % columnCount) + columnCount) % columnCount,
+    row: Math.floor(frameIndex / columnCount),
+  }
+}
+
+export function resolveCharacterCardConfig(
+  characterId: string,
+  characters?: Record<string, AuthoritativeCharacterDefinition> | null
+) {
+  const authoritative = characters?.[characterId]
+
+  if (!authoritative) {
+    return null
+  }
+
+  const presentation = buildResolvedPresentation(authoritative)
+  if (!presentation) {
+    return null
+  }
+
+  return {
+    id: authoritative.id,
+    name: authoritative.name,
+    description: authoritative.description,
+    descriptionKey: authoritative.descriptionKey,
+    passiveId: authoritative.passiveId,
+    skillIds: authoritative.skillIds,
+    presentation,
+  }
 }
 
 export function resolveSpellConfig(
@@ -278,9 +388,8 @@ export function resolveCharacterConfig(
   passives: Record<string, AuthoritativePassiveDefinition>
 ): ResolvedCharacterConfig | null {
   const gameplay = characters[characterId]
-  const visual = CHARACTER_VISUALS[characterId]
 
-  if (!gameplay || !visual) {
+  if (!gameplay) {
     return null
   }
 
@@ -298,9 +407,18 @@ export function resolveCharacterConfig(
     .map(skillId => resolveSpellConfig(skillId, spells))
     .filter((skill): skill is ResolvedSpellConfig => skill !== null)
 
+  const presentation = buildResolvedPresentation(gameplay)
+  if (!presentation) {
+    return null
+  }
+
   return {
     ...gameplay,
-    ...visual,
+    imageSrc: presentation.imageSrc,
+    frameWidth: presentation.frameWidth,
+    frameHeight: presentation.frameHeight,
+    renderScale: presentation.renderScale,
+    presentation,
     autoAttack,
     skills,
     passive,

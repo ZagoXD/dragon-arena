@@ -1,6 +1,6 @@
 import { Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js'
-import { DIRECTION_COLUMNS, getSpellFrame } from '../../../config/spriteMap'
-import { ResolvedCharacterConfig } from '../../../config/visualConfig'
+import { getSpellFrame } from '../../../config/spriteMap'
+import { getCharacterFramePosition, ResolvedCharacterConfig } from '../../../config/visualConfig'
 import { NetPlayer } from '../../../hooks/useSocket'
 import { getCachedFrameTexture, getResolvedTexture } from './pixiTextureCache'
 import { DummyView, ProjectileView } from './pixiTypes'
@@ -67,8 +67,9 @@ export function buildPlayer(
   if (!isMeteorDash || !isDashSingleRotated) {
     const isDirectionalDash = isMeteorDash && !isDashSingleRotated
     const { col: dashCol, row: dashRow } = getSpellFrame(dashAngle ?? fallbackDashAngle)
-    const actualRow = isDirectionalDash ? dashRow : animRow
-    const actualCol = isDirectionalDash ? dashCol : DIRECTION_COLUMNS[direction]
+    const framePosition = getCharacterFramePosition(character, animRow)
+    const actualRow = isDirectionalDash ? dashRow : framePosition.row
+    const actualCol = isDirectionalDash ? dashCol : framePosition.col
     spriteTexture = getCachedFrameTexture(
       frameTextureCache,
       `player:${activeImage}:${actualCol}:${actualRow}:${frameWidth}:${frameHeight}`,

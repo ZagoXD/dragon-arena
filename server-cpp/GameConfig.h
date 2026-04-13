@@ -31,6 +31,21 @@ struct PassiveDefinition {
 };
 
 struct CharacterDefinition {
+    struct AnimationClipDefinition {
+        std::map<std::string, std::vector<int>> directions;
+        int fps = 0;
+        bool loop = true;
+    };
+
+    struct PresentationDefinition {
+        std::string image;
+        int frameWidth = 0;
+        int frameHeight = 0;
+        float renderScale = 1.0f;
+        std::vector<std::string> directions;
+        std::map<std::string, AnimationClipDefinition> animations;
+    };
+
     std::string id;
     std::string name;
     std::string description;
@@ -43,6 +58,7 @@ struct CharacterDefinition {
     std::string autoAttackSpellId;
     std::vector<std::string> skillIds;
     std::string passiveId;
+    PresentationDefinition presentation;
 };
 
 struct WorldDefinition {

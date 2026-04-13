@@ -44,6 +44,32 @@ SpellDefinition parseSpellDefinition(const json& node) {
 }
 
 CharacterDefinition parseCharacterDefinition(const json& node) {
+    CharacterDefinition::PresentationDefinition presentation;
+    if (node.contains("presentation") && node["presentation"].is_object()) {
+        const json& presentationNode = node["presentation"];
+        presentation.image = presentationNode.value("image", "");
+        presentation.frameWidth = presentationNode.value("frameWidth", 0);
+        presentation.frameHeight = presentationNode.value("frameHeight", 0);
+        presentation.renderScale = presentationNode.value("renderScale", 1.0f);
+        presentation.directions = presentationNode.value("directions", std::vector<std::string>{});
+
+        if (presentationNode.contains("animations") && presentationNode["animations"].is_object()) {
+            for (const auto& [animationId, animationNode] : presentationNode["animations"].items()) {
+                CharacterDefinition::AnimationClipDefinition clip;
+                clip.fps = animationNode.value("fps", 0);
+                clip.loop = animationNode.value("loop", true);
+
+                for (const auto& direction : presentation.directions) {
+                    if (animationNode.contains(direction) && animationNode[direction].is_array()) {
+                        clip.directions[direction] = animationNode[direction].get<std::vector<int>>();
+                    }
+                }
+
+                presentation.animations[animationId] = std::move(clip);
+            }
+        }
+    }
+
     return {
         node.at("id").get<std::string>(),
         node.at("name").get<std::string>(),
@@ -56,7 +82,8 @@ CharacterDefinition parseCharacterDefinition(const json& node) {
         node.at("colliderHeight").get<float>(),
         node.at("autoAttackSpellId").get<std::string>(),
         node.at("skillIds").get<std::vector<std::string>>(),
-        node.at("passiveId").get<std::string>()
+        node.at("passiveId").get<std::string>(),
+        std::move(presentation)
     };
 }
 
@@ -159,6 +186,38 @@ void validateCharacterDefinition(
     }
     if (!passives.count(character.passiveId)) {
         throw std::runtime_error("CharacterDefinition '" + character.id + "' references unknown passiveId '" + character.passiveId + "'");
+    }
+    if (character.presentation.image.empty()) {
+        throw std::runtime_error("CharacterDefinition '" + character.id + "' has empty presentation.image");
+    }
+    if (character.presentation.frameWidth <= 0 || character.presentation.frameHeight <= 0) {
+        throw std::runtime_error("CharacterDefinition '" + character.id + "' has invalid presentation frame size");
+    }
+    if (character.presentation.renderScale <= 0.0f) {
+        throw std::runtime_error("CharacterDefinition '" + character.id + "' has invalid presentation.renderScale");
+    }
+    if (character.presentation.directions.empty()) {
+        throw std::runtime_error("CharacterDefinition '" + character.id + "' has no presentation directions");
+    }
+    for (const auto& requiredAnimationId : {"idle", "walk"}) {
+        auto animationIt = character.presentation.animations.find(requiredAnimationId);
+        if (animationIt == character.presentation.animations.end()) {
+            throw std::runtime_error("CharacterDefinition '" + character.id + "' is missing presentation animation '" + requiredAnimationId + "'");
+        }
+
+        if (animationIt->second.fps <= 0) {
+            throw std::runtime_error("CharacterDefinition '" + character.id + "' animation '" + requiredAnimationId + "' has invalid fps");
+        }
+
+        for (const auto& direction : character.presentation.directions) {
+            auto directionIt = animationIt->second.directions.find(direction);
+            if (directionIt == animationIt->second.directions.end() || directionIt->second.empty()) {
+                throw std::runtime_error(
+                    "CharacterDefinition '" + character.id + "' animation '" + requiredAnimationId +
+                    "' is missing frames for direction '" + direction + "'"
+                );
+            }
+        }
     }
 }
 
@@ -508,6 +567,18 @@ json GameConfig::to_json(const PassiveDefinition& passive) {
 }
 
 json GameConfig::to_json(const CharacterDefinition& character) {
+    json animations = json::object();
+    for (const auto& [animationId, clip] : character.presentation.animations) {
+        json clipJson = {
+            {"fps", clip.fps},
+            {"loop", clip.loop}
+        };
+        for (const auto& [direction, frames] : clip.directions) {
+            clipJson[direction] = frames;
+        }
+        animations[animationId] = clipJson;
+    }
+
     return {
         {"id", character.id},
         {"name", character.name},
@@ -520,7 +591,15 @@ json GameConfig::to_json(const CharacterDefinition& character) {
         {"colliderHeight", character.colliderHeight},
         {"autoAttackSpellId", character.autoAttackSpellId},
         {"skillIds", character.skillIds},
-        {"passiveId", character.passiveId}
+        {"passiveId", character.passiveId},
+        {"presentation", {
+            {"image", character.presentation.image},
+            {"frameWidth", character.presentation.frameWidth},
+            {"frameHeight", character.presentation.frameHeight},
+            {"renderScale", character.presentation.renderScale},
+            {"directions", character.presentation.directions},
+            {"animations", animations}
+        }}
     };
 }
 

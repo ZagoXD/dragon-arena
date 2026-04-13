@@ -1753,6 +1753,7 @@ function App() {
                 <SelectScreen
                   playerName={playerName}
                   selectionLockedUntil={selectionLockedUntil}
+                  characters={lobbyContent?.characters || null}
                   onSelect={handleSelectCharacter}
                 />
               )}

@@ -21,6 +21,21 @@ export interface AuthoritativePassiveDefinition {
 }
 
 export interface AuthoritativeCharacterDefinition {
+  presentation: {
+    image: string
+    frameWidth: number
+    frameHeight: number
+    renderScale: number
+    directions: Array<'up' | 'right' | 'down' | 'left'>
+    animations: Record<string, {
+      up?: number[]
+      right?: number[]
+      down?: number[]
+      left?: number[]
+      fps: number
+      loop: boolean
+    }>
+  }
   id: string
   name: string
   description: string

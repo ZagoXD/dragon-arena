@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useGameLoop } from './useGameLoop'
 import { useMousePosition } from './useMousePosition'
 import { usePlayerMovement } from './usePlayerMovement'
-import { ResolvedCharacterConfig, ResolvedSpellConfig, VisualCharacterConfig } from '../config/visualConfig'
+import {
+  getCharacterAnimationFrames,
+  getCharacterAnimationFps,
+  ResolvedCharacterConfig,
+  ResolvedSpellConfig,
+} from '../config/visualConfig'
 import { VIEWPORT_HEIGHT, VIEWPORT_WIDTH, getClosest4WayDirection } from '../config/spriteMap'
 
 const ARENA_SAFE_INSET_PX = 28
@@ -11,7 +16,6 @@ interface UseArenaControllerParams {
   inputEnabled: boolean
   character: ResolvedCharacterConfig | null
   speed: number
-  fallbackVisual: VisualCharacterConfig
   bootstrapPlayer?: {
     x: number
     y: number
@@ -36,7 +40,6 @@ export function useArenaController({
   inputEnabled,
   character,
   speed,
-  fallbackVisual,
   bootstrapPlayer,
   authoritativePosition,
   mapWidth,
@@ -85,8 +88,24 @@ export function useArenaController({
     speed,
     colliderWidth: character?.colliderWidth ?? 64,
     colliderHeight: character?.colliderHeight ?? 64,
-    idleRows: fallbackVisual.idleRows,
-    walkRows: fallbackVisual.walkRows,
+    getIdleFrames: (direction) => getCharacterAnimationFrames(
+      character ?? { presentation: { imageSrc: '', frameWidth: 256, frameHeight: 256, renderScale: 1, directions: ['up', 'right', 'down', 'left'], animations: {} } },
+      'idle',
+      direction
+    ),
+    getWalkFrames: (direction) => getCharacterAnimationFrames(
+      character ?? { presentation: { imageSrc: '', frameWidth: 256, frameHeight: 256, renderScale: 1, directions: ['up', 'right', 'down', 'left'], animations: {} } },
+      'walk',
+      direction
+    ),
+    idleFps: getCharacterAnimationFps(
+      character ?? { presentation: { imageSrc: '', frameWidth: 256, frameHeight: 256, renderScale: 1, directions: ['up', 'right', 'down', 'left'], animations: {} } },
+      'idle'
+    ),
+    walkFps: getCharacterAnimationFps(
+      character ?? { presentation: { imageSrc: '', frameWidth: 256, frameHeight: 256, renderScale: 1, directions: ['up', 'right', 'down', 'left'], animations: {} } },
+      'walk'
+    ),
     hp,
   })
 

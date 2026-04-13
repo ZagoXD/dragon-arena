@@ -1,6 +1,14 @@
 import { CSSProperties, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CHARACTER_VISUALS, PASSIVE_VISUALS, SPELL_VISUALS, VisualPassiveConfig, VisualSpellConfig } from '../../config/visualConfig'
+import {
+  PASSIVE_VISUALS,
+  SPELL_VISUALS,
+  VisualPassiveConfig,
+  VisualSpellConfig,
+  getCharacterAnimationFrames,
+  getCharacterFramePosition,
+  resolveCharacterCardConfig,
+} from '../../config/visualConfig'
 import { ANIMATION_FPS } from '../../config/spriteMap'
 import { AuthoritativeCharacterDefinition } from '../../types/gameplay'
 import './CollectionScreen.css'
@@ -89,13 +97,18 @@ export function CollectionScreen({ characters }: Props) {
       </header>
 
       <div className="collection-screen__grid">
-        {Object.values(CHARACTER_VISUALS).map(character => {
-          const authoritativeCharacter = characters?.[character.id]
+        {Object.keys(characters || {}).map(characterId => {
+          const character = resolveCharacterCardConfig(characterId, characters)
+          if (!character) {
+            return null
+          }
+
           const portraitSize = 112
-          const sheetWidth = portraitSize * 4
-          const currentRow = character.idleRows[animIndex % character.idleRows.length]
-          const bgPosX = -(2 * portraitSize)
-          const bgPosY = -(currentRow * portraitSize)
+          const sheetWidth = portraitSize * character.presentation.directions.length
+          const idleFrames = getCharacterAnimationFrames(character, 'idle', 'down')
+          const framePosition = getCharacterFramePosition(character, idleFrames[animIndex % idleFrames.length])
+          const bgPosX = -(framePosition.col * portraitSize)
+          const bgPosY = -(framePosition.row * portraitSize)
           const skills = character.skillIds
             .map(skillId => SPELL_VISUALS[skillId])
             .filter((skill): skill is VisualSpellConfig => Boolean(skill))
@@ -112,7 +125,7 @@ export function CollectionScreen({ characters }: Props) {
                 style={{
                   width: portraitSize,
                   height: portraitSize,
-                  backgroundImage: `url(${character.imageSrc})`,
+                  backgroundImage: `url(${character.presentation.imageSrc})`,
                   backgroundSize: `${sheetWidth}px auto`,
                   backgroundPosition: `${bgPosX}px ${bgPosY}px`,
                 }}
@@ -121,15 +134,15 @@ export function CollectionScreen({ characters }: Props) {
               <div className="collection-screen__content">
                 <div className="collection-screen__topline">
                   <div>
-                    <h2>{authoritativeCharacter?.name || character.name}</h2>
+                    <h2>{character.name}</h2>
                     <span>{t('collection.availableStatus')}</span>
                   </div>
                   <strong className="collection-screen__rarity">{t('collection.starterRarity')}</strong>
                 </div>
 
                 <p className="collection-screen__description">
-                  {authoritativeCharacter
-                    ? t(authoritativeCharacter.descriptionKey, authoritativeCharacter.description)
+                  {character.description
+                    ? t(character.descriptionKey, character.description)
                     : ''}
                 </p>
 

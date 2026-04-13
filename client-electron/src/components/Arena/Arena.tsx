@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { HUD } from '../HUD/HUD'
 import { ArenaAuthIntent, ArenaChatMessage, AuthSuccessPayload, AutoAttackStartedEvent, SkillUsedEvent } from '../../hooks/useSocket'
 import { useArenaNetworkState } from '../../hooks/useArenaNetworkState'
-import { CHARACTER_VISUALS } from '../../config/visualConfig'
+import { getCharacterAnimationFrames, getCharacterFramePosition, resolveCharacterCardConfig } from '../../config/visualConfig'
 import { getClosest4WayDirection, VIEWPORT_HEIGHT, VIEWPORT_WIDTH } from '../../config/spriteMap'
 import { useArenaController } from '../../hooks/useArenaController'
 import { PixiArenaView } from './PixiArenaView'
@@ -85,7 +85,6 @@ export function Arena({
 }: Props) {
   const { t } = useTranslation()
   const [inArenaCharacterId, setInArenaCharacterId] = useState(characterId)
-  const fallbackVisual = CHARACTER_VISUALS[inArenaCharacterId] || CHARACTER_VISUALS.meteor
   const [pixiReady, setPixiReady] = useState(false)
   const [pixiInstanceKey, setPixiInstanceKey] = useState(0)
   const [showLeavePrompt, setShowLeavePrompt] = useState(false)
@@ -99,27 +98,6 @@ export function Arena({
   const lockActionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left', durationMs: number) => void) | null>(null)
   const setDirectionRef = useRef<((dir: 'up' | 'right' | 'down' | 'left') => void) | null>(null)
   const previousHpRef = useRef<number | null>(null)
-
-  const getCharacterPortraitStyle = useCallback((nextCharacterId: string) => {
-    const nextCharacter = CHARACTER_VISUALS[nextCharacterId]
-    if (!nextCharacter) {
-      return undefined
-    }
-
-    const portraitSize = 100
-    const sheetWidth = portraitSize * 4
-    const currentRow = nextCharacter.idleRows[0] ?? 0
-    const bgPosX = -(2 * portraitSize)
-    const bgPosY = -(currentRow * portraitSize)
-
-    return {
-      width: `${portraitSize}px`,
-      height: `${portraitSize}px`,
-      backgroundImage: `url(${nextCharacter.imageSrc})`,
-      backgroundSize: `${sheetWidth}px auto`,
-      backgroundPosition: `${bgPosX}px ${bgPosY}px`,
-    }
-  }, [])
 
   const handleAutoAttackStarted = useCallback((event: AutoAttackStartedEvent) => {
     if (!localPlayerIdRef.current || event.playerId !== localPlayerIdRef.current) {
@@ -249,11 +227,32 @@ export function Arena({
 
   const displayPlayerName = bootstrap?.player?.name || playerName
 
+  const getCharacterPortraitStyle = useCallback((nextCharacterId: string) => {
+    const nextCharacter = resolveCharacterCardConfig(nextCharacterId, bootstrap?.characters || null)
+    if (!nextCharacter) {
+      return undefined
+    }
+
+    const portraitSize = 100
+    const sheetWidth = portraitSize * nextCharacter.presentation.directions.length
+    const idleFrames = getCharacterAnimationFrames(nextCharacter, 'idle', 'down')
+    const framePosition = getCharacterFramePosition(nextCharacter, idleFrames[0] ?? 0)
+    const bgPosX = -(framePosition.col * portraitSize)
+    const bgPosY = -(framePosition.row * portraitSize)
+
+    return {
+      width: `${portraitSize}px`,
+      height: `${portraitSize}px`,
+      backgroundImage: `url(${nextCharacter.presentation.imageSrc})`,
+      backgroundSize: `${sheetWidth}px auto`,
+      backgroundPosition: `${bgPosX}px ${bgPosY}px`,
+    }
+  }, [bootstrap?.characters])
+
   const controller = useArenaController({
     inputEnabled: pixiReady && Boolean(bootstrap && character && mapData) && !chatInputActive && !reportModalOpen && !characterSelectOpen,
     character,
     speed: movementSpeed || character?.movementSpeed || 0,
-    fallbackVisual,
     bootstrapPlayer: bootstrap?.player,
     authoritativePosition,
     mapWidth,
@@ -737,7 +736,7 @@ export function Arena({
               <p>{t('arena.changeCharacterText')}</p>
               {characterChangeError && <p className="arena-character-overlay__error">{characterChangeError}</p>}
               <div className="arena-character-overlay__list">
-                {Object.values(CHARACTER_VISUALS).map(option => (
+                {Object.values(bootstrap.characters).map(option => (
                   <button
                     key={option.id}
                     type="button"

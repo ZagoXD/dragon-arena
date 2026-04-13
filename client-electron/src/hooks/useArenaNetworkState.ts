@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { resolveCharacterConfig, ResolvedCharacterConfig } from '../config/visualConfig'
+import {
+  getCharacterAnimationFps,
+  getCharacterAnimationFrames,
+  resolveCharacterConfig,
+  ResolvedCharacterConfig,
+} from '../config/visualConfig'
 import { useGameLoop } from './useGameLoop'
 import { ANIMATION_FPS } from '../config/spriteMap'
 import {
@@ -637,10 +642,15 @@ export function useArenaNetworkState({
             }
 
             const animationState = remoteAnimationStateRef.current[id]
-            const rows = isMoving ? resolvedCharacter.walkRows : resolvedCharacter.idleRows
-            const msPerFrame = 1000 / ANIMATION_FPS
+            const frames = isMoving
+              ? getCharacterAnimationFrames(resolvedCharacter, 'walk', latest.direction)
+              : getCharacterAnimationFrames(resolvedCharacter, 'idle', latest.direction)
+            const animationFps = isMoving
+              ? getCharacterAnimationFps(resolvedCharacter, 'walk', ANIMATION_FPS)
+              : getCharacterAnimationFps(resolvedCharacter, 'idle', ANIMATION_FPS)
+            const msPerFrame = 1000 / Math.max(1, animationFps)
             const elapsedFrames = Math.floor((now - animationState.phaseStartedAt) / msPerFrame)
-            animRow = rows[elapsedFrames % rows.length]
+            animRow = frames[elapsedFrames % frames.length]
           }
 
           const nextRendered: NetPlayer = {

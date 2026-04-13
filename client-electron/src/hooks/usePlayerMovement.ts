@@ -29,8 +29,10 @@ interface Options {
   speed: number
   colliderWidth: number
   colliderHeight: number
-  idleRows: number[]
-  walkRows: number[]
+  getIdleFrames: (direction: Direction) => number[]
+  getWalkFrames: (direction: Direction) => number[]
+  idleFps?: number
+  walkFps?: number
   hp: number
 }
 
@@ -83,8 +85,10 @@ export function usePlayerMovement({
   speed,
   colliderWidth,
   colliderHeight,
-  idleRows,
-  walkRows,
+  getIdleFrames,
+  getWalkFrames,
+  idleFps = ANIMATION_FPS,
+  walkFps = ANIMATION_FPS,
   hp,
 }: Options): PlayerState {
   const keys = useInput()
@@ -149,7 +153,6 @@ export function usePlayerMovement({
     }
 
     const isMoving = dx !== 0 || dy !== 0
-    const rows = isMoving ? walkRows : idleRows
 
     if (isMoving !== isMovingRef.current) {
       animIndexRef.current = 0
@@ -169,6 +172,9 @@ export function usePlayerMovement({
       else if (dy < 0) newDirection = 'up'
       else if (dy > 0) newDirection = 'down'
     }
+
+    const rows = (isMoving ? getWalkFrames(newDirection) : getIdleFrames(newDirection))
+    const animationFps = isMoving ? walkFps : idleFps
 
     const step = speed * (deltaMs / 1000)
     let newX = state.x + dx * step
@@ -238,7 +244,7 @@ export function usePlayerMovement({
       }
     }
 
-    const msPerFrame = 1000 / ANIMATION_FPS
+    const msPerFrame = 1000 / Math.max(1, animationFps)
     animTimerRef.current += deltaMs
     if (animTimerRef.current >= msPerFrame) {
       animTimerRef.current -= msPerFrame

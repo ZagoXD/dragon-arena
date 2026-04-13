@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ResolvedCharacterConfig } from '../../config/visualConfig'
+import { getCharacterAnimationFrames, getCharacterFramePosition, ResolvedCharacterConfig } from '../../config/visualConfig'
 import { ANIMATION_FPS } from '../../config/spriteMap'
 import './HUD.css'
 
@@ -91,7 +91,7 @@ export function HUD({
   
   // Adjusted scaling for 80px container
   const portraitSize = 80
-  const sheetWidth = portraitSize * 4
+  const sheetWidth = portraitSize * character.presentation.directions.length
 
   const [animIndex, setAnimIndex] = useState(0)
 
@@ -102,9 +102,10 @@ export function HUD({
     return () => clearInterval(interval)
   }, [])
 
-  const currentRow = character.idleRows[animIndex % character.idleRows.length]
-  const bgPosX = -(2 * portraitSize) 
-  const bgPosY = -(currentRow * portraitSize)
+  const idleFrames = getCharacterAnimationFrames(character, 'idle', 'down')
+  const framePosition = getCharacterFramePosition(character, idleFrames[animIndex % idleFrames.length])
+  const bgPosX = -(framePosition.col * portraitSize)
+  const bgPosY = -(framePosition.row * portraitSize)
   
   return (
     <div className="hud-container">
