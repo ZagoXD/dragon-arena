@@ -30,16 +30,45 @@ json readJsonFile(const std::filesystem::path& path) {
 }
 
 SpellDefinition parseSpellDefinition(const json& node) {
+    SpellDefinition::PresentationDefinition presentation;
+    if (node.contains("presentation") && node["presentation"].is_object()) {
+        const json& presentationNode = node["presentation"];
+        presentation.image = presentationNode.value("image", "");
+        presentation.renderMode = presentationNode.value("renderMode", "");
+        presentation.frameWidth = presentationNode.value("frameWidth", 0);
+        presentation.frameHeight = presentationNode.value("frameHeight", 0);
+        presentation.frameCount = presentationNode.value("frameCount", 1);
+        presentation.fps = presentationNode.value("fps", 0);
+        presentation.loop = presentationNode.value("loop", false);
+        presentation.playback = presentationNode.value("playback", "");
+        presentation.origin = presentationNode.value("origin", "");
+        presentation.attachTo = presentationNode.value("attachTo", "");
+        presentation.rotationMode = presentationNode.value("rotationMode", "");
+        presentation.iconMode = presentationNode.contains("icon") && node["presentation"]["icon"].is_object()
+            ? presentationNode["icon"].value("mode", "")
+            : "";
+        presentation.iconFrameIndex = presentationNode.contains("icon") && node["presentation"]["icon"].is_object()
+            ? presentationNode["icon"].value("frameIndex", -1)
+            : -1;
+        presentation.aimingWidth = presentationNode.value("aimingWidth", 0);
+        presentation.aimingStyle = presentationNode.value("aimingStyle", "");
+        presentation.effectScale = presentationNode.value("effectScale", 1.0f);
+    }
+
     return {
         node.at("id").get<std::string>(),
         node.at("name").get<std::string>(),
+        node.value("description", ""),
+        node.value("descriptionKey", ""),
+        node.value("effectKind", ""),
         node.at("damage").get<int>(),
         node.at("range").get<float>(),
         node.at("castTimeMs").get<int>(),
         node.at("cooldownMs").get<int>(),
         node.value("projectileSpeed", 0.0f),
         node.value("projectileRadius", 0.0f),
-        node.value("effectDurationMs", 0)
+        node.value("effectDurationMs", 0),
+        std::move(presentation)
     };
 }
 
@@ -88,14 +117,41 @@ CharacterDefinition parseCharacterDefinition(const json& node) {
 }
 
 PassiveDefinition parsePassiveDefinition(const json& node) {
+    PassiveDefinition::PresentationDefinition presentation;
+    if (node.contains("presentation") && node["presentation"].is_object()) {
+        const json& presentationNode = node["presentation"];
+        presentation.image = presentationNode.value("image", "");
+        presentation.renderMode = presentationNode.value("renderMode", "");
+        presentation.frameWidth = presentationNode.value("frameWidth", 0);
+        presentation.frameHeight = presentationNode.value("frameHeight", 0);
+        presentation.frameCount = presentationNode.value("frameCount", 1);
+        presentation.fps = presentationNode.value("fps", 0);
+        presentation.loop = presentationNode.value("loop", false);
+        presentation.playback = presentationNode.value("playback", "");
+        presentation.origin = presentationNode.value("origin", "");
+        presentation.attachTo = presentationNode.value("attachTo", "");
+        presentation.rotationMode = presentationNode.value("rotationMode", "");
+        presentation.iconMode = presentationNode.contains("icon") && node["presentation"]["icon"].is_object()
+            ? presentationNode["icon"].value("mode", "")
+            : "";
+        presentation.iconFrameIndex = presentationNode.contains("icon") && node["presentation"]["icon"].is_object()
+            ? presentationNode["icon"].value("frameIndex", -1)
+            : -1;
+        presentation.effectScale = presentationNode.value("effectScale", 1.0f);
+    }
+
     return {
         node.at("id").get<std::string>(),
         node.at("name").get<std::string>(),
+        node.value("description", ""),
+        node.value("descriptionKey", ""),
+        node.value("effectKind", ""),
         node.at("durationMs").get<int>(),
         node.at("tickDamage").get<int>(),
         node.at("tickIntervalMs").get<int>(),
         node.value("movementSlowPct", 0.0f),
-        node.value("applicationChances", std::map<std::string, float>{})
+        node.value("applicationChances", std::map<std::string, float>{}),
+        std::move(presentation)
     };
 }
 
@@ -118,6 +174,15 @@ void validateSpellDefinition(const SpellDefinition& spell) {
     if (spell.name.empty()) {
         throw std::runtime_error("SpellDefinition '" + spell.id + "' has empty name");
     }
+    if (spell.description.empty()) {
+        throw std::runtime_error("SpellDefinition '" + spell.id + "' has empty description");
+    }
+    if (spell.descriptionKey.empty()) {
+        throw std::runtime_error("SpellDefinition '" + spell.id + "' has empty descriptionKey");
+    }
+    if (spell.effectKind.empty()) {
+        throw std::runtime_error("SpellDefinition '" + spell.id + "' has empty effectKind");
+    }
     if (spell.damage < 0) {
         throw std::runtime_error("SpellDefinition '" + spell.id + "' has negative damage");
     }
@@ -130,6 +195,18 @@ void validateSpellDefinition(const SpellDefinition& spell) {
     if (spell.projectileSpeed < 0.0f || spell.projectileRadius < 0.0f) {
         throw std::runtime_error("SpellDefinition '" + spell.id + "' has invalid projectile values");
     }
+    if (spell.presentation.image.empty()) {
+        throw std::runtime_error("SpellDefinition '" + spell.id + "' has empty presentation.image");
+    }
+    if (spell.presentation.renderMode.empty()) {
+        throw std::runtime_error("SpellDefinition '" + spell.id + "' has empty presentation.renderMode");
+    }
+    if (spell.presentation.frameWidth <= 0 || spell.presentation.frameHeight <= 0 || spell.presentation.frameCount <= 0) {
+        throw std::runtime_error("SpellDefinition '" + spell.id + "' has invalid presentation frame data");
+    }
+    if (spell.presentation.effectScale <= 0.0f) {
+        throw std::runtime_error("SpellDefinition '" + spell.id + "' has invalid presentation.effectScale");
+    }
 }
 
 void validatePassiveDefinition(const PassiveDefinition& passive) {
@@ -139,11 +216,32 @@ void validatePassiveDefinition(const PassiveDefinition& passive) {
     if (passive.name.empty()) {
         throw std::runtime_error("PassiveDefinition '" + passive.id + "' has empty name");
     }
+    if (passive.description.empty()) {
+        throw std::runtime_error("PassiveDefinition '" + passive.id + "' has empty description");
+    }
+    if (passive.descriptionKey.empty()) {
+        throw std::runtime_error("PassiveDefinition '" + passive.id + "' has empty descriptionKey");
+    }
+    if (passive.effectKind.empty()) {
+        throw std::runtime_error("PassiveDefinition '" + passive.id + "' has empty effectKind");
+    }
     if (passive.durationMs <= 0 || passive.tickDamage < 0 || passive.tickIntervalMs <= 0) {
         throw std::runtime_error("PassiveDefinition '" + passive.id + "' has invalid timing or damage values");
     }
     if (passive.movementSlowPct < 0.0f || passive.movementSlowPct >= 1.0f) {
         throw std::runtime_error("PassiveDefinition '" + passive.id + "' has invalid movementSlowPct");
+    }
+    if (passive.presentation.image.empty()) {
+        throw std::runtime_error("PassiveDefinition '" + passive.id + "' has empty presentation.image");
+    }
+    if (passive.presentation.renderMode.empty()) {
+        throw std::runtime_error("PassiveDefinition '" + passive.id + "' has empty presentation.renderMode");
+    }
+    if (passive.presentation.frameWidth <= 0 || passive.presentation.frameHeight <= 0 || passive.presentation.frameCount <= 0) {
+        throw std::runtime_error("PassiveDefinition '" + passive.id + "' has invalid presentation frame data");
+    }
+    if (passive.presentation.effectScale <= 0.0f) {
+        throw std::runtime_error("PassiveDefinition '" + passive.id + "' has invalid presentation.effectScale");
     }
 }
 
@@ -544,13 +642,36 @@ json GameConfig::to_json(const SpellDefinition& spell) {
     return {
         {"id", spell.id},
         {"name", spell.name},
+        {"description", spell.description},
+        {"descriptionKey", spell.descriptionKey},
+        {"effectKind", spell.effectKind},
         {"damage", spell.damage},
         {"range", spell.range},
         {"castTimeMs", spell.castTimeMs},
         {"cooldownMs", spell.cooldownMs},
         {"projectileSpeed", spell.projectileSpeed},
         {"projectileRadius", spell.projectileRadius},
-        {"effectDurationMs", spell.effectDurationMs}
+        {"effectDurationMs", spell.effectDurationMs},
+        {"presentation", {
+            {"image", spell.presentation.image},
+            {"renderMode", spell.presentation.renderMode},
+            {"frameWidth", spell.presentation.frameWidth},
+            {"frameHeight", spell.presentation.frameHeight},
+            {"frameCount", spell.presentation.frameCount},
+            {"fps", spell.presentation.fps},
+            {"loop", spell.presentation.loop},
+            {"playback", spell.presentation.playback},
+            {"origin", spell.presentation.origin},
+            {"attachTo", spell.presentation.attachTo},
+            {"rotationMode", spell.presentation.rotationMode},
+            {"aimingWidth", spell.presentation.aimingWidth},
+            {"aimingStyle", spell.presentation.aimingStyle},
+            {"effectScale", spell.presentation.effectScale},
+            {"icon", {
+                {"mode", spell.presentation.iconMode},
+                {"frameIndex", spell.presentation.iconFrameIndex}
+            }}
+        }}
     };
 }
 
@@ -558,11 +679,32 @@ json GameConfig::to_json(const PassiveDefinition& passive) {
     return {
         {"id", passive.id},
         {"name", passive.name},
+        {"description", passive.description},
+        {"descriptionKey", passive.descriptionKey},
+        {"effectKind", passive.effectKind},
         {"durationMs", passive.durationMs},
         {"tickDamage", passive.tickDamage},
         {"tickIntervalMs", passive.tickIntervalMs},
         {"movementSlowPct", passive.movementSlowPct},
-        {"applicationChances", passive.applicationChances}
+        {"applicationChances", passive.applicationChances},
+        {"presentation", {
+            {"image", passive.presentation.image},
+            {"renderMode", passive.presentation.renderMode},
+            {"frameWidth", passive.presentation.frameWidth},
+            {"frameHeight", passive.presentation.frameHeight},
+            {"frameCount", passive.presentation.frameCount},
+            {"fps", passive.presentation.fps},
+            {"loop", passive.presentation.loop},
+            {"playback", passive.presentation.playback},
+            {"origin", passive.presentation.origin},
+            {"attachTo", passive.presentation.attachTo},
+            {"rotationMode", passive.presentation.rotationMode},
+            {"effectScale", passive.presentation.effectScale},
+            {"icon", {
+                {"mode", passive.presentation.iconMode},
+                {"frameIndex", passive.presentation.iconFrameIndex}
+            }}
+        }}
     };
 }
 

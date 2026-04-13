@@ -1,11 +1,33 @@
 {
   "id": "flamethrower",
   "name": "Flamethrower",
+  "description": "O dragao expele uma lufada curta e densa de fogo, queimando tudo no trajeto.",
+  "descriptionKey": "select.spellDescriptions.flamethrower",
+  "effectKind": "beam",
   "damage": 300,
   "range": 288.0,
   "castTimeMs": 300,
   "cooldownMs": 5000,
   "projectileSpeed": 0.0,
   "projectileRadius": 64.5,
-  "effectDurationMs": 600
+  "effectDurationMs": 600,
+  "presentation": {
+    "image": "flamethrower.png",
+    "renderMode": "vertical_strip",
+    "frameWidth": 129,
+    "frameHeight": 192,
+    "frameCount": 6,
+    "fps": 12,
+    "loop": true,
+    "playback": "loop",
+    "origin": "caster",
+    "attachTo": "none",
+    "rotationMode": "angle",
+    "aimingWidth": 129,
+    "aimingStyle": "beam",
+    "effectScale": 1.0,
+    "icon": {
+      "mode": "single_fit"
+    }
+  }
 }

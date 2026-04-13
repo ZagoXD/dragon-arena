@@ -1,11 +1,33 @@
 {
   "id": "fire_blast",
   "name": "Fire Blast",
+  "description": "O dragao dispara um projetil de chamas que avanca em linha reta e continua queimando quem permanecer no trajeto.",
+  "descriptionKey": "select.spellDescriptions.fire_blast",
+  "effectKind": "projectile",
   "damage": 450,
   "range": 600.0,
   "castTimeMs": 300,
   "cooldownMs": 5000,
   "projectileSpeed": 450.0,
   "projectileRadius": 64.0,
-  "effectDurationMs": 0
+  "effectDurationMs": 0,
+  "presentation": {
+    "image": "fire_blast.png",
+    "renderMode": "vertical_strip_rotated",
+    "frameWidth": 128,
+    "frameHeight": 128,
+    "frameCount": 4,
+    "fps": 10,
+    "loop": true,
+    "playback": "loop",
+    "origin": "caster",
+    "attachTo": "none",
+    "rotationMode": "angle",
+    "aimingWidth": 128,
+    "aimingStyle": "beam",
+    "effectScale": 1.0,
+    "icon": {
+      "mode": "single_fit"
+    }
+  }
 }

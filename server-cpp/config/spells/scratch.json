@@ -1,11 +1,32 @@
 {
   "id": "scratch",
   "name": "Scratch",
+  "description": "O dragao arranha ferozmente seus adversarios, podendo envenena-los no processo.",
+  "descriptionKey": "select.spellDescriptions.scratch",
+  "effectKind": "melee_slash",
   "damage": 42,
   "range": 72.0,
   "castTimeMs": 0,
   "cooldownMs": 800,
   "projectileSpeed": 0.0,
   "projectileRadius": 34.0,
-  "effectDurationMs": 800
+  "effectDurationMs": 800,
+  "presentation": {
+    "image": "scratch.png",
+    "renderMode": "single_rotated",
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frameCount": 17,
+    "fps": 17,
+    "loop": false,
+    "playback": "once",
+    "origin": "caster",
+    "attachTo": "none",
+    "rotationMode": "angle",
+    "effectScale": 1.0,
+    "icon": {
+      "mode": "sheet_focus",
+      "frameIndex": 2
+    }
+  }
 }

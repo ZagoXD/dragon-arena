@@ -8,7 +8,6 @@ import {
   type DestroyOptions,
 } from 'pixi.js'
 import { VIEWPORT_HEIGHT, VIEWPORT_WIDTH } from '../../config/spriteMap'
-import { PASSIVE_VISUALS } from '../../config/visualConfig'
 import { buildAimingArrow, buildBurnEffect, buildImpactEffect, buildSkillEffect } from './pixi/pixiEffects'
 import { buildDummy, buildPlayer, buildPlayerOverhead, buildProjectile, PIXI_STATIC_ASSET_URLS } from './pixi/pixiEntities'
 import { buildMapLayer, getTilesetInfo } from './pixi/pixiMap'
@@ -57,7 +56,7 @@ function collectAssetUrls(props: PixiArenaViewProps) {
   })
 
   props.projectiles.forEach(projectile => urls.add(projectile.spell.imageSrc))
-  Object.values(PASSIVE_VISUALS).forEach(passive => urls.add(passive.imageSrc))
+  Object.values(props.passives).forEach(passive => urls.add(passive.imageSrc))
 
   return [...urls]
 }
@@ -243,7 +242,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
     const nextEntities: Container['children'] = []
     const nextOverlay: Container['children'] = []
     const viewportBounds = getViewportBounds(props.cameraX, props.cameraY, 160)
-    const resolvePassiveVisual = (passiveId: string) => PASSIVE_VISUALS[passiveId] || null
+    const resolvePassiveVisual = (passiveId: string) => props.passives[passiveId] || null
 
     props.dummies.forEach(dummy => {
       if (!isPointInsideViewport(dummy.x, dummy.y, viewportBounds, props.dummyColliderSize)) {
@@ -328,11 +327,25 @@ export function PixiArenaView(props: PixiArenaViewProps) {
     })
 
     props.activeSkillEffects.forEach(effect => {
-      if (!isPointInsideViewport(effect.x, effect.y, viewportBounds, effect.spell.range)) {
+      const owner = effect.ownerId === props.localPlayer?.id
+        ? props.localPlayer
+        : props.remotePlayers.find(player => player.id === effect.ownerId)
+      const attachedPosition = effect.spell.effectKind === 'self_aura' && owner
+        ? {
+            x: owner.x + owner.character.colliderWidth / 2,
+            y: owner.y + owner.character.colliderHeight / 2,
+          }
+        : null
+      const visibilityX = attachedPosition?.x ?? effect.x
+      const visibilityY = attachedPosition?.y ?? effect.y
+      const visibilityRadius =
+        effect.spell.effectKind === 'self_aura'
+          ? Math.max(effect.spell.frameWidth, effect.spell.frameHeight) * (effect.spell.effectScale ?? 1)
+          : effect.spell.range
+      if (!isPointInsideViewport(visibilityX, visibilityY, viewportBounds, visibilityRadius)) {
         return
       }
-
-      const skillEffect = buildSkillEffect(frameTextureCacheRef.current, effect)
+      const skillEffect = buildSkillEffect(frameTextureCacheRef.current, effect, attachedPosition)
       if (skillEffect) {
         nextEntities.push(skillEffect)
       }
@@ -353,7 +366,8 @@ export function PixiArenaView(props: PixiArenaViewProps) {
         zone.y + zone.size - 12,
         true,
         passive.frameCount,
-        passive.frameWidth
+        passive.frameWidth,
+        passive.frameHeight
       )
       if (burnEffect) {
         nextEntities.push(burnEffect)
@@ -384,7 +398,8 @@ export function PixiArenaView(props: PixiArenaViewProps) {
           feetY + 40,
           true,
           passive.frameCount,
-          passive.frameWidth
+          passive.frameWidth,
+          passive.frameHeight
         )
       } else {
         const target = props.dummies.find(dummy => dummy.id === status.targetId)
@@ -401,7 +416,8 @@ export function PixiArenaView(props: PixiArenaViewProps) {
           target.y + props.dummyColliderSize + 40,
           true,
           passive.frameCount,
-          passive.frameWidth
+          passive.frameWidth,
+          passive.frameHeight
         )
       }
 
@@ -428,6 +444,7 @@ export function PixiArenaView(props: PixiArenaViewProps) {
     props.projectiles,
     props.impactEffects,
     props.activeSkillEffects,
+    props.passives,
     props.burnStatuses,
     props.burnZones,
     props.aimingArrowData,

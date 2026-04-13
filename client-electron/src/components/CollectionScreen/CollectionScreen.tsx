@@ -1,19 +1,19 @@
 import { CSSProperties, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  PASSIVE_VISUALS,
-  SPELL_VISUALS,
-  VisualPassiveConfig,
-  VisualSpellConfig,
+  ResolvedPassiveConfig,
+  ResolvedSpellConfig,
   getCharacterAnimationFrames,
   getCharacterFramePosition,
+  resolvePassiveConfig,
   resolveCharacterCardConfig,
+  resolveSpellConfig,
 } from '../../config/visualConfig'
 import { ANIMATION_FPS } from '../../config/spriteMap'
-import { AuthoritativeCharacterDefinition } from '../../types/gameplay'
+import { AuthoritativeCharacterDefinition, AuthoritativePassiveDefinition, AuthoritativeSpellDefinition } from '../../types/gameplay'
 import './CollectionScreen.css'
 
-function getSpellIconStyle(spell: VisualSpellConfig): CSSProperties {
+function getSpellIconStyle(spell: ResolvedSpellConfig): CSSProperties {
   if (spell.id === 'flamethrower') {
     return {
       backgroundImage: `url(${spell.imageSrc})`,
@@ -63,7 +63,7 @@ function getSpellIconStyle(spell: VisualSpellConfig): CSSProperties {
   }
 }
 
-function getPassiveIconStyle(passive: VisualPassiveConfig): CSSProperties {
+function getPassiveIconStyle(passive: ResolvedPassiveConfig): CSSProperties {
   return {
     backgroundImage: `url(${passive.imageSrc})`,
     backgroundSize: `100% ${passive.frameCount * 100}%`,
@@ -74,9 +74,11 @@ function getPassiveIconStyle(passive: VisualPassiveConfig): CSSProperties {
 
 interface Props {
   characters?: Record<string, AuthoritativeCharacterDefinition> | null
+  spells?: Record<string, AuthoritativeSpellDefinition> | null
+  passives?: Record<string, AuthoritativePassiveDefinition> | null
 }
 
-export function CollectionScreen({ characters }: Props) {
+export function CollectionScreen({ characters, spells, passives }: Props) {
   const { t } = useTranslation()
   const [animIndex, setAnimIndex] = useState(0)
 
@@ -110,9 +112,9 @@ export function CollectionScreen({ characters }: Props) {
           const bgPosX = -(framePosition.col * portraitSize)
           const bgPosY = -(framePosition.row * portraitSize)
           const skills = character.skillIds
-            .map(skillId => SPELL_VISUALS[skillId])
-            .filter((skill): skill is VisualSpellConfig => Boolean(skill))
-          const passive = PASSIVE_VISUALS[character.passiveId]
+            .map(skillId => spells ? resolveSpellConfig(skillId, spells) : null)
+            .filter((skill): skill is ResolvedSpellConfig => Boolean(skill))
+          const passive = passives ? resolvePassiveConfig(character.passiveId, passives) : null
 
           if (!passive) {
             return null

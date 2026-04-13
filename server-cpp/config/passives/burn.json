@@ -1,6 +1,9 @@
 {
   "id": "burn",
   "name": "Burn",
+  "description": "Queima o alvo por 3 segundos, causando dano periodico.",
+  "descriptionKey": "select.passiveDescriptions.burn",
+  "effectKind": "status",
   "durationMs": 3000,
   "tickDamage": 15,
   "tickIntervalMs": 500,
@@ -10,5 +13,22 @@
     "dragon_dive": 10.0,
     "flamethrower": 10.0,
     "fire_blast": 100.0
+  },
+  "presentation": {
+    "image": "burn.png",
+    "renderMode": "attached_vertical_strip",
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frameCount": 5,
+    "fps": 8,
+    "loop": true,
+    "playback": "loop",
+    "origin": "target",
+    "attachTo": "target",
+    "rotationMode": "none",
+    "effectScale": 1.0,
+    "icon": {
+      "mode": "single_fit"
+    }
   }
 }

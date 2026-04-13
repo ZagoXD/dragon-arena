@@ -1,11 +1,32 @@
 {
   "id": "poison_shield",
   "name": "Poison Shield",
+  "description": "Uma barreira venenosa envolve o dragao, concedendo um escudo temporario.",
+  "descriptionKey": "select.spellDescriptions.poison_shield",
+  "effectKind": "self_aura",
   "damage": 0,
   "range": 0.0,
   "castTimeMs": 0,
   "cooldownMs": 9000,
   "projectileSpeed": 0.0,
   "projectileRadius": 0.0,
-  "effectDurationMs": 800
+  "effectDurationMs": 800,
+  "presentation": {
+    "image": "poison_shield.png",
+    "renderMode": "attached_vertical_strip",
+    "frameWidth": 256,
+    "frameHeight": 256,
+    "frameCount": 13,
+    "fps": 13,
+    "loop": false,
+    "playback": "hold_last",
+    "origin": "caster",
+    "attachTo": "self",
+    "rotationMode": "none",
+    "effectScale": 0.5,
+    "icon": {
+      "mode": "sheet_focus",
+      "frameIndex": 0
+    }
+  }
 }

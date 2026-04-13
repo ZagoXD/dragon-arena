@@ -1,6 +1,32 @@
+export interface AuthoritativeIconPresentation {
+  mode?: string
+  frameIndex?: number
+}
+
+export interface AuthoritativeEffectPresentation {
+  image: string
+  renderMode: string
+  frameWidth: number
+  frameHeight: number
+  frameCount: number
+  fps: number
+  loop: boolean
+  playback: string
+  origin: string
+  attachTo: string
+  rotationMode: string
+  icon?: AuthoritativeIconPresentation
+  aimingWidth?: number
+  aimingStyle?: string
+  effectScale?: number
+}
+
 export interface AuthoritativeSpellDefinition {
   id: string
   name: string
+  description: string
+  descriptionKey: string
+  effectKind: string
   damage: number
   range: number
   castTimeMs: number
@@ -8,16 +34,21 @@ export interface AuthoritativeSpellDefinition {
   projectileSpeed: number
   projectileRadius: number
   effectDurationMs: number
+  presentation: AuthoritativeEffectPresentation
 }
 
 export interface AuthoritativePassiveDefinition {
   id: string
   name: string
+  description: string
+  descriptionKey: string
+  effectKind: string
   durationMs: number
   tickDamage: number
   tickIntervalMs: number
   movementSlowPct?: number
   applicationChances: Record<string, number>
+  presentation: AuthoritativeEffectPresentation
 }
 
 export interface AuthoritativeCharacterDefinition {

@@ -36,7 +36,7 @@ Responsabilidades do backend:
 - projeteis, areas de efeito, dano e status
 - spawn e respawn de players e dummies
 - matchmaking e instancias de arena
-- metadata autoritativo de personagens
+- metadata autoritativo de personagens, spells e passives
 - autenticacao e sessao
 - friend list, chat privado e chat da arena
 
@@ -314,23 +314,32 @@ Roster atual:
 - `Shield`: vida extra temporaria absorvida antes da vida normal
 - `Root`: imobilizacao temporaria
 
-## Metadata autoritativo de personagem
+## Metadata autoritativo de conteudo
 
-Cada personagem possui dois blocos principais no JSON:
+Hoje personagens, spells e passives possuem dois blocos principais:
 
 - gameplay
 - `presentation`
 
-O bloco `presentation` e a fonte de verdade do frontend sobre como a spritesheet deve ser montada. Hoje ele inclui:
+O bloco `presentation` e a fonte de verdade do frontend sobre como spritesheets e efeitos devem ser montados. Hoje ele inclui, dependendo do tipo de conteudo:
 
 - `image`
 - `frameWidth`
 - `frameHeight`
+- `frameCount`
 - `renderScale`
 - `directions`
 - `animations`
+- `renderMode`
+- `fps`
+- `loop`
+- `playback`
+- `origin`
+- `attachTo`
+- `rotationMode`
+- `icon`
 
-As animacoes atuais ja sao lidas do backend para desenhar:
+As animacoes e apresentacoes atuais ja sao lidas do backend para desenhar:
 
 - arena
 - HUD
@@ -338,7 +347,7 @@ As animacoes atuais ja sao lidas do backend para desenhar:
 - colecao
 - overlay de troca de personagem dentro da arena
 
-Exemplo simplificado:
+Exemplo simplificado de personagem:
 
 ```json
 {
@@ -383,6 +392,34 @@ Isso deixa o projeto pronto para expansao futura da spritesheet com clips como:
 - animacoes especificas por skill
 
 sem exigir novo hardcode estrutural no frontend.
+
+Exemplo simplificado de spell:
+
+```json
+{
+  "id": "ember",
+  "name": "Ember",
+  "description": "O dragao cospe fogo, causando dano a quem for atingido.",
+  "descriptionKey": "select.spellDescriptions.ember",
+  "effectKind": "projectile",
+  "presentation": {
+    "image": "ember.png",
+    "renderMode": "single_rotated",
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frameCount": 1,
+    "fps": 0,
+    "loop": false,
+    "playback": "once",
+    "origin": "caster",
+    "attachTo": "none",
+    "rotationMode": "angle",
+    "icon": {
+      "mode": "single_fit"
+    }
+  }
+}
+```
 
 ## Renderizacao da Arena
 

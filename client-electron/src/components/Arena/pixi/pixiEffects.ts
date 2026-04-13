@@ -109,7 +109,8 @@ export function buildAimingArrow(aimingArrowData: AimingArrowView | null) {
 
 export function buildSkillEffect(
   frameTextureCache: Map<string, Texture>,
-  effect: ActiveSkillEffectView
+  effect: ActiveSkillEffectView,
+  attachedPosition?: { x: number; y: number } | null
 ) {
   if (effect.warmupMs > 0) {
     return null
@@ -202,9 +203,11 @@ export function buildSkillEffect(
 
   if (effect.spell.effectKind === 'self_aura') {
     const container = new Container()
-    container.x = effect.x
-    container.y = effect.y
-    container.zIndex = effect.y + 120
+    const effectX = attachedPosition?.x ?? effect.x
+    const effectY = attachedPosition?.y ?? effect.y
+    container.x = effectX
+    container.y = effectY
+    container.zIndex = effectY + 120
 
     const sprite = new Sprite(frameTexture)
     sprite.anchor.set(0.5)
@@ -321,7 +324,8 @@ export function buildBurnEffect(
   zIndex: number,
   anchoredToFeet = true,
   frameCount = 5,
-  frameSize = 64
+  frameWidth = 64,
+  frameHeight = 64
 ) {
   let texture = getResolvedTexture(imageSrc)
   if (!texture) {
@@ -331,12 +335,12 @@ export function buildBurnEffect(
   const frameIndex = Math.floor(performance.now() / 120) % frameCount
   texture = getCachedFrameTexture(
     frameTextureCache,
-    `burn:${imageSrc}:${frameIndex}:${frameCount}:${frameSize}`,
+    `burn:${imageSrc}:${frameIndex}:${frameCount}:${frameWidth}:${frameHeight}`,
     texture,
     0,
-    frameIndex * frameSize,
-    frameSize,
-    frameSize
+    frameIndex * frameHeight,
+    frameWidth,
+    frameHeight
   )
   if (!texture) {
     return null
@@ -347,7 +351,7 @@ export function buildBurnEffect(
   sprite.x = x
   sprite.y = y
   sprite.width = size
-  sprite.height = size
+  sprite.height = size * (frameHeight / Math.max(1, frameWidth))
   sprite.alpha = 0.96
   sprite.roundPixels = true
   sprite.zIndex = zIndex

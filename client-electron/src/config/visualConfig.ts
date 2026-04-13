@@ -13,44 +13,17 @@ import poisonSrc from '../assets/spells/poison.png'
 import { Direction } from './spriteMap'
 import {
   AuthoritativeCharacterDefinition,
+  AuthoritativeEffectPresentation,
   AuthoritativePassiveDefinition,
   AuthoritativeSpellDefinition,
 } from '../types/gameplay'
 import i18n from '../i18n'
 
-export interface VisualSpellConfig {
-  id: string
-  description: string
-  descriptionKey?: string
-  imageSrc: string
-  frameSize: number
-  frameWidth?: number
-  frameHeight?: number
-  frameCount?: number
-  aimingWidth?: number
-  aimingStyle?: 'arrow' | 'beam' | 'beam_constant'
-  effectKind?: 'projectile' | 'beam' | 'tile_burst' | 'melee_slash' | 'line_burst' | 'self_aura'
-  renderMode?: 'directional_sheet' | 'single_rotated'
-  iconMode?: 'sheet_focus' | 'single_fit'
-  rotationOffsetRad?: number
-  iconFrameIndex?: number
-  effectScale?: number
+export interface CharacterFramePosition {
+  frameIndex: number
+  col: number
+  row: number
 }
-
-export interface VisualPassiveConfig {
-  id: string
-  name: string
-  description: string
-  descriptionKey?: string
-  imageSrc: string
-  frameWidth: number
-  frameHeight: number
-  frameCount: number
-  iconMode?: 'single_fit'
-}
-
-export type ResolvedSpellConfig = AuthoritativeSpellDefinition & VisualSpellConfig
-export type ResolvedPassiveConfig = AuthoritativePassiveDefinition & VisualPassiveConfig
 
 export interface ResolvedCharacterPresentation {
   imageSrc: string
@@ -65,10 +38,42 @@ export interface ResolvedCharacterPresentation {
   }>
 }
 
-export interface CharacterFramePosition {
-  frameIndex: number
-  col: number
-  row: number
+export interface ResolvedEffectPresentation extends AuthoritativeEffectPresentation {
+  imageSrc: string
+  icon: {
+    mode?: string
+    frameIndex?: number
+  }
+}
+
+export interface ResolvedSpellConfig extends Omit<AuthoritativeSpellDefinition, 'presentation'> {
+  imageSrc: string
+  frameSize: number
+  frameWidth: number
+  frameHeight: number
+  frameCount: number
+  aimingWidth?: number
+  aimingStyle?: 'arrow' | 'beam' | 'beam_constant'
+  effectKind: 'projectile' | 'beam' | 'tile_burst' | 'melee_slash' | 'line_burst' | 'self_aura' | 'dash'
+  renderMode: 'single_rotated' | 'character_override' | 'vertical_strip' | 'vertical_strip_rotated' | 'attached_vertical_strip' | 'tiled_strip' | 'tiled_area'
+  iconMode?: 'sheet_focus' | 'single_fit'
+  iconFrameIndex?: number
+  effectScale?: number
+  rotationOffsetRad?: number
+  presentation: ResolvedEffectPresentation
+}
+
+export interface ResolvedPassiveConfig extends Omit<AuthoritativePassiveDefinition, 'presentation'> {
+  imageSrc: string
+  frameWidth: number
+  frameHeight: number
+  frameCount: number
+  effectKind: 'status'
+  renderMode: 'attached_vertical_strip'
+  iconMode?: 'sheet_focus' | 'single_fit'
+  iconFrameIndex?: number
+  effectScale?: number
+  presentation: ResolvedEffectPresentation
 }
 
 export interface ResolvedCharacterConfig extends Omit<AuthoritativeCharacterDefinition, 'presentation'> {
@@ -82,196 +87,66 @@ export interface ResolvedCharacterConfig extends Omit<AuthoritativeCharacterDefi
   passive: ResolvedPassiveConfig
 }
 
-export const SPELL_VISUALS: Record<string, VisualSpellConfig> = {
-  ember: {
-    id: 'ember',
-    description: 'O dragão cospe fogo, causando dano a quem for atingido.',
-    descriptionKey: 'select.spellDescriptions.ember',
-    imageSrc: emberSrc,
-    frameSize: 64,
-    aimingWidth: 32,
-    renderMode: 'single_rotated',
-    iconMode: 'single_fit',
-  },
-  scratch: {
-    id: 'scratch',
-    description: 'O dragão arranha ferozmente seus adversários, podendo envenená-los no processo.',
-    descriptionKey: 'select.spellDescriptions.scratch',
-    imageSrc: scratchSrc,
-    frameSize: 64,
-    frameWidth: 64,
-    frameHeight: 64,
-    frameCount: 17,
-    effectKind: 'melee_slash',
-    renderMode: 'single_rotated',
-    iconFrameIndex: 2,
-  },
-  poison_flash: {
-    id: 'poison_flash',
-    description: 'Um clarão venenoso dispara à frente do dragão, ferindo os inimigos e podendo envenená-los.',
-    descriptionKey: 'select.spellDescriptions.poison_flash',
-    imageSrc: poisonFlashSrc,
-    frameSize: 64,
-    frameWidth: 64,
-    frameHeight: 64,
-    frameCount: 14,
-    aimingWidth: 64,
-    aimingStyle: 'beam_constant',
-    effectKind: 'line_burst',
-    renderMode: 'single_rotated',
-    iconFrameIndex: 5,
-  },
-  poison_shield: {
-    id: 'poison_shield',
-    description: 'Uma barreira venenosa envolve o dragão, concedendo um escudo temporário.',
-    descriptionKey: 'select.spellDescriptions.poison_shield',
-    imageSrc: poisonShieldSrc,
-    frameSize: 256,
-    frameWidth: 256,
-    frameHeight: 256,
-    frameCount: 13,
-    effectKind: 'self_aura',
-    renderMode: 'single_rotated',
-    iconFrameIndex: 0,
-    effectScale: 0.5,
-  },
-  dragon_dive: {
-    id: 'dragon_dive',
-    description: 'O dragão realiza um avanço feroz, causando dano ao longo do trajeto.',
-    descriptionKey: 'select.spellDescriptions.dragon_dive',
-    imageSrc: dragonDiveSrc,
-    frameSize: 64,
-    aimingWidth: 32,
-    renderMode: 'single_rotated',
-    iconMode: 'single_fit',
-  },
-  flamethrower: {
-    id: 'flamethrower',
-    description: 'O dragão expele uma lufada curta e densa de fogo, queimando tudo no trajeto.',
-    descriptionKey: 'select.spellDescriptions.flamethrower',
-    imageSrc: flamethrowerSrc,
-    frameSize: 129,
-    frameWidth: 129,
-    frameHeight: 192,
-    frameCount: 6,
-    aimingWidth: 129,
-    aimingStyle: 'beam',
-    effectKind: 'beam',
-    renderMode: 'single_rotated',
-    iconMode: 'single_fit',
-  },
-  fire_blast: {
-    id: 'fire_blast',
-    description: 'O dragão dispara um projétil de chamas que avança em linha reta e continua queimando quem permanecer no trajeto.',
-    descriptionKey: 'select.spellDescriptions.fire_blast',
-    imageSrc: fireBlastSrc,
-    frameSize: 128,
-    frameWidth: 128,
-    frameHeight: 128,
-    frameCount: 4,
-    aimingWidth: 128,
-    aimingStyle: 'beam',
-    effectKind: 'projectile',
-    renderMode: 'single_rotated',
-    iconMode: 'single_fit',
-    rotationOffsetRad: -Math.PI / 2,
-  },
-  seed_bite: {
-    id: 'seed_bite',
-    description: 'Várias sementes de planta carnívora surgem ao redor do dragão para prender e machucar seu alvo.',
-    descriptionKey: 'select.spellDescriptions.seed_bite',
-    imageSrc: seedBiteSrc,
-    frameSize: 64,
-    frameWidth: 64,
-    frameHeight: 64,
-    frameCount: 9,
-    effectKind: 'tile_burst',
-    renderMode: 'single_rotated',
-    iconFrameIndex: 1,
-  },
-}
-
-export const PASSIVE_VISUALS: Record<string, VisualPassiveConfig> = {
-  burn: {
-    id: 'burn',
-    name: 'Burn',
-    description: 'Queima o alvo por 3 segundos, causando dano periódico.',
-    descriptionKey: 'select.passiveDescriptions.burn',
-    imageSrc: burnSrc,
-    frameWidth: 64,
-    frameHeight: 64,
-    frameCount: 5,
-    iconMode: 'single_fit',
-  },
-  poison: {
-    id: 'poison',
-    name: 'Poison',
-    description: 'Envenena o alvo por mais tempo, causando dano periódico e reduzindo sua velocidade.',
-    descriptionKey: 'select.passiveDescriptions.poison',
-    imageSrc: poisonSrc,
-    frameWidth: 64,
-    frameHeight: 64,
-    frameCount: 7,
-    iconMode: 'single_fit',
-  },
-}
-
-export function resolvePassiveConfig(
-  passiveId: string,
-  passives: Record<string, AuthoritativePassiveDefinition>
-): ResolvedPassiveConfig | null {
-  const gameplay = passives[passiveId]
-  const visual = PASSIVE_VISUALS[passiveId]
-
-  if (!gameplay || !visual) {
-    return null
-  }
-
-  return {
-    ...gameplay,
-    ...visual,
-    description: visual.descriptionKey
-      ? i18n.t(visual.descriptionKey, visual.description)
-      : visual.description,
-  }
-}
-
 const CHARACTER_IMAGE_SRCS: Record<string, string> = {
   'meteor.png': meteorSrc,
   'hydra.png': hydraSrc,
 }
 
-function getCharacterImageSrc(gameplay: AuthoritativeCharacterDefinition) {
+const SPELL_IMAGE_SRCS: Record<string, string> = {
+  'ember.png': emberSrc,
+  'scratch.png': scratchSrc,
+  'poison_flash.png': poisonFlashSrc,
+  'poison_shield.png': poisonShieldSrc,
+  'dragon_dive.png': dragonDiveSrc,
+  'flamethrower.png': flamethrowerSrc,
+  'fire_blast.png': fireBlastSrc,
+  'seed_bite.png': seedBiteSrc,
+}
+
+const PASSIVE_IMAGE_SRCS: Record<string, string> = {
+  'burn.png': burnSrc,
+  'poison.png': poisonSrc,
+}
+
+function translateText(defaultText: string, translationKey?: string) {
+  return translationKey ? i18n.t(translationKey, defaultText) : defaultText
+}
+
+function resolveCharacterImageSrc(gameplay: AuthoritativeCharacterDefinition) {
   return CHARACTER_IMAGE_SRCS[gameplay.presentation.image] || null
 }
 
-function buildResolvedPresentation(
+function resolveEffectImageSrc(presentation: AuthoritativeEffectPresentation) {
+  return SPELL_IMAGE_SRCS[presentation.image]
+    || PASSIVE_IMAGE_SRCS[presentation.image]
+    || null
+}
+
+function buildResolvedCharacterPresentation(
   gameplay: AuthoritativeCharacterDefinition
 ): ResolvedCharacterPresentation | null {
-  const imageSrc = getCharacterImageSrc(gameplay)
+  const imageSrc = resolveCharacterImageSrc(gameplay)
   if (!imageSrc) {
     return null
   }
 
   const directions = gameplay.presentation.directions as Direction[]
-  const gameplayAnimations = gameplay.presentation.animations || {}
-  const animationIds = Object.keys(gameplayAnimations)
-
+  const animationIds = Object.keys(gameplay.presentation.animations || {})
   const animations = Object.fromEntries(
     animationIds.map(animationId => {
-      const gameplayClip = gameplayAnimations[animationId]
+      const clip = gameplay.presentation.animations[animationId]
       const resolvedDirections: Partial<Record<Direction, number[]>> = {}
 
       for (const direction of directions) {
-        const gameplayFrames = gameplayClip?.[direction]
-        if (Array.isArray(gameplayFrames) && gameplayFrames.length > 0) {
-          resolvedDirections[direction] = gameplayFrames
+        const frames = clip?.[direction]
+        if (Array.isArray(frames) && frames.length > 0) {
+          resolvedDirections[direction] = frames
         }
       }
 
       return [animationId, {
-        fps: gameplayClip?.fps || 8,
-        loop: gameplayClip?.loop ?? true,
+        fps: clip?.fps || 8,
+        loop: clip?.loop ?? true,
         directions: resolvedDirections,
       }]
     })
@@ -284,6 +159,24 @@ function buildResolvedPresentation(
     renderScale: gameplay.presentation.renderScale,
     directions,
     animations,
+  }
+}
+
+function buildResolvedEffectPresentation(
+  presentation: AuthoritativeEffectPresentation
+): ResolvedEffectPresentation | null {
+  const imageSrc = resolveEffectImageSrc(presentation)
+  if (!imageSrc) {
+    return null
+  }
+
+  return {
+    ...presentation,
+    imageSrc,
+    icon: {
+      mode: presentation.icon?.mode,
+      frameIndex: presentation.icon?.frameIndex,
+    },
   }
 }
 
@@ -335,49 +228,94 @@ export function getCharacterFramePosition(
   }
 }
 
+export function resolveSpellConfig(
+  spellId: string,
+  spells: Record<string, AuthoritativeSpellDefinition>
+): ResolvedSpellConfig | null {
+  const gameplay = spells[spellId]
+  if (!gameplay) {
+    return null
+  }
+
+  const presentation = buildResolvedEffectPresentation(gameplay.presentation)
+  if (!presentation) {
+    return null
+  }
+
+  return {
+    ...gameplay,
+    name: translateText(gameplay.name),
+    description: translateText(gameplay.description, gameplay.descriptionKey),
+    imageSrc: presentation.imageSrc,
+    frameSize: presentation.frameWidth,
+    frameWidth: presentation.frameWidth,
+    frameHeight: presentation.frameHeight,
+    frameCount: presentation.frameCount,
+    aimingWidth: presentation.aimingWidth || undefined,
+    aimingStyle: presentation.aimingStyle as ResolvedSpellConfig['aimingStyle'],
+    effectKind: gameplay.effectKind as ResolvedSpellConfig['effectKind'],
+    renderMode: presentation.renderMode as ResolvedSpellConfig['renderMode'],
+    iconMode: presentation.icon.mode as ResolvedSpellConfig['iconMode'],
+    iconFrameIndex: typeof presentation.icon.frameIndex === 'number' ? presentation.icon.frameIndex : undefined,
+    effectScale: presentation.effectScale,
+    rotationOffsetRad: gameplay.id === 'fire_blast' ? -Math.PI / 2 : undefined,
+    presentation,
+  }
+}
+
+export function resolvePassiveConfig(
+  passiveId: string,
+  passives: Record<string, AuthoritativePassiveDefinition>
+): ResolvedPassiveConfig | null {
+  const gameplay = passives[passiveId]
+  if (!gameplay) {
+    return null
+  }
+
+  const presentation = buildResolvedEffectPresentation(gameplay.presentation)
+  if (!presentation) {
+    return null
+  }
+
+  return {
+    ...gameplay,
+    name: translateText(gameplay.name),
+    description: translateText(gameplay.description, gameplay.descriptionKey),
+    imageSrc: presentation.imageSrc,
+    frameWidth: presentation.frameWidth,
+    frameHeight: presentation.frameHeight,
+    frameCount: presentation.frameCount,
+    effectKind: gameplay.effectKind as ResolvedPassiveConfig['effectKind'],
+    renderMode: presentation.renderMode as ResolvedPassiveConfig['renderMode'],
+    iconMode: presentation.icon.mode as ResolvedPassiveConfig['iconMode'],
+    iconFrameIndex: typeof presentation.icon.frameIndex === 'number' ? presentation.icon.frameIndex : undefined,
+    effectScale: presentation.effectScale,
+    presentation,
+  }
+}
+
 export function resolveCharacterCardConfig(
   characterId: string,
   characters?: Record<string, AuthoritativeCharacterDefinition> | null
 ) {
   const authoritative = characters?.[characterId]
-
   if (!authoritative) {
     return null
   }
 
-  const presentation = buildResolvedPresentation(authoritative)
+  const presentation = buildResolvedCharacterPresentation(authoritative)
   if (!presentation) {
     return null
   }
 
   return {
     id: authoritative.id,
-    name: authoritative.name,
-    description: authoritative.description,
+    name: translateText(authoritative.name),
+    description: translateText(authoritative.description, authoritative.descriptionKey),
     descriptionKey: authoritative.descriptionKey,
     passiveId: authoritative.passiveId,
     skillIds: authoritative.skillIds,
     presentation,
-  }
-}
-
-export function resolveSpellConfig(
-  spellId: string,
-  spells: Record<string, AuthoritativeSpellDefinition>
-): ResolvedSpellConfig | null {
-  const gameplay = spells[spellId]
-  const visual = SPELL_VISUALS[spellId]
-
-  if (!gameplay || !visual) {
-    return null
-  }
-
-  return {
-    ...gameplay,
-    ...visual,
-    description: visual.descriptionKey
-      ? i18n.t(visual.descriptionKey, visual.description)
-      : visual.description,
   }
 }
 
@@ -388,8 +326,12 @@ export function resolveCharacterConfig(
   passives: Record<string, AuthoritativePassiveDefinition>
 ): ResolvedCharacterConfig | null {
   const gameplay = characters[characterId]
-
   if (!gameplay) {
+    return null
+  }
+
+  const presentation = buildResolvedCharacterPresentation(gameplay)
+  if (!presentation) {
     return null
   }
 
@@ -407,13 +349,10 @@ export function resolveCharacterConfig(
     .map(skillId => resolveSpellConfig(skillId, spells))
     .filter((skill): skill is ResolvedSpellConfig => skill !== null)
 
-  const presentation = buildResolvedPresentation(gameplay)
-  if (!presentation) {
-    return null
-  }
-
   return {
     ...gameplay,
+    name: translateText(gameplay.name),
+    description: translateText(gameplay.description, gameplay.descriptionKey),
     imageSrc: presentation.imageSrc,
     frameWidth: presentation.frameWidth,
     frameHeight: presentation.frameHeight,

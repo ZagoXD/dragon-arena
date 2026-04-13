@@ -1,11 +1,32 @@
 {
   "id": "seed_bite",
   "name": "Seed Bite",
+  "description": "Varias sementes de planta carnivora surgem ao redor do dragao para prender e machucar seu alvo.",
+  "descriptionKey": "select.spellDescriptions.seed_bite",
+  "effectKind": "tile_burst",
   "damage": 525,
   "range": 0.0,
   "castTimeMs": 0,
   "cooldownMs": 5000,
   "projectileSpeed": 0.0,
   "projectileRadius": 0.0,
-  "effectDurationMs": 2250
+  "effectDurationMs": 2250,
+  "presentation": {
+    "image": "seed_bite.png",
+    "renderMode": "tiled_area",
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frameCount": 9,
+    "fps": 9,
+    "loop": false,
+    "playback": "once",
+    "origin": "caster",
+    "attachTo": "none",
+    "rotationMode": "none",
+    "effectScale": 1.0,
+    "icon": {
+      "mode": "sheet_focus",
+      "frameIndex": 1
+    }
+  }
 }

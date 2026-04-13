@@ -1,11 +1,33 @@
 {
   "id": "ember",
   "name": "Ember",
+  "description": "O dragao cospe fogo, causando dano a quem for atingido.",
+  "descriptionKey": "select.spellDescriptions.ember",
+  "effectKind": "projectile",
   "damage": 50,
   "range": 600.0,
   "castTimeMs": 300,
   "cooldownMs": 800,
   "projectileSpeed": 1000.0,
   "projectileRadius": 16.0,
-  "effectDurationMs": 0
+  "effectDurationMs": 0,
+  "presentation": {
+    "image": "ember.png",
+    "renderMode": "single_rotated",
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frameCount": 1,
+    "fps": 0,
+    "loop": false,
+    "playback": "once",
+    "origin": "caster",
+    "attachTo": "none",
+    "rotationMode": "angle",
+    "aimingWidth": 32,
+    "aimingStyle": "arrow",
+    "effectScale": 1.0,
+    "icon": {
+      "mode": "single_fit"
+    }
+  }
 }

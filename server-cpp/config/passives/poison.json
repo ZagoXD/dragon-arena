@@ -1,6 +1,9 @@
 {
   "id": "poison",
   "name": "Poison",
+  "description": "Envenena o alvo por mais tempo, causando dano periodico e reduzindo sua velocidade.",
+  "descriptionKey": "select.passiveDescriptions.poison",
+  "effectKind": "status",
   "durationMs": 4500,
   "tickDamage": 8,
   "tickIntervalMs": 500,
@@ -13,5 +16,22 @@
     "flamethrower": 10.0,
     "fire_blast": 100.0,
     "seed_bite": 100.0
+  },
+  "presentation": {
+    "image": "poison.png",
+    "renderMode": "attached_vertical_strip",
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frameCount": 7,
+    "fps": 8,
+    "loop": true,
+    "playback": "loop",
+    "origin": "target",
+    "attachTo": "target",
+    "rotationMode": "none",
+    "effectScale": 1.0,
+    "icon": {
+      "mode": "single_fit"
+    }
   }
 }

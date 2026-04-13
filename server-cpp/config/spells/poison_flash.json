@@ -1,11 +1,34 @@
 {
   "id": "poison_flash",
   "name": "Poison Flash",
+  "description": "Um clarao venenoso dispara a frente do dragao, ferindo os inimigos e podendo envenena-los.",
+  "descriptionKey": "select.spellDescriptions.poison_flash",
+  "effectKind": "line_burst",
   "damage": 180,
   "range": 320.0,
   "castTimeMs": 0,
   "cooldownMs": 4000,
   "projectileSpeed": 0.0,
   "projectileRadius": 32.0,
-  "effectDurationMs": 800
+  "effectDurationMs": 800,
+  "presentation": {
+    "image": "poison_flash.png",
+    "renderMode": "tiled_strip",
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frameCount": 14,
+    "fps": 14,
+    "loop": false,
+    "playback": "once",
+    "origin": "caster",
+    "attachTo": "none",
+    "rotationMode": "angle",
+    "aimingWidth": 64,
+    "aimingStyle": "beam_constant",
+    "effectScale": 1.0,
+    "icon": {
+      "mode": "sheet_focus",
+      "frameIndex": 5
+    }
+  }
 }

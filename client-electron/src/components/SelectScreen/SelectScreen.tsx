@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  PASSIVE_VISUALS,
-  SPELL_VISUALS,
-  VisualPassiveConfig,
-  VisualSpellConfig,
+  ResolvedPassiveConfig,
+  ResolvedSpellConfig,
   getCharacterAnimationFrames,
   getCharacterFramePosition,
+  resolvePassiveConfig,
   resolveCharacterCardConfig,
+  resolveSpellConfig,
 } from '../../config/visualConfig'
 import { ANIMATION_FPS } from '../../config/spriteMap'
-import { AuthoritativeCharacterDefinition } from '../../types/gameplay'
+import { AuthoritativeCharacterDefinition, AuthoritativePassiveDefinition, AuthoritativeSpellDefinition } from '../../types/gameplay'
 import './SelectScreen.css'
 
-function getSpellIconStyle(spell: VisualSpellConfig): React.CSSProperties {
+function getSpellIconStyle(spell: ResolvedSpellConfig): React.CSSProperties {
   if (spell.id === 'flamethrower') {
     return {
       backgroundImage: `url(${spell.imageSrc})`,
@@ -63,7 +63,7 @@ function getSpellIconStyle(spell: VisualSpellConfig): React.CSSProperties {
   }
 }
 
-function getPassiveIconStyle(passive: VisualPassiveConfig): React.CSSProperties {
+function getPassiveIconStyle(passive: ResolvedPassiveConfig): React.CSSProperties {
   return {
     backgroundImage: `url(${passive.imageSrc})`,
     backgroundSize: `100% ${passive.frameCount * 100}%`,
@@ -76,14 +76,16 @@ interface Props {
   playerName: string
   selectionLockedUntil: number | null
   characters?: Record<string, AuthoritativeCharacterDefinition> | null
+  spells?: Record<string, AuthoritativeSpellDefinition> | null
+  passives?: Record<string, AuthoritativePassiveDefinition> | null
   onSelect: (characterId: string) => void
 }
 
-export function SelectScreen({ playerName, selectionLockedUntil, characters, onSelect }: Props) {
+export function SelectScreen({ playerName, selectionLockedUntil, characters, spells, passives, onSelect }: Props) {
   const { t } = useTranslation()
   const [animIndex, setAnimIndex] = useState(0)
-  const [hoveredSkill, setHoveredSkill] = useState<VisualSpellConfig | null>(null)
-  const [hoveredPassive, setHoveredPassive] = useState<VisualPassiveConfig | null>(null)
+  const [hoveredSkill, setHoveredSkill] = useState<ResolvedSpellConfig | null>(null)
+  const [hoveredPassive, setHoveredPassive] = useState<ResolvedPassiveConfig | null>(null)
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const [lockRemainingMs, setLockRemainingMs] = useState(0)
 
@@ -136,9 +138,9 @@ export function SelectScreen({ playerName, selectionLockedUntil, characters, onS
           const bgPosX = -(framePosition.col * portraitSize)
           const bgPosY = -(framePosition.row * portraitSize)
           const allSkills = char.skillIds
-            .map(skillId => SPELL_VISUALS[skillId])
-            .filter((skill): skill is VisualSpellConfig => Boolean(skill))
-          const passive = PASSIVE_VISUALS[char.passiveId]
+            .map(skillId => spells ? resolveSpellConfig(skillId, spells) : null)
+            .filter((skill): skill is ResolvedSpellConfig => Boolean(skill))
+          const passive = passives ? resolvePassiveConfig(char.passiveId, passives) : null
 
           if (!passive) {
             return null

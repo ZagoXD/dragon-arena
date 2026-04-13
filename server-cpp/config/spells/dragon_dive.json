@@ -1,11 +1,33 @@
 {
   "id": "dragon_dive",
   "name": "Dragon Dive",
+  "description": "O dragao realiza um avanco feroz, causando dano ao longo do trajeto.",
+  "descriptionKey": "select.spellDescriptions.dragon_dive",
+  "effectKind": "dash",
   "damage": 200,
   "range": 600.0,
   "castTimeMs": 0,
   "cooldownMs": 3000,
   "projectileSpeed": 0.0,
   "projectileRadius": 32.0,
-  "effectDurationMs": 300
+  "effectDurationMs": 300,
+  "presentation": {
+    "image": "dragon_dive.png",
+    "renderMode": "character_override",
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "frameCount": 1,
+    "fps": 0,
+    "loop": false,
+    "playback": "once",
+    "origin": "caster",
+    "attachTo": "self",
+    "rotationMode": "angle",
+    "aimingWidth": 32,
+    "aimingStyle": "arrow",
+    "effectScale": 1.0,
+    "icon": {
+      "mode": "single_fit"
+    }
+  }
 }

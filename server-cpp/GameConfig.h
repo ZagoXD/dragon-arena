@@ -9,8 +9,30 @@
 using json = nlohmann::json;
 
 struct SpellDefinition {
+    struct PresentationDefinition {
+        std::string image;
+        std::string renderMode;
+        int frameWidth = 0;
+        int frameHeight = 0;
+        int frameCount = 1;
+        int fps = 0;
+        bool loop = false;
+        std::string playback;
+        std::string origin;
+        std::string attachTo;
+        std::string rotationMode;
+        std::string iconMode;
+        int iconFrameIndex = -1;
+        int aimingWidth = 0;
+        std::string aimingStyle;
+        float effectScale = 1.0f;
+    };
+
     std::string id;
     std::string name;
+    std::string description;
+    std::string descriptionKey;
+    std::string effectKind;
     int damage;
     float range;
     int castTimeMs;
@@ -18,16 +40,38 @@ struct SpellDefinition {
     float projectileSpeed;
     float projectileRadius;
     int effectDurationMs;
+    PresentationDefinition presentation;
 };
 
 struct PassiveDefinition {
+    struct PresentationDefinition {
+        std::string image;
+        std::string renderMode;
+        int frameWidth = 0;
+        int frameHeight = 0;
+        int frameCount = 1;
+        int fps = 0;
+        bool loop = false;
+        std::string playback;
+        std::string origin;
+        std::string attachTo;
+        std::string rotationMode;
+        std::string iconMode;
+        int iconFrameIndex = -1;
+        float effectScale = 1.0f;
+    };
+
     std::string id;
     std::string name;
+    std::string description;
+    std::string descriptionKey;
+    std::string effectKind;
     int durationMs;
     int tickDamage;
     int tickIntervalMs;
     float movementSlowPct;
     std::map<std::string, float> applicationChances;
+    PresentationDefinition presentation;
 };
 
 struct CharacterDefinition {

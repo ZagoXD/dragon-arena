@@ -40,7 +40,10 @@ export function buildPlayer(
 
   const dashVisual = character.skills[0]
   const isMeteorDash = Boolean(isDashing && character.id === 'meteor' && dashVisual)
-  const isDashSingleRotated = Boolean(isMeteorDash && dashVisual.renderMode === 'single_rotated')
+  const isDashSingleRotated = Boolean(
+    isMeteorDash
+    && (dashVisual.renderMode === 'single_rotated' || dashVisual.renderMode === 'character_override')
+  )
   const activeImage = isMeteorDash ? dashVisual.imageSrc : character.imageSrc
 
   const frameWidth = isMeteorDash ? dashVisual.frameSize : character.frameWidth
@@ -282,7 +285,7 @@ export function buildProjectile(frameTextureCache: Map<string, Texture>, project
   if (!texture) {
     return new Container()
   }
-  const usesDirectionalSheet = projectile.spell.renderMode !== 'single_rotated'
+  const usesDirectionalSheet = projectile.spell.renderMode === 'character_override'
   const frameWidth = projectile.spell.frameWidth || projectile.spell.frameSize
   const frameHeight = projectile.spell.frameHeight || projectile.spell.frameSize
   const frameCount = projectile.spell.frameCount || 1

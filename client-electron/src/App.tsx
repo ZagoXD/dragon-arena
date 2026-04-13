@@ -1731,7 +1731,13 @@ function App() {
                   coins={playerCoins}
                 />
               )}
-              {screen === 'collection' && <CollectionScreen characters={lobbyContent?.characters || null} />}
+              {screen === 'collection' && (
+                <CollectionScreen
+                  characters={lobbyContent?.characters || null}
+                  spells={lobbyContent?.spells || null}
+                  passives={lobbyContent?.passives || null}
+                />
+              )}
               {screen === 'admin' && playerRole === 'admin' && (
                 <AdminScreen
                   result={adminLookupResult}
@@ -1754,6 +1760,8 @@ function App() {
                   playerName={playerName}
                   selectionLockedUntil={selectionLockedUntil}
                   characters={lobbyContent?.characters || null}
+                  spells={lobbyContent?.spells || null}
+                  passives={lobbyContent?.passives || null}
                   onSelect={handleSelectCharacter}
                 />
               )}

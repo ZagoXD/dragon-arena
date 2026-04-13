@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { HUD } from '../HUD/HUD'
 import { ArenaAuthIntent, ArenaChatMessage, AuthSuccessPayload, AutoAttackStartedEvent, SkillUsedEvent } from '../../hooks/useSocket'
 import { useArenaNetworkState } from '../../hooks/useArenaNetworkState'
-import { getCharacterAnimationFrames, getCharacterFramePosition, resolveCharacterCardConfig } from '../../config/visualConfig'
+import { getCharacterAnimationFrames, getCharacterFramePosition, resolveCharacterCardConfig, resolvePassiveConfig } from '../../config/visualConfig'
 import { getClosest4WayDirection, VIEWPORT_HEIGHT, VIEWPORT_WIDTH } from '../../config/spriteMap'
 import { useArenaController } from '../../hooks/useArenaController'
 import { PixiArenaView } from './PixiArenaView'
@@ -226,6 +226,20 @@ export function Arena({
   })
 
   const displayPlayerName = bootstrap?.player?.name || playerName
+  const resolvedPassives = useMemo(() => {
+    if (!bootstrap) {
+      return {}
+    }
+
+    return Object.fromEntries(
+      Object.keys(bootstrap.passives)
+        .map(passiveId => {
+          const resolved = resolvePassiveConfig(passiveId, bootstrap.passives)
+          return resolved ? [passiveId, resolved] : null
+        })
+        .filter((entry): entry is [string, ReturnType<typeof resolvePassiveConfig> extends infer T ? Exclude<T, null> : never] => entry !== null)
+    )
+  }, [bootstrap])
 
   const getCharacterPortraitStyle = useCallback((nextCharacterId: string) => {
     const nextCharacter = resolveCharacterCardConfig(nextCharacterId, bootstrap?.characters || null)
@@ -629,6 +643,7 @@ export function Arena({
           projectiles={filteredProjectiles}
           impactEffects={filteredImpactEffects}
           activeSkillEffects={filteredSkillEffects}
+          passives={resolvedPassives}
           burnStatuses={burnStatuses}
           burnZones={burnZones}
           aimingArrowData={controller.aimingArrowData}

@@ -1,5 +1,5 @@
 import { NetPlayer } from '../../../hooks/useSocket'
-import { ResolvedCharacterConfig } from '../../../config/visualConfig'
+import { ResolvedCharacterConfig, ResolvedPassiveConfig } from '../../../config/visualConfig'
 import { BurnStatusData, BurnZoneData, DummyData, ProjectileData } from '../../../types/arenaWorld'
 
 export interface RemotePlayerView {
@@ -99,6 +99,7 @@ export interface PixiArenaViewProps {
   projectiles: ProjectileView[]
   impactEffects: ImpactEffectView[]
   activeSkillEffects: ActiveSkillEffectView[]
+  passives: Record<string, ResolvedPassiveConfig>
   burnStatuses: BurnStatusData[]
   burnZones: BurnZoneData[]
   aimingArrowData: AimingArrowView | null
