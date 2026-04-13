@@ -13,7 +13,9 @@ interface Props {
   initialMode?: AuthMode
   isBusy?: boolean
   versionLabel?: string | null
+  versionInteractive?: boolean
   onLanguageChange: (language: AppLanguage) => void
+  onVersionClick?: () => void
   onStart: (authIntent: ArenaAuthIntent) => void | Promise<void>
 }
 
@@ -29,7 +31,9 @@ export function NameScreen({
   initialMode = 'login',
   isBusy = false,
   versionLabel = null,
+  versionInteractive = false,
   onLanguageChange,
+  onVersionClick,
   onStart,
 }: Props) {
   const { t, i18n } = useTranslation()
@@ -293,9 +297,14 @@ export function NameScreen({
       </div>
 
       {versionLabel && (
-        <div className="name-screen__version">
+        <button
+          type="button"
+          className={`name-screen__version ${versionInteractive ? 'is-interactive' : ''}`}
+          onClick={versionInteractive ? onVersionClick : undefined}
+          disabled={!versionInteractive}
+        >
           {versionLabel}
-        </div>
+        </button>
       )}
     </div>
   )

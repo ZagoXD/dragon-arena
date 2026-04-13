@@ -20,12 +20,31 @@
   right: 22px;
   bottom: 18px;
   z-index: 12;
+  border: none;
+  background: transparent;
   color: rgba(214, 221, 233, 0.62);
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: lowercase;
   pointer-events: none;
+  padding: 0;
+  font-family: inherit;
+}
+
+.name-screen__version.is-interactive {
+  pointer-events: auto;
+  cursor: pointer;
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+
+.name-screen__version.is-interactive:hover {
+  color: rgba(255, 220, 171, 0.92);
+  transform: translateY(-1px);
+}
+
+.name-screen__version.is-interactive:disabled {
+  opacity: 1;
 }
 
 /* Background effects */

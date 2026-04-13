@@ -315,8 +315,21 @@ function App() {
     if (!ipc?.invoke) {
       return
     }
-    await ipc.invoke('app-update-install')
-  }, [])
+    await ipc.invoke('app-update-install', currentLanguage)
+  }, [currentLanguage])
+
+  const handlePreviewUpdateHelper = useCallback(async () => {
+    if (!import.meta.env.DEV) {
+      return
+    }
+
+    const ipc = getIpcRenderer()
+    if (!ipc?.invoke) {
+      return
+    }
+
+    await ipc.invoke('app-update-preview-helper', currentLanguage)
+  }, [currentLanguage])
 
   useEffect(() => {
     const ipc = getIpcRenderer()
@@ -1837,7 +1850,9 @@ function App() {
                   initialMode={nameScreenMode}
                   isBusy={authPending}
                   versionLabel={appUpdateState?.currentVersion ? `version ${appUpdateState.currentVersion}` : null}
+                  versionInteractive={import.meta.env.DEV}
                   onLanguageChange={handleLanguageChange}
+                  onVersionClick={handlePreviewUpdateHelper}
                   onStart={handleNameEnter}
                 />
               )}

@@ -53,6 +53,13 @@
     "actions": {
       "install": "Reiniciar e instalar",
       "retry": "Tentar novamente"
+    },
+    "helper": {
+      "windowTitle": "Dragon Arena Updater",
+      "title": "Instalando atualização...",
+      "description": "O Dragon Arena será reaberto automaticamente quando a instalação terminar.",
+      "preparing": "Preparando instalação silenciosa...",
+      "applying": "Aplicando os arquivos da nova versão..."
     }
   },
   "splash": {

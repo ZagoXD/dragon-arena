@@ -1,7 +1,13 @@
 import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { autoUpdater, ProgressInfo, UpdateInfo } from 'electron-updater'
+import { execFile, spawn } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import ptBR from '../src/i18n/locales/pt-BR/common.json'
+import en from '../src/i18n/locales/en/common.json'
+import es from '../src/i18n/locales/es/common.json'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // The built directory structure
@@ -23,6 +29,7 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
 let win: BrowserWindow | null
+let helperWin: BrowserWindow | null = null
 let updaterConfigured = false
 
 type AppUpdateStatus =
@@ -46,7 +53,27 @@ interface AppUpdateState {
   error?: string
 }
 
+interface UpdateHelperState {
+  phase: 'launching' | 'waiting-for-exit' | 'installing' | 'restarted'
+  watchPid: number
+  language: AppLanguage
+  createdAt: number
+  relaunchedAt?: number
+  relaunchedPid?: number
+}
+
 const UPDATE_FEED_URL = 'https://pub-3a366535329647d1858b31551de3f193.r2.dev/updates/stable'
+const UPDATE_HELPER_FLAG = '--update-helper'
+const UPDATE_HELPER_PREVIEW_FLAG = '--update-helper-preview'
+const UPDATE_HELPER_STATE_FILE = path.join(os.tmpdir(), 'dragon-arena-update-helper-state.json')
+const UPDATE_HELPER_LOG_FILE = path.join(os.tmpdir(), 'dragon-arena-update-helper.log')
+const APP_UPDATE_TRANSLATIONS = {
+  'pt-BR': ptBR,
+  en,
+  es,
+} as const
+
+type AppLanguage = keyof typeof APP_UPDATE_TRANSLATIONS
 
 let currentAppUpdateState: AppUpdateState = {
   status: app.isPackaged ? 'idle' : 'disabled',
@@ -81,6 +108,48 @@ function broadcastAppUpdateState() {
   win?.webContents.send('app-update-status', currentAppUpdateState)
 }
 
+function appendUpdaterLog(message: string) {
+  try {
+    const line = `[${new Date().toISOString()}] ${message}${os.EOL}`
+    fs.appendFileSync(UPDATE_HELPER_LOG_FILE, line, 'utf8')
+  } catch {
+    // Never block runtime on logging failures.
+  }
+}
+
+function writeUpdateHelperState(state: UpdateHelperState) {
+  try {
+    fs.writeFileSync(UPDATE_HELPER_STATE_FILE, JSON.stringify(state, null, 2), 'utf8')
+    appendUpdaterLog(`helper-state-write phase=${state.phase} watchPid=${state.watchPid} language=${state.language}`)
+  } catch (error) {
+    appendUpdaterLog(`helper-state-write-failed ${(error as Error).message}`)
+  }
+}
+
+function readUpdateHelperState() {
+  try {
+    if (!fs.existsSync(UPDATE_HELPER_STATE_FILE)) {
+      return null
+    }
+
+    return JSON.parse(fs.readFileSync(UPDATE_HELPER_STATE_FILE, 'utf8')) as UpdateHelperState
+  } catch (error) {
+    appendUpdaterLog(`helper-state-read-failed ${(error as Error).message}`)
+    return null
+  }
+}
+
+function clearUpdateHelperState() {
+  try {
+    if (fs.existsSync(UPDATE_HELPER_STATE_FILE)) {
+      fs.unlinkSync(UPDATE_HELPER_STATE_FILE)
+      appendUpdaterLog('helper-state-cleared')
+    }
+  } catch (error) {
+    appendUpdaterLog(`helper-state-clear-failed ${(error as Error).message}`)
+  }
+}
+
 function setAppUpdateState(nextState: AppUpdateState) {
   currentAppUpdateState = nextState
   broadcastAppUpdateState()
@@ -109,6 +178,7 @@ function configureAutoUpdater() {
   })
 
   autoUpdater.on('checking-for-update', () => {
+    appendUpdaterLog('auto-updater checking-for-update')
     setAppUpdateState({
       status: 'checking',
       currentVersion: app.getVersion(),
@@ -116,6 +186,7 @@ function configureAutoUpdater() {
   })
 
   autoUpdater.on('update-available', (info: UpdateInfo) => {
+    appendUpdaterLog(`auto-updater update-available version=${info.version}`)
     setAppUpdateState({
       status: 'available',
       currentVersion: app.getVersion(),
@@ -125,6 +196,7 @@ function configureAutoUpdater() {
   })
 
   autoUpdater.on('download-progress', (progress: ProgressInfo) => {
+    appendUpdaterLog(`auto-updater download-progress percent=${progress.percent.toFixed(2)}`)
     setAppUpdateState({
       status: 'downloading',
       currentVersion: app.getVersion(),
@@ -136,6 +208,7 @@ function configureAutoUpdater() {
   })
 
   autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
+    appendUpdaterLog(`auto-updater update-downloaded version=${info.version}`)
     setAppUpdateState({
       status: 'downloaded',
       currentVersion: app.getVersion(),
@@ -145,6 +218,7 @@ function configureAutoUpdater() {
   })
 
   autoUpdater.on('update-not-available', (info: UpdateInfo) => {
+    appendUpdaterLog(`auto-updater update-not-available version=${info.version}`)
     setAppUpdateState({
       status: 'not-available',
       currentVersion: app.getVersion(),
@@ -153,6 +227,7 @@ function configureAutoUpdater() {
   })
 
   autoUpdater.on('error', (error: Error) => {
+    appendUpdaterLog(`auto-updater error=${error.message}`)
     setAppUpdateState({
       status: 'error',
       currentVersion: app.getVersion(),
@@ -165,14 +240,334 @@ function configureAutoUpdater() {
   })
 }
 
+function getHelperCopy(language: AppLanguage) {
+  const translation = APP_UPDATE_TRANSLATIONS[language] ?? APP_UPDATE_TRANSLATIONS['pt-BR']
+  return translation.appUpdate?.helper ?? {
+    windowTitle: 'Dragon Arena Updater',
+    title: 'Installing update...',
+    description: 'Dragon Arena will reopen automatically when the installation is complete.',
+    preparing: 'Preparing silent installation...',
+    applying: 'Applying the new version files...',
+  }
+}
+
+function processExists(pid: number) {
+  if (!Number.isFinite(pid) || pid <= 0) {
+    return false
+  }
+
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function countSiblingProcesses(imageName: string, ownPid: number) {
+  return new Promise<number>((resolve) => {
+    execFile(
+      'tasklist.exe',
+      ['/FI', `IMAGENAME eq ${imageName}`, '/FO', 'CSV', '/NH'],
+      { windowsHide: true },
+      (error, stdout) => {
+        if (error) {
+          resolve(0)
+          return
+        }
+
+        const lines = stdout
+          .split(/\r?\n/)
+          .map(line => line.trim())
+          .filter(line => line && !line.startsWith('INFO:'))
+
+        let count = 0
+        for (const line of lines) {
+          const columns = line
+            .split('","')
+            .map((column, index, array) => {
+              if (index === 0) {
+                return column.replace(/^"/, '')
+              }
+              if (index === array.length - 1) {
+                return column.replace(/"$/, '')
+              }
+              return column
+            })
+
+          const pid = Number(columns[1])
+          if (Number.isFinite(pid) && pid !== ownPid) {
+            count += 1
+          }
+        }
+
+        resolve(count)
+      }
+    )
+  })
+}
+
+function buildHelperHtml(copy: ReturnType<typeof getHelperCopy>) {
+  const escapeHtml = (value: string) => value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+  return `<!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>${escapeHtml(copy.windowTitle)}</title>
+      <style>
+        html, body {
+          margin: 0;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          background:
+            radial-gradient(circle at top, rgba(255, 166, 84, 0.10), transparent 30%),
+            linear-gradient(180deg, #05060b 0%, #090b14 100%);
+          color: #f4ead3;
+          font-family: "Segoe UI", sans-serif;
+        }
+        .shell {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          box-sizing: border-box;
+          padding: 28px;
+          border: 1px solid rgba(255, 214, 154, 0.12);
+          background: linear-gradient(180deg, rgba(14, 16, 28, 0.98) 0%, rgba(8, 10, 18, 0.98) 100%);
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+        }
+        .shell::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-top: 6px solid rgba(255, 122, 43, 0.95);
+          pointer-events: none;
+        }
+        .eyebrow {
+          color: rgba(255, 211, 144, 0.76);
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.24em;
+          text-transform: uppercase;
+        }
+        .title {
+          margin-top: 18px;
+          font-size: 30px;
+          font-weight: 900;
+          color: #fff0ce;
+        }
+        .description {
+          margin-top: 14px;
+          font-size: 15px;
+          line-height: 1.6;
+          color: rgba(244, 234, 211, 0.84);
+        }
+        .progress {
+          margin-top: 28px;
+          height: 12px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.08);
+          overflow: hidden;
+          position: relative;
+        }
+        .progress::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          width: 42%;
+          border-radius: 999px;
+          background: linear-gradient(90deg, #ffb347 0%, #ff7a32 100%);
+          box-shadow: 0 0 12px rgba(255, 165, 80, 0.45);
+          animation: sweep 1.1s ease-in-out infinite;
+        }
+        .status {
+          margin-top: 14px;
+          font-size: 13px;
+          color: rgba(210, 215, 224, 0.86);
+        }
+        @keyframes sweep {
+          0% { transform: translateX(-120%); }
+          100% { transform: translateX(320%); }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="shell">
+        <div class="eyebrow">Dragon Arena Updater</div>
+        <div class="title">${escapeHtml(copy.title)}</div>
+        <div class="description">${escapeHtml(copy.description)}</div>
+        <div class="progress"></div>
+        <div class="status" id="status">${escapeHtml(copy.preparing)}</div>
+      </div>
+    </body>
+  </html>`
+}
+
+async function updateHelperStatus(text: string) {
+  if (!helperWin || helperWin.isDestroyed()) {
+    return
+  }
+
+  const safeText = text.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+  await helperWin.webContents.executeJavaScript(`
+    const status = document.getElementById('status');
+    if (status) status.textContent = '${safeText}';
+  `).catch(() => {})
+}
+
+function createUpdateHelperWindow(language: AppLanguage, watchPid: number, options?: { preview?: boolean }) {
+  const copy = getHelperCopy(language)
+  const preview = options?.preview ?? false
+  appendUpdaterLog(`helper-window-create preview=${preview} watchPid=${watchPid} pid=${process.pid}`)
+
+  helperWin = new BrowserWindow({
+    width: 540,
+    height: 250,
+    center: true,
+    show: false,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    autoHideMenuBar: true,
+    title: copy.windowTitle,
+    backgroundColor: '#090b14',
+    icon: path.join(process.env.VITE_PUBLIC, 'dragon_ico.png'),
+    webPreferences: {
+      backgroundThrottling: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  })
+
+  helperWin.setMenu(null)
+  helperWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildHelperHtml(copy))}`)
+  helperWin.once('ready-to-show', () => {
+    helperWin?.show()
+  })
+
+  if (preview) {
+    void updateHelperStatus(copy.preparing)
+    const applyTimeout = setTimeout(() => {
+      void updateHelperStatus(copy.applying)
+    }, 1800)
+    const closeTimeout = setTimeout(() => {
+      helperWin?.close()
+    }, 6500)
+
+    helperWin.on('closed', () => {
+      appendUpdaterLog('helper-window-closed preview=true')
+      clearTimeout(applyTimeout)
+      clearTimeout(closeTimeout)
+      helperWin = null
+    })
+    return
+  }
+
+  let sawOriginalExit = false
+  const imageName = path.basename(process.execPath)
+  const interval = setInterval(async () => {
+    const elapsedSeconds = process.uptime()
+    if (elapsedSeconds > 420) {
+      appendUpdaterLog('helper-window-timeout elapsed>420s')
+      clearInterval(interval)
+      helperWin?.close()
+      return
+    }
+
+    if (!sawOriginalExit) {
+      if (!processExists(watchPid)) {
+        sawOriginalExit = true
+        appendUpdaterLog(`helper-detected-original-exit watchPid=${watchPid}`)
+        const helperState = readUpdateHelperState()
+        if (helperState) {
+          writeUpdateHelperState({
+            ...helperState,
+            phase: 'installing',
+          })
+        }
+        await updateHelperStatus(copy.applying)
+      }
+      return
+    }
+
+    const helperState = readUpdateHelperState()
+    if (helperState?.phase === 'restarted') {
+      appendUpdaterLog(`helper-detected-restarted pid=${helperState.relaunchedPid ?? 0}`)
+      clearInterval(interval)
+      helperWin?.close()
+      return
+    }
+
+    const siblingCount = await countSiblingProcesses(imageName, process.pid)
+    if (siblingCount > 0) {
+      appendUpdaterLog(`helper-detected-sibling-processes count=${siblingCount}`)
+      clearInterval(interval)
+      helperWin?.close()
+    }
+  }, 900)
+
+  helperWin.on('closed', () => {
+    appendUpdaterLog(`helper-window-closed preview=${preview}`)
+    clearInterval(interval)
+    helperWin = null
+    app.quit()
+  })
+}
+
+function launchInstallHelperWindow(language: AppLanguage) {
+  if (process.platform !== 'win32' || !app.isPackaged) {
+    appendUpdaterLog(`helper-launch-skipped platform=${process.platform} packaged=${app.isPackaged}`)
+    return
+  }
+
+  writeUpdateHelperState({
+    phase: 'waiting-for-exit',
+    watchPid: process.pid,
+    language,
+    createdAt: Date.now(),
+  })
+  appendUpdaterLog(`helper-launch-request execPath="${process.execPath}" watchPid=${process.pid} language=${language}`)
+
+  const helperProcess = spawn(
+    process.execPath,
+    [
+      UPDATE_HELPER_FLAG,
+      `--watch-pid=${process.pid}`,
+      `--lang=${language}`,
+    ],
+    {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    }
+  )
+
+  helperProcess.on('error', (error) => {
+    appendUpdaterLog(`helper-launch-error ${error.message}`)
+  })
+
+  appendUpdaterLog(`helper-launch-spawned pid=${helperProcess.pid ?? 0}`)
+  helperProcess.unref()
+}
+
 async function checkForAppUpdates() {
   if (!app.isPackaged) {
+    appendUpdaterLog('auto-updater-check skipped (not packaged)')
     return
   }
 
   try {
+    appendUpdaterLog('auto-updater-check start')
     await autoUpdater.checkForUpdates()
   } catch (error) {
+    appendUpdaterLog(`auto-updater-check failed ${(error as Error).message}`)
     setAppUpdateState({
       status: 'error',
       currentVersion: app.getVersion(),
@@ -362,6 +757,18 @@ function createWindow() {
   }
 }
 
+function parseHelperArgs() {
+  const watchPidArg = process.argv.find(arg => arg.startsWith('--watch-pid='))
+  const langArg = process.argv.find(arg => arg.startsWith('--lang='))
+  const watchPid = watchPidArg ? Number(watchPidArg.split('=')[1]) : 0
+  const language = (langArg ? langArg.split('=')[1] : 'pt-BR') as AppLanguage
+
+  return {
+    watchPid,
+    language: language in APP_UPDATE_TRANSLATIONS ? language : 'pt-BR',
+  }
+}
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
@@ -380,8 +787,36 @@ app.on('activate', () => {
   }
 })
 
-app.whenReady().then(createWindow)
 app.whenReady().then(() => {
+  if (process.argv.includes(UPDATE_HELPER_FLAG)) {
+    const helperArgs = parseHelperArgs()
+    appendUpdaterLog(`helper-process-start watchPid=${helperArgs.watchPid} language=${helperArgs.language}`)
+    createUpdateHelperWindow(helperArgs.language, helperArgs.watchPid)
+    return
+  }
+
+  if (process.argv.includes(UPDATE_HELPER_PREVIEW_FLAG)) {
+    const helperArgs = parseHelperArgs()
+    appendUpdaterLog(`helper-preview-start language=${helperArgs.language}`)
+    createUpdateHelperWindow(helperArgs.language, process.pid, { preview: true })
+    return
+  }
+
+  const helperState = readUpdateHelperState()
+  if (helperState) {
+    appendUpdaterLog(`main-start-detected-helper-state phase=${helperState.phase}`)
+    writeUpdateHelperState({
+      ...helperState,
+      phase: 'restarted',
+      relaunchedAt: Date.now(),
+      relaunchedPid: process.pid,
+    })
+    setTimeout(() => {
+      clearUpdateHelperState()
+    }, 12000)
+  }
+
+  createWindow()
   configureAutoUpdater()
   void checkForAppUpdates()
 })
@@ -406,8 +841,22 @@ ipcMain.handle('app-update-check', async () => {
   await checkForAppUpdates()
   return currentAppUpdateState
 })
-ipcMain.handle('app-update-install', () => {
+ipcMain.handle('app-update-install', (_event, language?: AppLanguage) => {
   if (currentAppUpdateState.status === 'downloaded') {
+    const resolvedLanguage = language && language in APP_UPDATE_TRANSLATIONS ? language : 'pt-BR'
+    appendUpdaterLog(`ipc-install-update received status=${currentAppUpdateState.status} language=${resolvedLanguage}`)
+    launchInstallHelperWindow(resolvedLanguage)
     autoUpdater.quitAndInstall(true, true)
   }
+})
+ipcMain.handle('app-update-preview-helper', (_event, language?: AppLanguage) => {
+  const resolvedLanguage = language && language in APP_UPDATE_TRANSLATIONS ? language : 'pt-BR'
+  appendUpdaterLog(`ipc-preview-helper language=${resolvedLanguage}`)
+
+  if (helperWin && !helperWin.isDestroyed()) {
+    helperWin.focus()
+    return
+  }
+
+  createUpdateHelperWindow(resolvedLanguage, process.pid, { preview: true })
 })
