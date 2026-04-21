@@ -19,8 +19,12 @@ function buildShadow(width: number, height: number, alpha = 0.22) {
   return shadow
 }
 
-function getVerticalRelativeRotation(angle: number) {
-  return Math.atan2(Math.abs(Math.cos(angle)), Math.abs(Math.sin(angle)))
+function normalizeHalfTurnRotation(angle: number) {
+  let normalized = angle % Math.PI
+  if (normalized < 0) {
+    normalized += Math.PI
+  }
+  return normalized
 }
 
 export function buildPlayer(
@@ -330,11 +334,8 @@ export function buildProjectile(frameTextureCache: Map<string, Texture>, project
   sprite.zIndex = projectile.y + frameHeight / 2 + 80
   if (!usesDirectionalSheet) {
     sprite.rotation = projectile.spell.id === 'fire_blast'
-      ? getVerticalRelativeRotation(projectile.angle)
+      ? normalizeHalfTurnRotation(projectile.angle - Math.PI / 2)
       : projectile.angle + (projectile.spell.rotationOffsetRad || 0)
-    if (projectile.spell.id === 'fire_blast') {
-      sprite.scale.x = Math.cos(projectile.angle) < 0 ? -1 : 1
-    }
   }
   sprite.alpha = 0.98
 

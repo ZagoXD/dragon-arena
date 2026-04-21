@@ -258,7 +258,7 @@ export function resolveSpellConfig(
     iconMode: presentation.icon.mode as ResolvedSpellConfig['iconMode'],
     iconFrameIndex: typeof presentation.icon.frameIndex === 'number' ? presentation.icon.frameIndex : undefined,
     effectScale: presentation.effectScale,
-    rotationOffsetRad: gameplay.id === 'fire_blast' ? -Math.PI / 2 : undefined,
+    rotationOffsetRad: undefined,
     presentation,
   }
 }
